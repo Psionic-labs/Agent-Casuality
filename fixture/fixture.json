@@ -1,0 +1,86 @@
+{
+  "run": {
+    "id": "run_7f42",
+    "name": "customer approval example",
+    "notes": "The same planner, researcher, coder example used throughout the thesis document. A4 is the failure. Agent D is an unrelated background agent included on purpose, so structural_slice(A4) has something real to exclude."
+  },
+  "agents": [
+    { "id": "A", "role": "planner", "parent_agent_id": null, "spawned_at_event_id": null },
+    { "id": "B", "role": "researcher", "parent_agent_id": "A", "spawned_at_event_id": "A1" },
+    { "id": "C", "role": "coder", "parent_agent_id": "A", "spawned_at_event_id": "A1" },
+    { "id": "D", "role": "background_monitor", "parent_agent_id": null, "spawned_at_event_id": null }
+  ],
+  "events": [
+    { "id": "A1", "agent_id": "A", "logical_seq": 1, "event_type": "model_call",
+      "causal_parent_ids": [],
+      "payload": { "action": "plan_task", "note": "decides to spawn B and C to evaluate a customer approval" } },
+
+    { "id": "B1", "agent_id": "B", "logical_seq": 2, "event_type": "model_call",
+      "causal_parent_ids": ["A1"],
+      "payload": { "action": "start_research", "note": "decides what to search for" } },
+    { "id": "B2", "agent_id": "B", "logical_seq": 3, "event_type": "tool_call",
+      "causal_parent_ids": ["B1"],
+      "payload": { "tool": "search", "args": { "query": "customer X eligibility record" } } },
+    { "id": "B3", "agent_id": "B", "logical_seq": 4, "event_type": "tool_result",
+      "causal_parent_ids": ["B2"],
+      "payload": { "tool": "search",
+        "output": { "customer_status": "eligible" },
+        "ground_truth_bug": true,
+        "bug_note": "the search tool matched the wrong customer record, customer_status should have been ineligible" } },
+
+    { "id": "C1", "agent_id": "C", "logical_seq": 2, "event_type": "model_call",
+      "causal_parent_ids": ["A1"],
+      "payload": { "action": "start_risk_check", "note": "decides which risk service call to make" } },
+    { "id": "C2", "agent_id": "C", "logical_seq": 3, "event_type": "tool_call",
+      "causal_parent_ids": ["C1"],
+      "payload": { "tool": "risk_service", "args": { "customer": "X" } } },
+    { "id": "C3", "agent_id": "C", "logical_seq": 4, "event_type": "tool_result",
+      "causal_parent_ids": ["C2"],
+      "payload": { "tool": "risk_service",
+        "output": { "risk_score": 0.2 },
+        "ground_truth_bug": false,
+        "bug_note": "this value is correct on its own, it only becomes a problem combined with B3" } },
+
+    { "id": "A3", "agent_id": "A", "logical_seq": 5, "event_type": "tool_call",
+      "causal_parent_ids": ["A1", "B3", "C3"],
+      "payload": { "action": "combine_results", "transform": "policy_check_v2",
+        "note": "a deterministic function, not a model call, approves if customer_status is eligible and risk_score is below 0.5",
+        "output": { "customer_status": "eligible", "risk_score": 0.2, "approve": true } } },
+
+    { "id": "A4", "agent_id": "A", "logical_seq": 6, "event_type": "agent_finish",
+      "causal_parent_ids": ["A3"],
+      "payload": { "final_answer": "approved", "status": "failure",
+        "note": "wrong, the customer should not have been approved" } },
+
+    { "id": "D1", "agent_id": "D", "logical_seq": 1, "event_type": "model_call",
+      "causal_parent_ids": [],
+      "payload": { "action": "log_heartbeat", "note": "unrelated background agent, not part of the failure" } },
+    { "id": "D2", "agent_id": "D", "logical_seq": 2, "event_type": "tool_call",
+      "causal_parent_ids": ["D1"], "payload": { "tool": "metrics_ping" } },
+    { "id": "D3", "agent_id": "D", "logical_seq": 3, "event_type": "tool_result",
+      "causal_parent_ids": ["D2"], "payload": { "tool": "metrics_ping", "output": { "ok": true } } }
+  ],
+  "provenance_edges": [
+    { "field_path": "B3.output.customer_status", "source_event_id": "B2", "source_path": "invocation", "grade": "exact", "transform": "tool_call" },
+    { "field_path": "C3.output.risk_score", "source_event_id": "C2", "source_path": "invocation", "grade": "exact", "transform": "tool_call" },
+    { "field_path": "A3.output.customer_status", "source_event_id": "B3", "source_path": "output.customer_status", "grade": "exact", "transform": "copy" },
+    { "field_path": "A3.output.approve", "source_event_id": "B3", "source_path": "output.customer_status", "grade": "exact", "transform": "policy_check_v2" },
+    { "field_path": "A3.output.approve", "source_event_id": "C3", "source_path": "output.risk_score", "grade": "exact", "transform": "policy_check_v2" },
+    { "field_path": "A4.final_answer", "source_event_id": "A3", "source_path": "output.approve", "grade": "exact", "transform": "copy" },
+    { "field_path": "B2.args.query", "source_event_id": "B1", "source_path": null, "grade": "coarse", "transform": null }
+  ],
+  "ground_truth": {
+    "failure_event": "A4",
+    "structural_slice": ["A1", "B1", "B2", "B3", "C1", "C2", "C3", "A3", "A4"],
+    "minimal_slice": ["B3", "C3", "A3", "A4"],
+    "minimal_slice_note": "A1, B1, B2, C1, C2 are structurally required for the run to exist but are not part of the minimal value level explanation once B3 and C3's recorded outputs are held fixed. This is the distinction the thesis document draws in section 13.",
+    "interaction": {
+      "candidates": ["B3", "C3"],
+      "B3_alone": "pass",
+      "C3_alone": "pass",
+      "B3_and_C3": "fail",
+      "classification": "interaction, B3 and C3 jointly"
+    },
+    "explanation": "A4 failed because A3 approved a customer who should have been rejected. A3 combined two upstream values through a deterministic policy check, not a model call. B3 reported customer_status as eligible, but this came from a search tool that matched the wrong record. C3 correctly reported a low risk_score. Neither value alone would have caused the failure, a high risk_score would have blocked the approval even with the wrong customer_status, and a correct customer_status would have blocked it regardless of risk. B3 and C3 are therefore a joint causal candidate, not either one alone."
+  }
+}
