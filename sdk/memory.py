@@ -68,7 +68,9 @@ class CapturedMemory:
                     "operation": "set",
                     "key": key,
                     "before": None if before is _MISSING else before,
+                    "before_found": before is not _MISSING,
                     "after": value,
+                    "after_found": True,
                 },
                 causal_parent_ids,
             )
@@ -82,7 +84,9 @@ class CapturedMemory:
                     "operation": "delete",
                     "key": key,
                     "before": None if before is _MISSING else before,
+                    "before_found": before is not _MISSING,
                     "after": None,
+                    "after_found": False,
                 },
                 causal_parent_ids,
             )

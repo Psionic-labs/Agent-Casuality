@@ -93,6 +93,11 @@ def spawn_agent(
         if existing_agent is not None:
             return existing_agent, existing_event, _recovered_clock(log, existing_agent)
 
+    if child_agent_id is not None:
+        existing_agent = agent_store.get_agent(child_id)
+        if existing_agent is not None:
+            raise ValueError(f"child agent {child_id} already exists with another spawn request")
+
     event = record_event(
         agent_id=parent_agent_id,
         clock=parent_clock,
@@ -117,4 +122,6 @@ def spawn_agent(
             lamport_offset=event.logical_seq,
         ),
     )
+    if child.spawned_at_event_id != event.id:
+        raise ValueError(f"child agent {child.id} already exists with another spawn event")
     return child, event, AgentClock(event.logical_seq)

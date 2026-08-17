@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sdk.events import Event
+from sdk.events import AgentClock, Event
 from sdk.lifecycle import AgentRecord
 
 SCHEMA_SQL = """
@@ -131,6 +131,42 @@ class PostgresEventStore:
             raise RuntimeError("event insert did not return an event")
         return self._row_to_event(row)
 
+    def allocate_logical_seq(
+        self,
+        agent_id: str,
+        clock: AgentClock,
+        causal_parent_seqs: Any = (),
+    ) -> int:
+        """Allocate an agent sequence atomically before event persistence."""
+        agent_uuid = self._uuid(agent_id, "agent_id")
+        parent_max = max(causal_parent_seqs, default=clock.current())
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT lamport_offset FROM agents WHERE id = %s FOR UPDATE",
+                    (agent_uuid,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise ValueError(f"agent {agent_id} does not exist")
+                current_offset = row[0]
+                cursor.execute(
+                    "SELECT COALESCE(MAX(logical_seq), 0) FROM events WHERE agent_id = %s",
+                    (agent_uuid,),
+                )
+                latest_event_seq = cursor.fetchone()[0]
+                sequence = max(current_offset, latest_event_seq, parent_max) + 1
+                cursor.execute(
+                    "UPDATE agents SET lamport_offset = %s WHERE id = %s",
+                    (sequence, agent_uuid),
+                )
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        clock.observe(sequence)
+        return sequence
+
     def get(self, event_id: str) -> Event | None:
         event_uuid = self._uuid(event_id, "event_id")
         with self.connection.cursor() as cursor:
@@ -196,7 +232,7 @@ class PostgresEventStore:
                 cursor.execute(
                     "INSERT INTO agents (id, run_id, parent_agent_id, spawned_at_event_id, role, "
                     "status, lamport_offset) VALUES (%s, %s, %s, %s, %s, %s, %s) "
-                    "ON CONFLICT (id) DO NOTHING",
+                    "ON CONFLICT (id) DO NOTHING RETURNING id",
                     (
                         agent_id,
                         run_id,
@@ -207,11 +243,20 @@ class PostgresEventStore:
                         agent.lamport_offset,
                     ),
                 )
+                row = cursor.fetchone()
+                if row is None:
+                    cursor.execute("SELECT id FROM agents WHERE id = %s", (agent_id,))
+                    row = cursor.fetchone()
             self.connection.commit()
         except Exception:
             self.connection.rollback()
             raise
-        return agent
+        if row is None:
+            raise RuntimeError("agent insert did not return an agent")
+        persisted = self.get_agent(str(row[0]))
+        if persisted is None:
+            raise RuntimeError("agent insert returned an unknown agent")
+        return persisted
 
     def get_agent(self, agent_id: str) -> AgentRecord | None:
         agent_uuid = self._uuid(agent_id, "agent_id")

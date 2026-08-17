@@ -24,10 +24,19 @@ class AgentClock:
     _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
 
     def allocate(self, causal_parent_seqs: Iterable[int] = ()) -> int:
-        parent_max = max(causal_parent_seqs, default=self.counter)
+        parent_seqs = list(causal_parent_seqs)
         with self._lock:
+            parent_max = max(parent_seqs, default=self.counter)
             self.counter = max(self.counter, parent_max) + 1
             return self.counter
+
+    def current(self) -> int:
+        with self._lock:
+            return self.counter
+
+    def observe(self, logical_seq: int) -> None:
+        with self._lock:
+            self.counter = max(self.counter, logical_seq)
 
 
 @dataclass(frozen=True)
@@ -87,7 +96,11 @@ def record_event(
 ) -> Event:
     """Allocate and append an event while preserving its causal metadata."""
     parent_ids = list(causal_parent_ids)
-    sequence = next_seq(clock, causal_parent_seqs)
+    allocator = getattr(log, "allocate_logical_seq", None)
+    if allocator is None:
+        sequence = next_seq(clock, causal_parent_seqs)
+    else:
+        sequence = allocator(agent_id, clock, causal_parent_seqs)
     return _append(
         log,
         Event(

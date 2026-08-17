@@ -75,6 +75,27 @@ class FakeStream:
         return iter(self.chunks)
 
 
+class CleanupFailingStream:
+    def __iter__(self):  # type: ignore[no-untyped-def]
+        return iter([{"delta": "partial"}])
+
+    def __enter__(self):  # type: ignore[no-untyped-def]
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        raise RuntimeError("cleanup failed")
+
+
+class CleanupFailingMessages:
+    def create(self, **_: object) -> CleanupFailingStream:
+        return CleanupFailingStream()
+
+
+class CleanupFailingAnthropic:
+    def __init__(self) -> None:
+        self.messages = CleanupFailingMessages()
+
+
 class StreamingMessages:
     def create(self, **kwargs: object) -> FakeStream:
         assert kwargs["stream"] is True
@@ -162,6 +183,47 @@ def test_anthropic_stream_iteration_errors_are_captured() -> None:
         list(stream)
     assert log.events()[0].event_type == "agent_error"
     assert log.events()[0].payload["stream"] is True
+
+
+def test_anthropic_stream_close_records_abandoned_stream() -> None:
+    log = InMemoryEventLog()
+    client = CapturedClient(None, "planner", AgentClock(), log, client=StreamingAnthropic())
+    stream = client.messages.create(
+        model="test-model",
+        max_tokens=10,
+        messages=[{"role": "user", "content": "hello"}],
+        stream=True,
+    )
+    next(stream)
+    stream.close()
+
+    event = log.events()[0]
+    assert event.event_type == "agent_error"
+    assert event.payload["stream_status"] == "closed"
+
+
+def test_anthropic_stream_cleanup_errors_are_captured() -> None:
+    log = InMemoryEventLog()
+    client = CapturedClient(
+        None,
+        "planner",
+        AgentClock(),
+        log,
+        client=CleanupFailingAnthropic(),
+    )
+    stream = client.messages.create(
+        model="test-model",
+        max_tokens=10,
+        messages=[{"role": "user", "content": "hello"}],
+        stream=True,
+    )
+    with pytest.raises(RuntimeError, match="cleanup failed"):
+        with stream:
+            next(stream)
+
+    event = log.events()[0]
+    assert event.event_type == "agent_error"
+    assert event.payload["error"] == "cleanup failed"
 
 
 def test_capture_tool_logs_linked_call_and_result_and_retries_once() -> None:
@@ -294,9 +356,21 @@ def test_captured_memory_records_get_set_delete_with_before_after() -> None:
         "memory_write",
     ]
     assert events[1].payload["before"] is None
+    assert events[1].payload["before_found"] is False
     assert events[1].payload["after"] == 42
+    assert events[1].payload["after_found"] is True
     assert events[3].payload["operation"] == "delete"
     assert events[3].payload["before"] == 42
+    assert events[3].payload["before_found"] is True
+    assert events[3].payload["after_found"] is False
+
+    memory.set("nullable", None)
+    memory.set("nullable", 1)
+    nullable_events = log.events()[-2:]
+    assert nullable_events[0].payload["before_found"] is False
+    assert nullable_events[0].payload["after_found"] is True
+    assert nullable_events[1].payload["before"] is None
+    assert nullable_events[1].payload["before_found"] is True
 
 
 def test_concurrent_memory_writes_have_consistent_before_after_chain() -> None:
@@ -390,6 +464,19 @@ def test_spawn_requires_retry_identity_and_supports_key_only_retries() -> None:
     )
     assert retry_child == child
     assert retry_event == event
+    assert len(log) == 1
+
+    with pytest.raises(ValueError, match="already exists with another spawn request"):
+        spawn_agent(
+            parent_agent_id="planner",
+            parent_clock=parent_clock,
+            run_id="run",
+            role="worker",
+            log=log,
+            agent_store=agents,
+            child_agent_id=child.id,
+            idempotency_key="different-spawn-request",
+        )
     assert len(log) == 1
 
 

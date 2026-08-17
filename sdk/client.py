@@ -69,17 +69,29 @@ class _CapturedStream:
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> Any:
         exit_method = getattr(self._stream, "__exit__", None)
-        result = exit_method(exc_type, exc, traceback) if exit_method is not None else None
-        if exc is None:
-            self._finish()
-        else:
-            self._fail(exc)
-        return result
+        try:
+            return exit_method(exc_type, exc, traceback) if exit_method is not None else None
+        except BaseException as cleanup_error:
+            self._fail(cleanup_error)
+            raise
+        finally:
+            if not self._finalized:
+                if exc is None:
+                    self._finish()
+                else:
+                    self._fail(exc)
 
     def close(self) -> None:
         close = getattr(self._active_stream, "close", None)
-        if close is not None:
-            close()
+        try:
+            if close is not None:
+                close()
+        except BaseException as close_error:
+            self._fail(close_error, status="close_error")
+            raise
+        finally:
+            if not self._finalized:
+                self._fail(RuntimeError("stream closed before completion"), status="closed")
 
     def _finish(self) -> None:
         if self._finalized:
@@ -102,7 +114,7 @@ class _CapturedStream:
             run_id=self._owner.run_id,
         )
 
-    def _fail(self, exc: BaseException) -> None:
+    def _fail(self, exc: BaseException, *, status: str = "failed") -> None:
         if self._finalized:
             return
         self._finalized = True
@@ -116,6 +128,7 @@ class _CapturedStream:
                 "error": str(exc),
                 "input": self._messages,
                 "stream": True,
+                "stream_status": status,
             },
             causal_parent_ids=self._causal_parent_ids,
             idempotency_key=self._idempotency_key,
