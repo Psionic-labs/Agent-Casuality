@@ -109,6 +109,7 @@ class InMemoryEventLog:
         self._events: list[Event] = []
         self._by_id: dict[str, Event] = {}
         self._by_idempotency: dict[tuple[str, str], Event] = {}
+        self._tool_locks: dict[tuple[str, str], Lock] = {}
         self._lock = Lock()
 
     def append(self, event: Event) -> Event:
@@ -130,6 +131,11 @@ class InMemoryEventLog:
     def get_by_idempotency_key(self, agent_id: str, key: str) -> Event | None:
         with self._lock:
             return self._by_idempotency.get((agent_id, key))
+
+    def tool_invocation_lock(self, agent_id: str, invocation_id: str) -> Lock:
+        """Return the lock that serializes one tool invocation identity."""
+        with self._lock:
+            return self._tool_locks.setdefault((agent_id, invocation_id), Lock())
 
     def events(self) -> list[Event]:
         with self._lock:

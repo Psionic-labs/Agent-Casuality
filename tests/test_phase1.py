@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
@@ -196,6 +198,37 @@ def test_capture_tool_logs_linked_call_and_result_and_retries_once() -> None:
     assert events[1].causal_parent_ids == [events[0].id]
 
 
+def test_concurrent_same_tool_invocation_executes_underlying_tool_once() -> None:
+    log = InMemoryEventLog()
+    clock = AgentClock()
+    start_barrier = Barrier(2)
+    calls = 0
+
+    @capture_tool
+    def lookup(value: str) -> str:
+        nonlocal calls
+        calls += 1
+        time.sleep(0.05)
+        return value
+
+    def invoke() -> str:
+        start_barrier.wait()
+        return lookup(
+            "x",
+            agent_id="worker",
+            clock=clock,
+            log=log,
+            invocation_id="concurrent-invocation",
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = [future.result() for future in (pool.submit(invoke), pool.submit(invoke))]
+
+    assert results == ["x", "x"]
+    assert calls == 1
+    assert [event.event_type for event in log.events()] == ["tool_call", "tool_result"]
+
+
 def test_tool_retry_lookup_is_scoped_to_the_current_agent() -> None:
     log = InMemoryEventLog()
     calls = 0
@@ -321,6 +354,43 @@ def test_spawn_persists_spawn_event_and_seeds_child_clock() -> None:
     assert retry_event == event
     assert retry_clock.counter == child_event.logical_seq
     assert len(log) == 2
+
+
+def test_spawn_requires_retry_identity_and_supports_key_only_retries() -> None:
+    log = InMemoryEventLog()
+    agents = InMemoryAgentStore()
+    parent_clock = AgentClock()
+    with pytest.raises(ValueError, match="requires child_agent_id or idempotency_key"):
+        spawn_agent(
+            parent_agent_id="planner",
+            parent_clock=parent_clock,
+            run_id="run",
+            role="worker",
+            log=log,
+            agent_store=agents,
+        )
+
+    child, event, _ = spawn_agent(
+        parent_agent_id="planner",
+        parent_clock=parent_clock,
+        run_id="run",
+        role="worker",
+        log=log,
+        agent_store=agents,
+        idempotency_key="spawn-request-1",
+    )
+    retry_child, retry_event, _ = spawn_agent(
+        parent_agent_id="planner",
+        parent_clock=parent_clock,
+        run_id="run",
+        role="worker",
+        log=log,
+        agent_store=agents,
+        idempotency_key="spawn-request-1",
+    )
+    assert retry_child == child
+    assert retry_event == event
+    assert len(log) == 1
 
 
 def test_tool_errors_are_captured_and_re_raised() -> None:

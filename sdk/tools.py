@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable
+from threading import Lock
 from typing import Any, TypeVar, cast
 from uuid import uuid4
 
 from .events import AgentClock, Event, record_event
 
 F = TypeVar("F", bound=Callable[..., Any])
+_fallback_lock_guard = Lock()
+_fallback_locks: dict[tuple[int, str, str], Lock] = {}
 
 
 def _find_events(log: Any, agent_id: str, invocation_id: str) -> list[Event]:
@@ -28,6 +31,77 @@ def _find_events(log: Any, agent_id: str, invocation_id: str) -> list[Event]:
         for event in events
         if event.agent_id == agent_id and event.payload.get("invocation_id") == invocation_id
     ]
+
+
+def _invocation_lock(log: Any, agent_id: str, invocation_id: str) -> Any:
+    factory = getattr(log, "tool_invocation_lock", None)
+    if factory is not None:
+        return factory(agent_id, invocation_id)
+    key = (id(log), agent_id, invocation_id)
+    with _fallback_lock_guard:
+        return _fallback_locks.setdefault(key, Lock())
+
+
+def _run_captured_tool(
+    fn: F,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    *,
+    agent_id: str,
+    clock: AgentClock,
+    log: Any,
+    run_id: str | None,
+    causal_parent_ids: Any,
+    invocation_id: str,
+) -> Any:
+    prior = _find_events(log, agent_id, invocation_id)
+    prior_result = next((event for event in prior if event.event_type == "tool_result"), None)
+    if prior_result is not None:
+        return prior_result.payload.get("output")
+    prior_error = next((event for event in prior if event.event_type == "agent_error"), None)
+    if prior_error is not None:
+        raise RuntimeError(prior_error.payload.get("error", "captured tool failed"))
+
+    invoke = record_event(
+        agent_id=agent_id,
+        clock=clock,
+        log=log,
+        event_type="tool_call",
+        payload={
+            "name": getattr(fn, "__name__", type(fn).__name__),
+            "args": list(args),
+            "kwargs": kwargs,
+            "invocation_id": invocation_id,
+        },
+        causal_parent_ids=causal_parent_ids,
+        idempotency_key=invocation_id,
+        run_id=run_id,
+    )
+    try:
+        result = fn(*args, **kwargs)
+    except Exception as exc:
+        record_event(
+            agent_id=agent_id,
+            clock=clock,
+            log=log,
+            event_type="agent_error",
+            payload={"invocation_id": invocation_id, "error": str(exc)},
+            causal_parent_ids=[invoke.id],
+            idempotency_key=f"{invocation_id}:result",
+            run_id=run_id,
+        )
+        raise
+    record_event(
+        agent_id=agent_id,
+        clock=clock,
+        log=log,
+        event_type="tool_result",
+        payload={"invocation_id": invocation_id, "output": result},
+        causal_parent_ids=[invoke.id],
+        idempotency_key=f"{invocation_id}:result",
+        run_id=run_id,
+    )
+    return result
 
 
 def _decorate(
@@ -60,54 +134,18 @@ def _decorate(
         if agent_id is None or clock is None or log is None:
             raise TypeError("captured tools require agent_id, clock, and log")
 
-        prior = _find_events(log, agent_id, invocation_id)
-        prior_result = next((event for event in prior if event.event_type == "tool_result"), None)
-        if prior_result is not None:
-            return prior_result.payload.get("output")
-        prior_error = next((event for event in prior if event.event_type == "agent_error"), None)
-        if prior_error is not None:
-            raise RuntimeError(prior_error.payload.get("error", "captured tool failed"))
-
-        invoke = record_event(
-            agent_id=agent_id,
-            clock=clock,
-            log=log,
-            event_type="tool_call",
-            payload={
-                "name": getattr(fn, "__name__", type(fn).__name__),
-                "args": list(args),
-                "kwargs": kwargs,
-                "invocation_id": invocation_id,
-            },
-            causal_parent_ids=causal_parent_ids,
-            idempotency_key=invocation_id,
-            run_id=run_id,
-        )
-        try:
-            result = fn(*args, **kwargs)
-        except Exception as exc:
-            record_event(
+        with _invocation_lock(log, agent_id, invocation_id):
+            return _run_captured_tool(
+                fn,
+                args,
+                kwargs,
                 agent_id=agent_id,
                 clock=clock,
                 log=log,
-                event_type="agent_error",
-                payload={"invocation_id": invocation_id, "error": str(exc)},
-                causal_parent_ids=[invoke.id],
-                idempotency_key=f"{invocation_id}:result",
                 run_id=run_id,
+                causal_parent_ids=causal_parent_ids,
+                invocation_id=invocation_id,
             )
-            raise
-        record_event(
-            agent_id=agent_id,
-            clock=clock,
-            log=log,
-            event_type="tool_result",
-            payload={"invocation_id": invocation_id, "output": result},
-            causal_parent_ids=[invoke.id],
-            idempotency_key=f"{invocation_id}:result",
-            run_id=run_id,
-        )
-        return result
 
     return cast(F, wrapper)
 

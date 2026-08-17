@@ -138,8 +138,11 @@ response = client.messages.create(
 
 The wrapper returns the original Anthropic response and records a
 `model_call` event.
-When using PostgreSQL, pass a `PostgresEventStore`, a real `run_id`, and make
-sure the agent row already exists.
+When using PostgreSQL, pass a `PostgresEventStore` with the original database
+DSN as `lock_dsn`, a real `run_id`, and make sure the agent row already exists.
+The DSN is needed because psycopg omits the password from
+`connection.info.dsn`, while concurrent tool retries use a separate
+transaction-scoped PostgreSQL advisory lock.
 
 ## Verify the data in Neon
 

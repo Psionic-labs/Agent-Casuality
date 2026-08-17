@@ -37,7 +37,7 @@ def test_real_postgres_planner_two_workers_tools_and_merge() -> None:
     run_id = str(uuid4())
     planner_id = str(uuid4())
     with psycopg.connect(database_url) as connection:
-        store = PostgresEventStore(connection)
+        store = PostgresEventStore(connection, lock_dsn=database_url)
         store.create_schema()
         with connection.cursor() as cursor:
             cursor.execute("INSERT INTO runs (id, name) VALUES (%s, %s)", (run_id, "phase-1"))

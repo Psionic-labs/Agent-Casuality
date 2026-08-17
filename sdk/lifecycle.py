@@ -83,6 +83,8 @@ def spawn_agent(
     stable child ID or idempotency key makes a retried spawn return the same
     child instead of creating another one.
     """
+    if child_agent_id is None and idempotency_key is None:
+        raise ValueError("retry-safe spawning requires child_agent_id or idempotency_key")
     child_id = child_agent_id or str(uuid4())
     spawn_key = idempotency_key or f"agent-spawn:{child_id}"
     existing_event = _existing_spawn(log, parent_agent_id, spawn_key)

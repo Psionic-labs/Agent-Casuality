@@ -6,6 +6,8 @@ queries, reducers, snapshots, and provenance are later phases.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -63,8 +65,9 @@ CREATE INDEX IF NOT EXISTS idx_events_agent_seq ON events (agent_id, logical_seq
 
 
 class PostgresEventStore:
-    def __init__(self, connection: Any) -> None:
+    def __init__(self, connection: Any, *, lock_dsn: str | None = None) -> None:
         self.connection = connection
+        self.lock_dsn = lock_dsn
 
     def create_schema(self) -> None:
         with self.connection.cursor() as cursor:
@@ -150,6 +153,30 @@ class PostgresEventStore:
             )
             row = cursor.fetchone()
         return None if row is None else self._row_to_event(row)
+
+    @contextmanager
+    def tool_invocation_lock(self, agent_id: str, invocation_id: str) -> Iterator[None]:
+        """Serialize one invocation across processes and database connections."""
+        try:
+            import psycopg
+        except ImportError as exc:  # pragma: no cover - dependency is declared by the project
+            raise RuntimeError("psycopg is required for PostgreSQL tool locking") from exc
+        dsn = self.lock_dsn or getattr(getattr(self.connection, "info", None), "dsn", None)
+        if not dsn:
+            raise RuntimeError(
+                "PostgresEventStore requires a connection with a DSN for tool locking"
+            )
+        # Agent IDs are UUIDs in PostgreSQL, and the length prefix keeps the
+        # two identities unambiguous without putting a NUL byte in the text
+        # parameter sent to PostgreSQL.
+        lock_key = f"{len(agent_id)}:{agent_id}{invocation_id}"
+        with psycopg.connect(dsn) as lock_connection:
+            with lock_connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    (lock_key,),
+                )
+            yield
 
     def create_agent(self, agent: AgentRecord) -> AgentRecord:
         agent_id = self._uuid(agent.id, "AgentRecord.id")
