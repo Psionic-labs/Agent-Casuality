@@ -44,6 +44,26 @@ def _existing_spawn(log: Any, agent_id: str, key: str) -> Event | None:
     return getter(agent_id, key) if getter is not None else None
 
 
+def _latest_agent_seq(log: Any, agent_id: str, fallback: int) -> int:
+    getter = getattr(log, "get_latest_logical_seq", None)
+    if getter is not None:
+        latest = getter(agent_id)
+        return max(fallback, latest or 0)
+    if hasattr(log, "events"):
+        events = log.events()
+    elif hasattr(log, "__iter__"):
+        events = list(log)
+    else:
+        events = []
+    return max(
+        (event.logical_seq for event in events if event.agent_id == agent_id), default=fallback
+    )
+
+
+def _recovered_clock(log: Any, agent: AgentRecord) -> AgentClock:
+    return AgentClock(_latest_agent_seq(log, agent.id, agent.lamport_offset))
+
+
 def spawn_agent(
     *,
     parent_agent_id: str,
@@ -69,7 +89,7 @@ def spawn_agent(
     if existing_event is not None:
         existing_agent = agent_store.get_by_spawn_event(existing_event.id)
         if existing_agent is not None:
-            return existing_agent, existing_event, AgentClock(existing_agent.lamport_offset)
+            return existing_agent, existing_event, _recovered_clock(log, existing_agent)
 
     event = record_event(
         agent_id=parent_agent_id,
@@ -83,7 +103,7 @@ def spawn_agent(
     )
     existing_agent = agent_store.get_by_spawn_event(event.id)
     if existing_agent is not None:
-        return existing_agent, event, AgentClock(existing_agent.lamport_offset)
+        return existing_agent, event, _recovered_clock(log, existing_agent)
 
     child = agent_store.create_agent(
         AgentRecord(

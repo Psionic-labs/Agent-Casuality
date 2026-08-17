@@ -12,14 +12,22 @@ from .events import AgentClock, Event, record_event
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def _find_events(log: Any, invocation_id: str) -> list[Event]:
+def _find_events(log: Any, agent_id: str, invocation_id: str) -> list[Event]:
+    getter = getattr(log, "get_by_idempotency_key", None)
+    if getter is not None:
+        events = [getter(agent_id, key) for key in (invocation_id, f"{invocation_id}:result")]
+        return [event for event in events if event is not None]
     if hasattr(log, "events"):
         events = log.events()
     elif hasattr(log, "__iter__"):
         events = list(log)
     else:
         events = []
-    return [event for event in events if event.payload.get("invocation_id") == invocation_id]
+    return [
+        event
+        for event in events
+        if event.agent_id == agent_id and event.payload.get("invocation_id") == invocation_id
+    ]
 
 
 def _decorate(
@@ -31,16 +39,28 @@ def _decorate(
 ) -> Any:
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        agent_id = kwargs.pop("agent_id", configured_agent_id)
-        clock = kwargs.pop("clock", configured_clock)
-        log = kwargs.pop("log", configured_log)
-        run_id = kwargs.pop("run_id", configured_run_id)
-        causal_parent_ids = kwargs.pop("causal_parent_ids", ())
-        invocation_id = kwargs.pop("invocation_id", None) or str(uuid4())
+        configured_context = any(
+            value is not None
+            for value in (configured_agent_id, configured_clock, configured_log, configured_run_id)
+        )
+        if configured_context:
+            agent_id = kwargs.pop("_capture_agent_id", configured_agent_id)
+            clock = kwargs.pop("_capture_clock", configured_clock)
+            log = kwargs.pop("_capture_log", configured_log)
+            run_id = kwargs.pop("_capture_run_id", configured_run_id)
+            causal_parent_ids = kwargs.pop("_capture_causal_parent_ids", ())
+            invocation_id = kwargs.pop("_capture_invocation_id", None) or str(uuid4())
+        else:
+            agent_id = kwargs.pop("agent_id", None)
+            clock = kwargs.pop("clock", None)
+            log = kwargs.pop("log", None)
+            run_id = kwargs.pop("run_id", None)
+            causal_parent_ids = kwargs.pop("causal_parent_ids", ())
+            invocation_id = kwargs.pop("invocation_id", None) or str(uuid4())
         if agent_id is None or clock is None or log is None:
             raise TypeError("captured tools require agent_id, clock, and log")
 
-        prior = _find_events(log, invocation_id)
+        prior = _find_events(log, agent_id, invocation_id)
         prior_result = next((event for event in prior if event.event_type == "tool_result"), None)
         if prior_result is not None:
             return prior_result.payload.get("output")
@@ -100,7 +120,14 @@ def capture_tool(
     log: Any | None = None,
     run_id: str | None = None,
 ) -> Any:
-    """Decorate a tool, with trace context supplied at decoration or call time."""
+    """Decorate a tool with trace context supplied at decoration or call time.
+
+    The documented call-time form reserves ``agent_id``, ``clock``, ``log``,
+    ``run_id``, ``causal_parent_ids``, and ``invocation_id``.  When context is
+    configured on the decorator, those names remain available to the wrapped
+    function; private ``_capture_*`` keywords can override the configured
+    capture context for a particular invocation.
+    """
     if fn is None:
         return lambda wrapped: _decorate(wrapped, agent_id, clock, log, run_id)
     return _decorate(fn, agent_id, clock, log, run_id)

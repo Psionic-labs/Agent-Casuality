@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from threading import RLock
 from typing import Any
 
 from .events import AgentClock, Event, record_event
@@ -25,6 +26,7 @@ class CapturedMemory:
         self.log = log
         self.store = store if store is not None else {}
         self.run_id = run_id
+        self._lock = RLock()
 
     def _event(
         self,
@@ -43,42 +45,45 @@ class CapturedMemory:
         )
 
     def get(self, key: str, *, causal_parent_ids: Iterable[str] = ()) -> Any:
-        value = self.store.get(key, _MISSING)
-        self._event(
-            "memory_read",
-            {
-                "key": key,
-                "value": None if value is _MISSING else value,
-                "found": value is not _MISSING,
-            },
-            causal_parent_ids,
-        )
-        return None if value is _MISSING else value
+        with self._lock:
+            value = self.store.get(key, _MISSING)
+            self._event(
+                "memory_read",
+                {
+                    "key": key,
+                    "value": None if value is _MISSING else value,
+                    "found": value is not _MISSING,
+                },
+                causal_parent_ids,
+            )
+            return None if value is _MISSING else value
 
     def set(self, key: str, value: Any, *, causal_parent_ids: Iterable[str] = ()) -> None:
-        before = self.store.get(key, _MISSING)
-        self.store[key] = value
-        self._event(
-            "memory_write",
-            {
-                "operation": "set",
-                "key": key,
-                "before": None if before is _MISSING else before,
-                "after": value,
-            },
-            causal_parent_ids,
-        )
+        with self._lock:
+            before = self.store.get(key, _MISSING)
+            self.store[key] = value
+            self._event(
+                "memory_write",
+                {
+                    "operation": "set",
+                    "key": key,
+                    "before": None if before is _MISSING else before,
+                    "after": value,
+                },
+                causal_parent_ids,
+            )
 
     def delete(self, key: str, *, causal_parent_ids: Iterable[str] = ()) -> bool:
-        before = self.store.pop(key, _MISSING)
-        self._event(
-            "memory_write",
-            {
-                "operation": "delete",
-                "key": key,
-                "before": None if before is _MISSING else before,
-                "after": None,
-            },
-            causal_parent_ids,
-        )
-        return before is not _MISSING
+        with self._lock:
+            before = self.store.pop(key, _MISSING)
+            self._event(
+                "memory_write",
+                {
+                    "operation": "delete",
+                    "key": key,
+                    "before": None if before is _MISSING else before,
+                    "after": None,
+                },
+                causal_parent_ids,
+            )
+            return before is not _MISSING

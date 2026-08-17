@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from uuid import uuid4
 
 import pytest
 
@@ -10,6 +11,7 @@ from sdk.events import AgentClock, Event, InMemoryEventLog, next_seq, record_eve
 from sdk.lifecycle import InMemoryAgentStore, spawn_agent
 from sdk.memory import CapturedMemory
 from sdk.tools import capture_tool
+from storage.postgres import PostgresEventStore
 
 
 def test_agent_clock_allocates_unique_sequences_concurrently() -> None:
@@ -63,6 +65,41 @@ class FakeAnthropic:
         self.messages = FakeMessages()
 
 
+class FakeStream:
+    def __init__(self, chunks: list[object]) -> None:
+        self.chunks = chunks
+
+    def __iter__(self):  # type: ignore[no-untyped-def]
+        return iter(self.chunks)
+
+
+class StreamingMessages:
+    def create(self, **kwargs: object) -> FakeStream:
+        assert kwargs["stream"] is True
+        return FakeStream([{"delta": "hello"}, {"delta": " world"}])
+
+
+class StreamingAnthropic:
+    def __init__(self) -> None:
+        self.messages = StreamingMessages()
+
+
+class FailingStream:
+    def __iter__(self):  # type: ignore[no-untyped-def]
+        yield {"delta": "partial"}
+        raise RuntimeError("stream failed")
+
+
+class FailingStreamingMessages:
+    def create(self, **_: object) -> FailingStream:
+        return FailingStream()
+
+
+class FailingStreamingAnthropic:
+    def __init__(self) -> None:
+        self.messages = FailingStreamingMessages()
+
+
 def test_anthropic_messages_create_is_captured_without_changing_call() -> None:
     log = InMemoryEventLog()
     fake = FakeAnthropic()
@@ -85,6 +122,44 @@ def test_anthropic_messages_create_is_captured_without_changing_call() -> None:
     assert event.event_type == "model_call"
     assert event.causal_parent_ids == ["worker-result"]
     assert event.payload["output"] == {"answer": "ok"}
+
+
+def test_anthropic_stream_is_captured_after_consumption() -> None:
+    log = InMemoryEventLog()
+    client = CapturedClient(None, "planner", AgentClock(), log, client=StreamingAnthropic())
+    stream = client.messages.create(
+        model="test-model",
+        max_tokens=10,
+        messages=[{"role": "user", "content": "hello"}],
+        stream=True,
+    )
+    assert len(log) == 0
+    assert list(stream) == [{"delta": "hello"}, {"delta": " world"}]
+    event = log.events()[0]
+    assert event.event_type == "model_call"
+    assert event.payload["stream"] is True
+    assert event.payload["output"] == [{"delta": "hello"}, {"delta": " world"}]
+
+
+def test_anthropic_stream_iteration_errors_are_captured() -> None:
+    log = InMemoryEventLog()
+    client = CapturedClient(
+        None,
+        "planner",
+        AgentClock(),
+        log,
+        client=FailingStreamingAnthropic(),
+    )
+    stream = client.messages.create(
+        model="test-model",
+        max_tokens=10,
+        messages=[{"role": "user", "content": "hello"}],
+        stream=True,
+    )
+    with pytest.raises(RuntimeError, match="stream failed"):
+        list(stream)
+    assert log.events()[0].event_type == "agent_error"
+    assert log.events()[0].payload["stream"] is True
 
 
 def test_capture_tool_logs_linked_call_and_result_and_retries_once() -> None:
@@ -121,6 +196,54 @@ def test_capture_tool_logs_linked_call_and_result_and_retries_once() -> None:
     assert events[1].causal_parent_ids == [events[0].id]
 
 
+def test_tool_retry_lookup_is_scoped_to_the_current_agent() -> None:
+    log = InMemoryEventLog()
+    calls = 0
+
+    @capture_tool
+    def lookup() -> str:
+        nonlocal calls
+        calls += 1
+        return "ok"
+
+    assert lookup(agent_id="worker-a", clock=AgentClock(), log=log, invocation_id="shared") == "ok"
+    assert lookup(agent_id="worker-b", clock=AgentClock(), log=log, invocation_id="shared") == "ok"
+    assert calls == 2
+    assert len(log) == 4
+
+
+def test_configured_tool_can_accept_capture_context_named_arguments() -> None:
+    log = InMemoryEventLog()
+
+    @capture_tool(agent_id="trace-agent", clock=AgentClock(), log=log, run_id="trace-run")
+    def inspect(
+        agent_id: str,
+        clock: str,
+        log: str,
+        run_id: str,
+        causal_parent_ids: list[str],
+        invocation_id: str,
+    ) -> tuple[str, str, str, str, list[str], str]:
+        return agent_id, clock, log, run_id, causal_parent_ids, invocation_id
+
+    assert inspect(
+        agent_id="function-agent",
+        clock="function-clock",
+        log="function-log",
+        run_id="function-run",
+        causal_parent_ids=["function-parent"],
+        invocation_id="function-invocation",
+    ) == (
+        "function-agent",
+        "function-clock",
+        "function-log",
+        "function-run",
+        ["function-parent"],
+        "function-invocation",
+    )
+    assert log.events()[0].agent_id == "trace-agent"
+
+
 def test_captured_memory_records_get_set_delete_with_before_after() -> None:
     log = InMemoryEventLog()
     memory = CapturedMemory(agent_id="worker", clock=AgentClock(), log=log)
@@ -143,6 +266,20 @@ def test_captured_memory_records_get_set_delete_with_before_after() -> None:
     assert events[3].payload["before"] == 42
 
 
+def test_concurrent_memory_writes_have_consistent_before_after_chain() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    log = InMemoryEventLog()
+    memory = CapturedMemory(agent_id="worker", clock=AgentClock(), log=log)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda value: memory.set("answer", value), range(50)))
+
+    writes = [event for event in log.events() if event.event_type == "memory_write"]
+    assert len(writes) == 50
+    for previous, current in zip(writes, writes[1:], strict=False):
+        assert current.payload["before"] == previous.payload["after"]
+
+
 def test_spawn_persists_spawn_event_and_seeds_child_clock() -> None:
     log = InMemoryEventLog()
     agents = InMemoryAgentStore()
@@ -162,6 +299,14 @@ def test_spawn_persists_spawn_event_and_seeds_child_clock() -> None:
     assert child.spawned_at_event_id == event.id
     assert child_clock.counter == event.logical_seq == 1
     assert agents.get_by_spawn_event(event.id) == child
+    child_event = record_event(
+        agent_id=child.id,
+        clock=child_clock,
+        log=log,
+        event_type="context_update",
+        payload={"ready": True},
+    )
+    assert child_event.logical_seq == 2
 
     retry_child, retry_event, retry_clock = spawn_agent(
         parent_agent_id="planner",
@@ -174,8 +319,8 @@ def test_spawn_persists_spawn_event_and_seeds_child_clock() -> None:
     )
     assert retry_child == child
     assert retry_event == event
-    assert retry_clock.counter == child_clock.counter
-    assert len(log) == 1
+    assert retry_clock.counter == child_event.logical_seq
+    assert len(log) == 2
 
 
 def test_tool_errors_are_captured_and_re_raised() -> None:
@@ -188,3 +333,57 @@ def test_tool_errors_are_captured_and_re_raised() -> None:
     with pytest.raises(ValueError, match="bad input"):
         fail()
     assert [event.event_type for event in log.events()] == ["tool_call", "agent_error"]
+
+
+class FailingCursor:
+    def __enter__(self) -> FailingCursor:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def execute(self, *_: object) -> None:
+        raise RuntimeError("insert failed")
+
+
+class FailingConnection:
+    def __init__(self) -> None:
+        self.rollback_called = False
+
+    def cursor(self) -> FailingCursor:
+        return FailingCursor()
+
+    def commit(self) -> None:
+        raise AssertionError("commit must not run after insert failure")
+
+    def rollback(self) -> None:
+        self.rollback_called = True
+
+
+def test_postgres_append_rolls_back_failed_transactions() -> None:
+    connection = FailingConnection()
+    store = PostgresEventStore(connection)
+    event = Event(
+        id=str(uuid4()),
+        run_id=str(uuid4()),
+        agent_id=str(uuid4()),
+        logical_seq=1,
+        event_type="context_update",
+        payload={},
+    )
+    with pytest.raises(RuntimeError, match="insert failed"):
+        store.append(event)
+    assert connection.rollback_called
+
+
+def test_postgres_append_rejects_non_uuid_identifiers_before_sql() -> None:
+    store = PostgresEventStore(FailingConnection())
+    event = Event(
+        run_id=str(uuid4()),
+        agent_id="planner",
+        logical_seq=1,
+        event_type="context_update",
+        payload={},
+    )
+    with pytest.raises(ValueError, match="Event.agent_id must be a UUID"):
+        store.append(event)

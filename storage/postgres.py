@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from sdk.events import Event
 from sdk.lifecycle import AgentRecord
@@ -76,6 +77,12 @@ class PostgresEventStore:
         except ImportError as exc:  # pragma: no cover - dependency is declared by the project
             raise RuntimeError("psycopg is required for PostgresEventStore") from exc
         record = event.to_record()
+        event_id = self._uuid(record["id"], "Event.id")
+        run_id = self._uuid(record["run_id"], "Event.run_id")
+        agent_id = self._uuid(record["agent_id"], "Event.agent_id")
+        parent_ids = [
+            self._uuid(value, "Event.causal_parent_ids") for value in record["causal_parent_ids"]
+        ]
         columns = (
             "id, run_id, agent_id, logical_seq, wall_time, event_type, "
             "causal_parent_ids, payload, idempotency_key"
@@ -88,81 +95,104 @@ class PostgresEventStore:
             RETURNING id, run_id, agent_id, logical_seq, wall_time,
                       event_type, causal_parent_ids, payload, idempotency_key
         """
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                sql,
-                (
-                    record["id"],
-                    record["run_id"],
-                    record["agent_id"],
-                    record["logical_seq"],
-                    record["wall_time"],
-                    record["event_type"],
-                    record["causal_parent_ids"],
-                    Jsonb(record["payload"]),
-                    record["idempotency_key"],
-                ),
-            )
-            row = cursor.fetchone()
-            if row is None and event.idempotency_key is not None:
+        try:
+            with self.connection.cursor() as cursor:
                 cursor.execute(
-                    "SELECT id, run_id, agent_id, logical_seq, wall_time, event_type, "
-                    "causal_parent_ids, payload, idempotency_key FROM events "
-                    "WHERE agent_id = %s AND idempotency_key = %s",
-                    (event.agent_id, event.idempotency_key),
+                    sql,
+                    (
+                        event_id,
+                        run_id,
+                        agent_id,
+                        record["logical_seq"],
+                        record["wall_time"],
+                        record["event_type"],
+                        parent_ids,
+                        Jsonb(record["payload"]),
+                        record["idempotency_key"],
+                    ),
                 )
                 row = cursor.fetchone()
-        self.connection.commit()
+                if row is None and event.idempotency_key is not None:
+                    cursor.execute(
+                        "SELECT id, run_id, agent_id, logical_seq, wall_time, event_type, "
+                        "causal_parent_ids, payload, idempotency_key FROM events "
+                        "WHERE agent_id = %s AND idempotency_key = %s",
+                        (agent_id, event.idempotency_key),
+                    )
+                    row = cursor.fetchone()
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
         if row is None:
             raise RuntimeError("event insert did not return an event")
         return self._row_to_event(row)
 
     def get(self, event_id: str) -> Event | None:
+        event_uuid = self._uuid(event_id, "event_id")
         with self.connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id, run_id, agent_id, logical_seq, wall_time, event_type, "
                 "causal_parent_ids, payload, idempotency_key FROM events WHERE id = %s",
-                (event_id,),
+                (event_uuid,),
             )
             row = cursor.fetchone()
         return None if row is None else self._row_to_event(row)
 
     def get_by_idempotency_key(self, agent_id: str, key: str) -> Event | None:
+        agent_uuid = self._uuid(agent_id, "agent_id")
         with self.connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id, run_id, agent_id, logical_seq, wall_time, event_type, "
                 "causal_parent_ids, payload, idempotency_key FROM events "
                 "WHERE agent_id = %s AND idempotency_key = %s",
-                (agent_id, key),
+                (agent_uuid, key),
             )
             row = cursor.fetchone()
         return None if row is None else self._row_to_event(row)
 
     def create_agent(self, agent: AgentRecord) -> AgentRecord:
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO agents (id, run_id, parent_agent_id, spawned_at_event_id, role, "
-                "status, lamport_offset) VALUES (%s, %s, %s, %s, %s, %s, %s) "
-                "ON CONFLICT (id) DO NOTHING",
-                (
-                    agent.id,
-                    agent.run_id,
-                    agent.parent_agent_id,
-                    agent.spawned_at_event_id,
-                    agent.role,
-                    agent.status,
-                    agent.lamport_offset,
-                ),
-            )
-        self.connection.commit()
+        agent_id = self._uuid(agent.id, "AgentRecord.id")
+        run_id = self._uuid(agent.run_id, "AgentRecord.run_id")
+        parent_agent_id = (
+            None
+            if agent.parent_agent_id is None
+            else self._uuid(agent.parent_agent_id, "AgentRecord.parent_agent_id")
+        )
+        spawned_at_event_id = (
+            None
+            if agent.spawned_at_event_id is None
+            else self._uuid(agent.spawned_at_event_id, "AgentRecord.spawned_at_event_id")
+        )
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO agents (id, run_id, parent_agent_id, spawned_at_event_id, role, "
+                    "status, lamport_offset) VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (id) DO NOTHING",
+                    (
+                        agent_id,
+                        run_id,
+                        parent_agent_id,
+                        spawned_at_event_id,
+                        agent.role,
+                        agent.status,
+                        agent.lamport_offset,
+                    ),
+                )
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
         return agent
 
     def get_agent(self, agent_id: str) -> AgentRecord | None:
+        agent_uuid = self._uuid(agent_id, "agent_id")
         with self.connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id, run_id, parent_agent_id, spawned_at_event_id, role, status, "
                 "lamport_offset FROM agents WHERE id = %s",
-                (agent_id,),
+                (agent_uuid,),
             )
             row = cursor.fetchone()
         if row is None:
@@ -178,16 +208,38 @@ class PostgresEventStore:
         )
 
     def get_by_spawn_event(self, event_id: str) -> AgentRecord | None:
+        event_uuid = self._uuid(event_id, "event_id")
         with self.connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id, run_id, parent_agent_id, spawned_at_event_id, role, status, "
                 "lamport_offset FROM agents WHERE spawned_at_event_id = %s",
-                (event_id,),
+                (event_uuid,),
             )
             row = cursor.fetchone()
         if row is None:
             return None
         return self.get_agent(str(row[0]))
+
+    def get_latest_logical_seq(self, agent_id: str) -> int | None:
+        agent_uuid = self._uuid(agent_id, "agent_id")
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT MAX(logical_seq) FROM events WHERE agent_id = %s",
+                (agent_uuid,),
+            )
+            row = cursor.fetchone()
+        return None if row is None else row[0]
+
+    @staticmethod
+    def _uuid(value: Any, field_name: str) -> UUID:
+        if value is None:
+            raise ValueError(f"{field_name} is required for PostgreSQL persistence")
+        try:
+            return UUID(str(value))
+        except (AttributeError, ValueError) as exc:
+            raise ValueError(
+                f"{field_name} must be a UUID for PostgreSQL persistence: {value!r}"
+            ) from exc
 
     @staticmethod
     def _row_to_event(row: tuple[Any, ...]) -> Event:
