@@ -1,0 +1,106 @@
+"""Tool capture decorator."""
+
+from __future__ import annotations
+
+import functools
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
+from uuid import uuid4
+
+from .events import AgentClock, Event, record_event
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def _find_events(log: Any, invocation_id: str) -> list[Event]:
+    if hasattr(log, "events"):
+        events = log.events()
+    elif hasattr(log, "__iter__"):
+        events = list(log)
+    else:
+        events = []
+    return [event for event in events if event.payload.get("invocation_id") == invocation_id]
+
+
+def _decorate(
+    fn: F,
+    configured_agent_id: str | None,
+    configured_clock: AgentClock | None,
+    configured_log: Any | None,
+    configured_run_id: str | None,
+) -> Any:
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        agent_id = kwargs.pop("agent_id", configured_agent_id)
+        clock = kwargs.pop("clock", configured_clock)
+        log = kwargs.pop("log", configured_log)
+        run_id = kwargs.pop("run_id", configured_run_id)
+        causal_parent_ids = kwargs.pop("causal_parent_ids", ())
+        invocation_id = kwargs.pop("invocation_id", None) or str(uuid4())
+        if agent_id is None or clock is None or log is None:
+            raise TypeError("captured tools require agent_id, clock, and log")
+
+        prior = _find_events(log, invocation_id)
+        prior_result = next((event for event in prior if event.event_type == "tool_result"), None)
+        if prior_result is not None:
+            return prior_result.payload.get("output")
+        prior_error = next((event for event in prior if event.event_type == "agent_error"), None)
+        if prior_error is not None:
+            raise RuntimeError(prior_error.payload.get("error", "captured tool failed"))
+
+        invoke = record_event(
+            agent_id=agent_id,
+            clock=clock,
+            log=log,
+            event_type="tool_call",
+            payload={
+                "name": getattr(fn, "__name__", type(fn).__name__),
+                "args": list(args),
+                "kwargs": kwargs,
+                "invocation_id": invocation_id,
+            },
+            causal_parent_ids=causal_parent_ids,
+            idempotency_key=invocation_id,
+            run_id=run_id,
+        )
+        try:
+            result = fn(*args, **kwargs)
+        except Exception as exc:
+            record_event(
+                agent_id=agent_id,
+                clock=clock,
+                log=log,
+                event_type="agent_error",
+                payload={"invocation_id": invocation_id, "error": str(exc)},
+                causal_parent_ids=[invoke.id],
+                idempotency_key=f"{invocation_id}:result",
+                run_id=run_id,
+            )
+            raise
+        record_event(
+            agent_id=agent_id,
+            clock=clock,
+            log=log,
+            event_type="tool_result",
+            payload={"invocation_id": invocation_id, "output": result},
+            causal_parent_ids=[invoke.id],
+            idempotency_key=f"{invocation_id}:result",
+            run_id=run_id,
+        )
+        return result
+
+    return cast(F, wrapper)
+
+
+def capture_tool(
+    fn: F | None = None,
+    *,
+    agent_id: str | None = None,
+    clock: AgentClock | None = None,
+    log: Any | None = None,
+    run_id: str | None = None,
+) -> Any:
+    """Decorate a tool, with trace context supplied at decoration or call time."""
+    if fn is None:
+        return lambda wrapped: _decorate(wrapped, agent_id, clock, log, run_id)
+    return _decorate(fn, agent_id, clock, log, run_id)

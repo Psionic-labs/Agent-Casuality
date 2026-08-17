@@ -1,0 +1,177 @@
+# Getting Started
+
+Agent-Casuality is a causal event-capture SDK for branching multi-agent
+systems. Phase 1 records model calls, tool calls, memory operations, and
+agent spawning in PostgreSQL.
+
+## Prerequisites
+
+- Python 3.11 or newer
+- [uv](https://docs.astral.sh/uv/)
+- A Neon PostgreSQL database, or another PostgreSQL 14+ database
+- An Anthropic API key when making real model calls
+
+## Install
+
+From the repository root:
+
+```powershell
+uv sync
+```
+
+Create a local `.env` file. Do not commit it:
+
+```dotenv
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+`DATABASE_URL` must point to the Neon branch you intend to use for testing.
+Use a dedicated test database or branch because the integration test creates
+tables and leaves test rows behind.
+
+## Run the checks
+
+Run all local checks with one command:
+
+```powershell
+.\scripts\check.ps1
+```
+
+If PowerShell blocks local scripts, run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
+```
+
+The script runs pytest, Ruff, and ty. If `.env` exists, it loads the file so
+the PostgreSQL integration test runs as well.
+
+Run the real PostgreSQL integration test with the `.env` file loaded:
+
+```powershell
+uv run --env-file .env pytest tests/test_postgres_integration.py -m integration -q
+```
+
+Expected result:
+
+```text
+1 passed
+```
+
+To run the complete suite with PostgreSQL enabled:
+
+```powershell
+uv run --env-file .env pytest -q
+```
+
+The equivalent one-command version is:
+
+```powershell
+.\scripts\check.ps1
+```
+
+If `DATABASE_URL` is not loaded, the PostgreSQL test is skipped rather than
+run against a database.
+
+## Minimal in-memory capture example
+
+This example exercises tool and memory capture without making a network call:
+
+```python
+from sdk.events import AgentClock, InMemoryEventLog
+from sdk.memory import CapturedMemory
+from sdk.tools import capture_tool
+
+log = InMemoryEventLog()
+clock = AgentClock()
+
+
+@capture_tool
+def lookup_customer(customer_id: str) -> dict[str, str]:
+    return {"customer_id": customer_id, "status": "eligible"}
+
+
+result = lookup_customer(
+    "customer-123",
+    agent_id="worker-1",
+    clock=clock,
+    log=log,
+    invocation_id="lookup-customer-123",
+)
+
+memory = CapturedMemory(agent_id="worker-1", clock=clock, log=log)
+memory.set("customer_status", result["status"])
+assert memory.get("customer_status") == "eligible"
+
+for event in log.events():
+    print(event.logical_seq, event.event_type, event.causal_parent_ids)
+```
+
+The tool produces a `tool_call` followed by a `tool_result`. The result has
+the call event ID in `causal_parent_ids`. Memory operations produce
+`memory_read` and `memory_write` events.
+
+## Capture a real Anthropic call
+
+`CapturedClient` exposes the familiar `messages.create` call:
+
+```python
+import os
+
+from sdk.client import CapturedClient
+from sdk.events import AgentClock, InMemoryEventLog
+
+client = CapturedClient(
+    api_key=os.environ["ANTHROPIC_API_KEY"],
+    agent_id="planner",
+    clock=AgentClock(),
+    log=InMemoryEventLog(),
+)
+
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=100,
+    messages=[{"role": "user", "content": "Summarize this result."}],
+)
+```
+
+The wrapper returns the original Anthropic response and records a
+`model_call` event.
+When using PostgreSQL, pass a `PostgresEventStore`, a real `run_id`, and make
+sure the agent row already exists.
+
+## Verify the data in Neon
+
+Open the Neon SQL Editor for the same branch used by `DATABASE_URL`. Run the
+queries in [TEST.md](TEST.md). They verify:
+
+- each Phase 1 run has three agents and seven events
+- workers reference the planner and their spawn events
+- tool calls and results are linked
+- the planner merge preserves both worker result IDs
+- no agent has duplicate logical sequence numbers
+
+The event count query uses `COUNT(DISTINCT e.id)`. Without `DISTINCT`, the
+join between agents and events can report 21 instead of the actual 7 events.
+
+## Current scope
+
+Phase 1 is complete. It includes:
+
+- `Event` and thread-safe `AgentClock`
+- Anthropic `messages.create` capture
+- tool invocation/result capture with retry idempotency
+- captured memory `get`, `set`, and `delete`
+- agent spawning with `spawned_at_event_id`
+- in-memory and PostgreSQL event/agent stores
+
+Phase 2+ features such as graph queries, state reconstruction, snapshots,
+provenance traversal, replay, and minimal slicing are intentionally not yet
+implemented.
+
+## Contributing
+
+Contributions use Git-based stacked pull requests for dependent changes. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the branch layout, PR base selection,
+rebasing commands, and safe force-push workflow.
