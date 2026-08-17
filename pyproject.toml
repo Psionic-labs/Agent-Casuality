@@ -1,0 +1,33 @@
+[project]
+name = "agent-casuality"
+version = "0.1.0"
+description = "Causal capture SDK for branching multi-agent systems"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "psycopg[binary]>=3.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.9.0",
+    "ty>=0.0.1a1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = ["integration: requires a reachable PostgreSQL database"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["fixture"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ty.environment]
+python-version = "3.11"
+root = ["."]
