@@ -79,9 +79,53 @@ def test_record_causal_event_preserves_multiple_parent_ids() -> None:
     assert event.logical_seq == 2
 
 
+def test_record_causal_event_idempotent_retry_does_not_allocate_again() -> None:
+    log = InMemoryEventLog()
+    clock = AgentClock()
+    first = record_causal_event(
+        agent_id="planner",
+        clock=clock,
+        log=log,
+        event_type="context_update",
+        payload={"attempt": 1},
+        causal_parents=[],
+        idempotency_key="same-merge",
+    )
+
+    retry = record_causal_event(
+        agent_id="planner",
+        clock=clock,
+        log=log,
+        event_type="context_update",
+        payload={"attempt": 2},
+        causal_parents=[],
+        idempotency_key="same-merge",
+    )
+
+    assert retry == first
+    assert clock.current() == first.logical_seq
+
+
 def test_assign_causal_parents_rejects_missing_parent() -> None:
     with pytest.raises(ValueError, match="does not exist"):
         assign_causal_parents("planner", AgentClock(), ["missing"], InMemoryEventLog())
+
+
+def test_assign_causal_parents_rejects_cross_run_parent() -> None:
+    log = InMemoryEventLog()
+    log.append(
+        Event(
+            id="parent",
+            run_id="run-a",
+            agent_id="worker",
+            logical_seq=1,
+            event_type="tool_result",
+            payload={},
+        )
+    )
+
+    with pytest.raises(ValueError, match="another run"):
+        assign_causal_parents("planner", AgentClock(), ["parent"], log, "run-b")
 
 
 class _Response:

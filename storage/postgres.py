@@ -112,6 +112,15 @@ class PostgresEventStore:
         """
         try:
             with self.connection.cursor() as cursor:
+                if parent_ids:
+                    cursor.execute(
+                        "SELECT id FROM events "
+                        "WHERE id = ANY(%s) AND run_id = %s",
+                        (parent_ids, run_id),
+                    )
+                    owned_parent_ids = {row[0] for row in cursor.fetchall()}
+                    if owned_parent_ids != set(parent_ids):
+                        raise ValueError("causal parent events must belong to the event run")
                 cursor.execute(
                     sql,
                     (
@@ -135,7 +144,12 @@ class PostgresEventStore:
                         (agent_id, event.idempotency_key),
                     )
                     row = cursor.fetchone()
-            self.connection.commit()
+                    if row is not None:
+                        # Roll back a sequence allocated in this transaction
+                        # when another writer already stored this idempotent event.
+                        self.connection.rollback()
+            if row is not None:
+                self.connection.commit()
         except Exception:
             self.connection.rollback()
             raise
@@ -172,7 +186,6 @@ class PostgresEventStore:
                     "UPDATE agents SET lamport_offset = %s WHERE id = %s",
                     (sequence, agent_uuid),
                 )
-            self.connection.commit()
         except Exception:
             self.connection.rollback()
             raise
@@ -209,15 +222,17 @@ class PostgresEventStore:
             cursor.execute(
                 """
                 WITH RECURSIVE ancestors AS (
-                    SELECT id, causal_parent_ids
+                    SELECT id, run_id, causal_parent_ids
                     FROM events
                     WHERE id = %s
 
                     UNION
 
-                    SELECT e.id, e.causal_parent_ids
+                    SELECT e.id, e.run_id, e.causal_parent_ids
                     FROM events e
-                    JOIN ancestors a ON e.id = ANY(a.causal_parent_ids)
+                    JOIN ancestors a
+                      ON e.id = ANY(a.causal_parent_ids)
+                     AND e.run_id = a.run_id
                 )
                 SELECT id::text
                 FROM ancestors

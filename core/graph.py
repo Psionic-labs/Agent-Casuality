@@ -21,9 +21,14 @@ def assign_causal_parents(
     clock: AgentClock,
     causal_parents: list[str],
     log: Any,
+    run_id: str | None = None,
 ) -> int:
     """Validate explicit parents and allocate the dependent event sequence."""
     parent_events = [_get_event(log, event_id) for event_id in causal_parents]
+    if run_id is not None:
+        for event in parent_events:
+            if event.run_id is not None and event.run_id != run_id:
+                raise ValueError(f"causal parent event {event.id} belongs to another run")
     parent_seqs = [event.logical_seq for event in parent_events]
     allocator = getattr(log, "allocate_logical_seq", None)
     if allocator is not None:
@@ -44,7 +49,13 @@ def record_causal_event(
 ) -> Event:
     """Append an event whose explicit parents were used by the caller."""
     parent_ids = list(causal_parents)
-    logical_seq = assign_causal_parents(agent_id, clock, parent_ids, log)
+    if idempotency_key is not None:
+        getter = getattr(log, "get_by_idempotency_key", None)
+        if getter is not None:
+            existing = getter(agent_id, idempotency_key)
+            if isinstance(existing, Event):
+                return existing
+    logical_seq = assign_causal_parents(agent_id, clock, parent_ids, log, run_id)
     event = Event(
         agent_id=agent_id,
         logical_seq=logical_seq,
