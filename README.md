@@ -1,6 +1,36 @@
 # Agent-Casuality
 Causal Debugging for Branching Multi-Agent Systems
 
+## Current implementation
+
+Phase 1 captures model calls, tool calls/results, memory operations, and agent
+spawns. Phase 2 stores the resulting agent/event graph in PostgreSQL, supports
+explicit cross-agent merge parents, and queries event ancestors.
+
+The Phase 2 graph uses `causal_parent_ids` as the source of dependency edges.
+`logical_seq` is only the per-agent logical ordering value; it is not inferred
+as a causal relationship. State reconstruction, snapshots, slicing, replay,
+and provenance belong to later phases and are not implemented yet.
+
+## Install and run
+
+```powershell
+uv sync
+.\scripts\check.ps1
+```
+
+For the real PostgreSQL scenario, put `DATABASE_URL` in a local `.env` file
+and use a dedicated Neon branch or test database:
+
+```powershell
+uv run --env-file .env pytest tests/test_postgres_integration.py tests/test_phase2.py -m integration -q
+```
+
+The integration tests create the schema through the existing PostgreSQL store,
+capture the planner/worker scenario, assign the explicit merge parents, and
+query `ancestors()` against PostgreSQL. See [GETTING_STARTED.md](GETTING_STARTED.md)
+for setup and [TEST.md](TEST.md) for Neon SQL Editor verification queries.
+
 ## Day-zero fixture
 
 Use `uv` to run the fixture so everyone gets the same Python entrypoint:

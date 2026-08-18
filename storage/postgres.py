@@ -1,7 +1,7 @@
-"""Minimal psycopg 3 storage adapter for Phase 1.
+"""Minimal psycopg 3 storage adapter for Phase 1 and Phase 2.
 
-The adapter intentionally owns only event and agent persistence. Graph
-queries, reducers, snapshots, and provenance are later phases.
+The adapter owns the Phase 1 event/agent writes and the Phase 2 graph query.
+State reconstruction, slicing, and provenance remain later phases.
 """
 
 from __future__ import annotations
@@ -55,12 +55,24 @@ CREATE TABLE IF NOT EXISTS events (
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (agent_id, logical_seq)
 );
+CREATE TABLE IF NOT EXISTS snapshots (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id uuid NOT NULL REFERENCES runs(id),
+    agent_id uuid NOT NULL REFERENCES agents(id),
+    logical_seq bigint NOT NULL,
+    state jsonb NOT NULL,
+    state_hash text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
 ALTER TABLE agents DROP CONSTRAINT IF EXISTS fk_spawned_at_event;
 ALTER TABLE agents ADD CONSTRAINT fk_spawned_at_event
     FOREIGN KEY (spawned_at_event_id) REFERENCES events(id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_idempotency
     ON events (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_events_agent_seq ON events (agent_id, logical_seq);
+CREATE INDEX IF NOT EXISTS idx_events_run_seq ON events (run_id, logical_seq);
+CREATE INDEX IF NOT EXISTS idx_snapshots_agent_seq
+    ON snapshots (agent_id, logical_seq DESC);
 """
 
 
@@ -189,6 +201,34 @@ class PostgresEventStore:
             )
             row = cursor.fetchone()
         return None if row is None else self._row_to_event(row)
+
+    def ancestors(self, event_id: str) -> list[str]:
+        """Return an event and all events reachable through causal parents."""
+        event_uuid = self._uuid(event_id, "event_id")
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH RECURSIVE ancestors AS (
+                    SELECT id, causal_parent_ids
+                    FROM events
+                    WHERE id = %s
+
+                    UNION
+
+                    SELECT e.id, e.causal_parent_ids
+                    FROM events e
+                    JOIN ancestors a ON e.id = ANY(a.causal_parent_ids)
+                )
+                SELECT id::text
+                FROM ancestors
+                ORDER BY id::text
+                """,
+                (event_uuid,),
+            )
+            rows = cursor.fetchall()
+        if not rows:
+            raise ValueError(f"event {event_id} does not exist")
+        return [str(row[0]) for row in rows]
 
     @contextmanager
     def tool_invocation_lock(self, agent_id: str, invocation_id: str) -> Iterator[None]:

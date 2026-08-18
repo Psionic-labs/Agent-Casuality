@@ -1,135 +1,181 @@
-## Testing Phase 1
+# Verify Phase 1 and Phase 2 in PostgreSQL
 
-The commands below verify the implementation locally. The database command
-also runs the real PostgreSQL integration test against the database in
-`.env`.
+Run the checks first so the database contains a fresh real run:
 
-```pwsh
+```powershell
 uv sync
 .\scripts\check.ps1
 ```
 
-Expected result: tests, Ruff, and ty all pass. If `.env` contains a valid
-`DATABASE_URL`, the PostgreSQL integration test runs automatically; otherwise
-it is skipped.
+The PostgreSQL tests use the `DATABASE_URL` from `.env`. They create the
+schema if needed and leave test rows behind, so use a dedicated Neon branch
+or database.
 
-### Check the PostgreSQL console on Neon
+The queries below are intended for the Neon SQL Editor. They do not modify
+data. Because each test run uses generated UUIDs, the queries select the
+latest run by `started_at` instead of hard-coding IDs.
 
-#### 1. Confirm captured runs, agents, and event counts
+## 1. Confirm the Phase 2 tables exist
 
-Purpose: confirms that the integration test created runs and that each run
-contains the expected three agents and seven Phase 1 events. `DISTINCT` is
-important because joining agents and events otherwise multiplies the count.
+Purpose: verifies that the existing Phase 1 schema and the Phase 2
+`snapshots` table were created.
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN ('runs', 'agents', 'events', 'snapshots')
+ORDER BY table_name;
+```
+
+Expected result: four rows: `agents`, `events`, `runs`, and `snapshots`.
+
+## 2. Inspect the required column types
+
+Purpose: confirms that IDs use UUIDs, causal parents remain a PostgreSQL UUID
+array, event payloads use JSONB, and snapshot state uses JSONB.
+
+```sql
+SELECT table_name, column_name, udt_name
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name IN ('runs', 'agents', 'events', 'snapshots')
+ORDER BY table_name, ordinal_position;
+```
+
+Expected result: the required Phase 2 columns are present. In particular:
+
+- `events.id`, `events.run_id`, `events.agent_id` are `uuid`;
+- `events.causal_parent_ids` is `_uuid` (PostgreSQL’s `uuid[]` type);
+- `events.payload` and `snapshots.state` are `jsonb`;
+- `snapshots.state_hash` is `text`.
+
+## 3. Confirm indexes and relationships
+
+Purpose: verifies the indexes used for event ordering, run queries, snapshots,
+and retry idempotency.
+
+```sql
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE schemaname = 'public'
+  AND indexname IN (
+    'idx_events_agent_seq',
+    'idx_events_run_seq',
+    'idx_snapshots_agent_seq',
+    'idx_events_idempotency'
+  )
+ORDER BY indexname;
+```
+
+Expected result: four rows with those index names.
+
+Purpose: verifies the foreign keys, including
+`agents.spawned_at_event_id -> events.id`.
+
+```sql
+SELECT
+  kcu.table_name,
+  kcu.column_name,
+  ccu.table_name AS referenced_table,
+  ccu.column_name AS referenced_column
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name = kcu.constraint_name
+ AND tc.table_schema = kcu.table_schema
+JOIN information_schema.constraint_column_usage ccu
+  ON tc.constraint_name = ccu.constraint_name
+ AND tc.table_schema = ccu.table_schema
+WHERE tc.table_schema = 'public'
+  AND tc.constraint_type = 'FOREIGN KEY'
+ORDER BY kcu.table_name, kcu.column_name;
+```
+
+Expected result includes these relationships:
+
+- `agents.run_id -> runs.id`;
+- `agents.parent_agent_id -> agents.id`;
+- `agents.spawned_at_event_id -> events.id`;
+- `events.run_id -> runs.id`;
+- `events.agent_id -> agents.id`;
+- `snapshots.run_id -> runs.id`;
+- `snapshots.agent_id -> agents.id`.
+
+## 4. Find the latest test runs
+
+Purpose: identifies the rows created by the Phase 1 and Phase 2 integration
+tests without assuming fixed UUIDs.
 
 ```sql
 SELECT
   r.id AS run_id,
   r.name,
+  r.started_at,
   COUNT(DISTINCT a.id) AS agents,
   COUNT(DISTINCT e.id) AS events
 FROM runs r
 LEFT JOIN agents a ON a.run_id = r.id
 LEFT JOIN events e ON e.run_id = r.id
-WHERE r.name = 'phase-1'
-GROUP BY r.id, r.name
-ORDER BY MAX(r.started_at) DESC;
+WHERE r.name IN ('phase-1', 'phase-2', 'sequence')
+GROUP BY r.id, r.name, r.started_at
+ORDER BY r.started_at DESC;
 ```
 
-Expected result: one row per test run, with `agents = 3` and `events = 7`.
-If the test was run twice, two `phase-1` rows are expected.
+Expected result for a fresh complete run:
 
-RESULT:
-```json
-[{
-  "run_id": "076e3473-fc4e-4c36-9441-698aa6b258e3",
-  "name": "phase-1",
-  "agents": 3,
-  "events": 7
-}, {
-  "run_id": "12e5846b-26fc-4de1-b054-76a4194fd0eb",
-  "name": "phase-1",
-  "agents": 3,
-  "events": 7
-}]
-```
+- `phase-1`: 3 agents and 7 events;
+- `phase-2`: 3 agents and at least 9 events;
+- `sequence`: 1 agent and 2 events.
 
-#### 2. Confirm the planner-to-worker spawn relationships
+The Phase 2 test also creates a shared-ancestor branch, so its event count is
+higher than the minimum nine.
 
-Purpose: verifies that the planner is the parent of both workers and that
-each child stores the ID of its parent `agent_spawn` event in
-`spawned_at_event_id`.
+## 5. Confirm planner-to-worker relationships
+
+Purpose: verifies that the planner owns both workers and each worker stores
+the exact event that spawned it in `spawned_at_event_id`.
 
 ```sql
+WITH latest_phase2 AS (
+  SELECT id
+  FROM runs
+  WHERE name = 'phase-2'
+  ORDER BY started_at DESC
+  LIMIT 1
+)
 SELECT
   a.id,
   a.role,
   a.parent_agent_id,
   a.spawned_at_event_id,
+  spawn.event_type AS spawned_event_type,
   a.lamport_offset
 FROM agents a
-JOIN runs r ON r.id = a.run_id
-WHERE r.name = 'phase-1'
-ORDER BY a.created_at;
+JOIN latest_phase2 r ON r.id = a.run_id
+LEFT JOIN events spawn ON spawn.id = a.spawned_at_event_id
+ORDER BY a.role, a.created_at;
 ```
 
-Expected result per run:
+Expected result: one `planner`, one `researcher`, and one `coder`.
+The planner has null parent/spawn fields. Both workers reference the planner,
+have non-null `spawned_at_event_id`, and their referenced event type is
+`agent_spawn`.
 
-- one `planner` with null `parent_agent_id` and `spawned_at_event_id`
-- one `worker-1` and one `worker-2`
-- both workers have the planner ID as `parent_agent_id`
-- both workers have non-null `spawned_at_event_id`
-- worker Lamport offsets match their spawn sequence numbers
+## 6. Inspect the real event branches
 
-RESULT:
-```json
-[{
-  "id": "d9a13702-5452-4a19-819e-8530400760cc",
-  "role": "planner",
-  "parent_agent_id": null,
-  "spawned_at_event_id": null,
-  "lamport_offset": 0
-}, {
-  "id": "18e7a9a3-5c2a-4ca2-b08b-a5bdd94b5752",
-  "role": "worker-1",
-  "parent_agent_id": "d9a13702-5452-4a19-819e-8530400760cc",
-  "spawned_at_event_id": "11de9524-9b4c-46c7-998b-b8080b163498",
-  "lamport_offset": 1
-}, {
-  "id": "1c62667d-5555-4c55-b655-eb6196fa70fb",
-  "role": "worker-2",
-  "parent_agent_id": "d9a13702-5452-4a19-819e-8530400760cc",
-  "spawned_at_event_id": "58d03d69-90e8-4d69-89f2-f363864d6725",
-  "lamport_offset": 2
-}, {
-  "id": "dda7e35a-6d0c-4eec-901b-52412e8b92a1",
-  "role": "planner",
-  "parent_agent_id": null,
-  "spawned_at_event_id": null,
-  "lamport_offset": 0
-}, {
-  "id": "28571a75-678d-4e08-8853-5288d731f30c",
-  "role": "worker-1",
-  "parent_agent_id": "dda7e35a-6d0c-4eec-901b-52412e8b92a1",
-  "spawned_at_event_id": "a69fbe1c-91dc-47c8-8cee-a42e691acf49",
-  "lamport_offset": 1
-}, {
-  "id": "0a212b0a-dd31-447c-a58a-5ed063471fba",
-  "role": "worker-2",
-  "parent_agent_id": "dda7e35a-6d0c-4eec-901b-52412e8b92a1",
-  "spawned_at_event_id": "b4b6b4aa-653b-4e9a-9065-34d9fdf09efc",
-  "lamport_offset": 2
-}]
-```
-
-#### 3. Inspect event types, logical sequences, and causal parents
-
-Purpose: verifies that all expected events were persisted and that causal
-relationships are represented by `causal_parent_ids`, not by wall-clock
-ordering.
+Purpose: confirms that the worker branches contain model, tool-call, and
+tool-result events, and that the result points to its tool call through
+`causal_parent_ids`.
 
 ```sql
+WITH latest_phase2 AS (
+  SELECT id
+  FROM runs
+  WHERE name = 'phase-2'
+  ORDER BY started_at DESC
+  LIMIT 1
+)
 SELECT
-  e.agent_id,
   a.role,
   e.id,
   e.logical_seq,
@@ -138,171 +184,158 @@ SELECT
   e.payload
 FROM events e
 JOIN agents a ON a.id = e.agent_id
-JOIN runs r ON r.id = e.run_id
-WHERE r.name = 'phase-1'
-ORDER BY a.role, e.logical_seq;
+JOIN latest_phase2 r ON r.id = e.run_id
+ORDER BY a.role, e.logical_seq, e.id;
 ```
 
-Expected result per run: seven events—two `agent_spawn` events, two worker
-`tool_call` events, two linked `tool_result` events, and one planner
-`model_call` merge event. Each tool result should contain its tool call ID in
-`causal_parent_ids`.
+Expected result: the `researcher` and `coder` branches each contain
+`model_call -> tool_call -> tool_result`. The worker model calls reference
+their spawn events, tool calls reference the model calls, and tool results
+reference the tool calls. The planner contains two spawn events and a merge
+event.
 
-RESULT: 
-```json
-[{
-  "agent_id": "d9a13702-5452-4a19-819e-8530400760cc",
-  "role": "planner",
-  "id": "11de9524-9b4c-46c7-998b-b8080b163498",
-  "logical_seq": 1,
-  "event_type": "agent_spawn",
-  "causal_parent_ids": "{}",
-  "payload": "{\"role\": \"worker-1\", \"child_agent_id\": \"18e7a9a3-5c2a-4ca2-b08b-a5bdd94b5752\"}"
-}, {
-  "agent_id": "dda7e35a-6d0c-4eec-901b-52412e8b92a1",
-  "role": "planner",
-  "id": "a69fbe1c-91dc-47c8-8cee-a42e691acf49",
-  "logical_seq": 1,
-  "event_type": "agent_spawn",
-  "causal_parent_ids": "{}",
-  "payload": "{\"role\": \"worker-1\", \"child_agent_id\": \"28571a75-678d-4e08-8853-5288d731f30c\"}"
-}, {
-  "agent_id": "d9a13702-5452-4a19-819e-8530400760cc",
-  "role": "planner",
-  "id": "58d03d69-90e8-4d69-89f2-f363864d6725",
-  "logical_seq": 2,
-  "event_type": "agent_spawn",
-  "causal_parent_ids": "{}",
-  "payload": "{\"role\": \"worker-2\", \"child_agent_id\": \"1c62667d-5555-4c55-b655-eb6196fa70fb\"}"
-}, {
-  "agent_id": "dda7e35a-6d0c-4eec-901b-52412e8b92a1",
-  "role": "planner",
-  "id": "b4b6b4aa-653b-4e9a-9065-34d9fdf09efc",
-  "logical_seq": 2,
-  "event_type": "agent_spawn",
-  "causal_parent_ids": "{}",
-  "payload": "{\"role\": \"worker-2\", \"child_agent_id\": \"0a212b0a-dd31-447c-a58a-5ed063471fba\"}"
-}, {
-  "agent_id": "d9a13702-5452-4a19-819e-8530400760cc",
-  "role": "planner",
-  "id": "1c9f4bd2-4d4e-4ebf-9349-dfddea6b9449",
-  "logical_seq": 3,
-  "event_type": "model_call",
-  "causal_parent_ids": "{21a24dfa-4e6c-4762-b3f4-d302568e9023,323c4acb-b1ad-4852-9230-fd7968b3e4bf}",
-  "payload": "{\"input\": [{\"role\": \"user\", \"content\": \"merge {'one': 'done'} {'two': 'done'}\"}], \"model\": \"test-model\", \"output\": {\"content\": \"merged\"}, \"latency_ms\": 0}"
-}, {
-  "agent_id": "dda7e35a-6d0c-4eec-901b-52412e8b92a1",
-  "role": "planner",
-  "id": "6c823591-b622-43a2-90fa-751f97731f0e",
-  "logical_seq": 3,
-  "event_type": "model_call",
-  "causal_parent_ids": "{1dcae5aa-f478-4586-a0a8-9617a09aabc2,2ca4ee78-1658-4450-9fd5-59d71333893f}",
-  "payload": "{\"input\": [{\"role\": \"user\", \"content\": \"merge {'one': 'done'} {'two': 'done'}\"}], \"model\": \"test-model\", \"output\": {\"content\": \"merged\"}, \"latency_ms\": 0}"
-}, {
-  "agent_id": "18e7a9a3-5c2a-4ca2-b08b-a5bdd94b5752",
-  "role": "worker-1",
-  "id": "14f289d0-ee44-40ce-86f2-8b9c99dc072c",
-  "logical_seq": 2,
-  "event_type": "tool_call",
-  "causal_parent_ids": "{}",
-  "payload": "{\"args\": [\"one\"], \"name\": \"inspect\", \"kwargs\": {}, \"invocation_id\": \"worker-one-tool\"}"
-}, {
-  "agent_id": "28571a75-678d-4e08-8853-5288d731f30c",
-  "role": "worker-1",
-  "id": "143a75a3-e121-4c64-9036-b3b8dd5f49ed",
-  "logical_seq": 2,
-  "event_type": "tool_call",
-  "causal_parent_ids": "{}",
-  "payload": "{\"args\": [\"one\"], \"name\": \"inspect\", \"kwargs\": {}, \"invocation_id\": \"worker-one-tool\"}"
-}, {
-  "agent_id": "18e7a9a3-5c2a-4ca2-b08b-a5bdd94b5752",
-  "role": "worker-1",
-  "id": "21a24dfa-4e6c-4762-b3f4-d302568e9023",
-  "logical_seq": 3,
-  "event_type": "tool_result",
-  "causal_parent_ids": "{14f289d0-ee44-40ce-86f2-8b9c99dc072c}",
-  "payload": "{\"output\": {\"one\": \"done\"}, \"invocation_id\": \"worker-one-tool\"}"
-}, {
-  "agent_id": "28571a75-678d-4e08-8853-5288d731f30c",
-  "role": "worker-1",
-  "id": "1dcae5aa-f478-4586-a0a8-9617a09aabc2",
-  "logical_seq": 3,
-  "event_type": "tool_result",
-  "causal_parent_ids": "{143a75a3-e121-4c64-9036-b3b8dd5f49ed}",
-  "payload": "{\"output\": {\"one\": \"done\"}, \"invocation_id\": \"worker-one-tool\"}"
-}, {
-  "agent_id": "1c62667d-5555-4c55-b655-eb6196fa70fb",
-  "role": "worker-2",
-  "id": "9d476664-2583-44b6-8e24-3fb652c5ee25",
-  "logical_seq": 3,
-  "event_type": "tool_call",
-  "causal_parent_ids": "{}",
-  "payload": "{\"args\": [\"two\"], \"name\": \"inspect\", \"kwargs\": {}, \"invocation_id\": \"worker-two-tool\"}"
-}, {
-  "agent_id": "0a212b0a-dd31-447c-a58a-5ed063471fba",
-  "role": "worker-2",
-  "id": "bb0ee288-e727-4301-aba0-f91ba7db864d",
-  "logical_seq": 3,
-  "event_type": "tool_call",
-  "causal_parent_ids": "{}",
-  "payload": "{\"args\": [\"two\"], \"name\": \"inspect\", \"kwargs\": {}, \"invocation_id\": \"worker-two-tool\"}"
-}, {
-  "agent_id": "0a212b0a-dd31-447c-a58a-5ed063471fba",
-  "role": "worker-2",
-  "id": "2ca4ee78-1658-4450-9fd5-59d71333893f",
-  "logical_seq": 4,
-  "event_type": "tool_result",
-  "causal_parent_ids": "{bb0ee288-e727-4301-aba0-f91ba7db864d}",
-  "payload": "{\"output\": {\"two\": \"done\"}, \"invocation_id\": \"worker-two-tool\"}"
-}, {
-  "agent_id": "1c62667d-5555-4c55-b655-eb6196fa70fb",
-  "role": "worker-2",
-  "id": "323c4acb-b1ad-4852-9230-fd7968b3e4bf",
-  "logical_seq": 4,
-  "event_type": "tool_result",
-  "causal_parent_ids": "{9d476664-2583-44b6-8e24-3fb652c5ee25}",
-  "payload": "{\"output\": {\"two\": \"done\"}, \"invocation_id\": \"worker-two-tool\"}"
-}]
+## 7. Confirm the planner merge has both worker results as parents
+
+Purpose: verifies explicit cross-agent causal assignment and multiple parent
+support. This checks actual parent rows rather than just counting array items.
+
+```sql
+WITH latest_phase2 AS (
+  SELECT id
+  FROM runs
+  WHERE name = 'phase-2'
+  ORDER BY started_at DESC
+  LIMIT 1
+), merge_event AS (
+  SELECT e.*
+  FROM events e
+  JOIN latest_phase2 r ON r.id = e.run_id
+  JOIN agents a ON a.id = e.agent_id
+  WHERE a.role = 'planner'
+    AND e.event_type = 'model_call'
+  ORDER BY e.logical_seq DESC
+  LIMIT 1
+)
+SELECT
+  m.id AS merge_event_id,
+  m.logical_seq AS merge_logical_seq,
+  p.id AS parent_event_id,
+  pa.role AS parent_role,
+  p.event_type AS parent_event_type,
+  p.logical_seq AS parent_logical_seq
+FROM merge_event m
+CROSS JOIN LATERAL unnest(m.causal_parent_ids) AS parents(parent_id)
+JOIN events p ON p.id = parents.parent_id
+JOIN agents pa ON pa.id = p.agent_id
+ORDER BY pa.role;
 ```
 
-#### 4. Confirm the planner merge has both worker results as parents
+Expected result: two rows for one merge event. The parent roles are
+`researcher` and `coder`, and both parent event types are `tool_result`.
+The merge’s `causal_parent_ids` are the real worker result IDs.
 
-Purpose: verifies the multi-agent causal merge. The planner's final model
-event must preserve both worker result IDs.
+## 8. Query all ancestors of the merge event
+
+Purpose: runs the production PostgreSQL recursive query. It must include the
+merge event itself and every event reachable through its causal parents.
+
+```sql
+WITH RECURSIVE latest_phase2 AS (
+  SELECT id
+  FROM runs
+  WHERE name = 'phase-2'
+  ORDER BY started_at DESC
+  LIMIT 1
+), target AS (
+  SELECT e.id, e.agent_id, e.logical_seq, e.causal_parent_ids
+  FROM events e
+  JOIN latest_phase2 r ON r.id = e.run_id
+  JOIN agents a ON a.id = e.agent_id
+  WHERE a.role = 'planner'
+    AND e.event_type = 'model_call'
+  ORDER BY e.logical_seq DESC
+  LIMIT 1
+), ancestors AS (
+  SELECT id, agent_id, logical_seq, causal_parent_ids
+  FROM target
+
+  UNION
+
+  SELECT e.id, e.agent_id, e.logical_seq, e.causal_parent_ids
+  FROM events e
+  JOIN ancestors a ON e.id = ANY(a.causal_parent_ids)
+)
+SELECT
+  a.id,
+  agents.role,
+  a.logical_seq,
+  a.causal_parent_ids
+FROM ancestors a
+JOIN agents ON agents.id = a.agent_id
+ORDER BY a.logical_seq, a.id;
+```
+
+Expected result: the merge event, both worker result branches, and the spawn
+events reached through the worker model-call parents. No unrelated `sequence`
+run or other agent appears.
+
+## 9. Confirm shared ancestors are deduplicated
+
+Purpose: verifies that two reachable paths to the same event return that event
+once, not once per path.
+
+```sql
+WITH RECURSIVE latest_phase2 AS (
+  SELECT id
+  FROM runs
+  WHERE name = 'phase-2'
+  ORDER BY started_at DESC
+  LIMIT 1
+), target AS (
+  SELECT e.id, e.causal_parent_ids
+  FROM events e
+  JOIN latest_phase2 r ON r.id = e.run_id
+  WHERE e.payload->>'shared_merge' = 'true'
+  LIMIT 1
+), ancestors AS (
+  SELECT id, causal_parent_ids FROM target
+  UNION
+  SELECT e.id, e.causal_parent_ids
+  FROM events e
+  JOIN ancestors a ON e.id = ANY(a.causal_parent_ids)
+)
+SELECT
+  COUNT(*) AS ancestor_count,
+  COUNT(DISTINCT id) AS distinct_ancestor_count
+FROM ancestors;
+```
+
+Expected result: one row with `ancestor_count = 4` and
+`distinct_ancestor_count = 4` for the shared-ancestor branch
+(`shared_merge`, `left`, `right`, and the shared `root`). The equal counts
+confirm that `UNION` prevented the shared root from appearing twice.
+
+## 10. Confirm every causal parent exists
+
+Purpose: checks that every stored causal-parent UUID resolves to an event.
 
 ```sql
 SELECT
-  e.id AS merge_event_id,
-  e.logical_seq,
-  e.causal_parent_ids,
-  e.payload->>'model' AS model
-FROM events e
-JOIN runs r ON r.id = e.run_id
-WHERE r.name = 'phase-1'
-  AND e.event_type = 'model_call'
-ORDER BY r.started_at DESC
-LIMIT 1;
+  child.id AS child_event_id,
+  parent_id,
+  child.causal_parent_ids
+FROM events child
+CROSS JOIN LATERAL unnest(child.causal_parent_ids) AS parents(parent_id)
+LEFT JOIN events parent ON parent.id = parents.parent_id
+WHERE parent.id IS NULL;
 ```
 
-Expected result: one `model_call` with `model = 'test-model'`, and exactly two
-IDs in `causal_parent_ids`. Those IDs should be the two worker
-`tool_result` event IDs.
+Expected result: no rows. Any row indicates a dangling causal dependency.
 
-RESULT: 
-```json
-[{
-  "merge_event_id": "6c823591-b622-43a2-90fa-751f97731f0e",
-  "logical_seq": 3,
-  "causal_parent_ids": "{1dcae5aa-f478-4586-a0a8-9617a09aabc2,2ca4ee78-1658-4450-9fd5-59d71333893f}",
-  "model": "test-model"
-}]
-```
+## 11. Confirm no duplicate logical sequences within an agent
 
-#### 5. Confirm no duplicate logical sequences within an agent
-
-Purpose: checks the critical sequence invariant. Logical sequence numbers
-may be equal across different agents, but must not collide for the same
-agent.
+Purpose: checks the critical ordering invariant. Logical sequences may match
+across different agents, but cannot collide within one agent.
 
 ```sql
 SELECT agent_id, logical_seq, COUNT(*)
@@ -311,6 +344,20 @@ GROUP BY agent_id, logical_seq
 HAVING COUNT(*) > 1;
 ```
 
-Expected result: no rows. Any returned row means that one agent has multiple
-events with the same `logical_seq` and the capture/storage path is not safe
-for that case.
+Expected result: no rows.
+
+Logical sequence numbers are ordering values, not causal edges. Use
+`causal_parent_ids` and the ancestor query for dependency relationships.
+
+## 12. Confirm Phase 2 does not write snapshots yet
+
+Purpose: confirms the `snapshots` table exists for the schema contract while
+snapshot creation remains intentionally deferred to Phase 3.
+
+```sql
+SELECT COUNT(*) AS snapshots
+FROM snapshots;
+```
+
+Expected result: usually `0` for this Phase 2 test database. Existing rows are
+not an error; Phase 2 does not create or reconstruct snapshots.

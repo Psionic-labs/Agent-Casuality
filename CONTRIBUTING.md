@@ -117,8 +117,11 @@ git rebase --abort
 - For database changes, also run the Neon-backed integration test:
 
   ```powershell
-  uv run --env-file .env pytest tests/test_postgres_integration.py -m integration -q
+  uv run --env-file .env pytest tests/test_postgres_integration.py tests/test_phase2.py -m integration -q
   ```
+
+  This covers both the Phase 1 PostgreSQL capture paths and the Phase 2
+  schema, explicit cross-agent merge, and ancestor query.
 
 ## CI gate
 
