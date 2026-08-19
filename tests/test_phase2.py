@@ -129,6 +129,11 @@ def test_record_causal_event_rejects_duplicate_parent_ids() -> None:
         )
 
 
+def test_assign_causal_parents_rejects_duplicate_parent_ids() -> None:
+    with pytest.raises(ValueError, match="must be unique"):
+        assign_causal_parents("planner", AgentClock(), ["parent", "parent"], InMemoryEventLog())
+
+
 def test_assign_causal_parents_rejects_missing_parent() -> None:
     with pytest.raises(ValueError, match="does not exist"):
         assign_causal_parents("planner", AgentClock(), ["missing"], InMemoryEventLog())

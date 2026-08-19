@@ -95,11 +95,6 @@ class PostgresEventStore:
         event_id = self._uuid(record["id"], "Event.id")
         run_id = self._uuid(record["run_id"], "Event.run_id")
         agent_id = self._uuid(record["agent_id"], "Event.agent_id")
-        parent_ids = [
-            self._uuid(value, "Event.causal_parent_ids") for value in record["causal_parent_ids"]
-        ]
-        if len(parent_ids) != len(set(parent_ids)):
-            raise ValueError("causal parent IDs must be unique")
         columns = (
             "id, run_id, agent_id, logical_seq, wall_time, event_type, "
             "causal_parent_ids, payload, idempotency_key"
@@ -114,6 +109,24 @@ class PostgresEventStore:
         """
         try:
             with self.connection.cursor() as cursor:
+                if event.idempotency_key is not None:
+                    cursor.execute(
+                        "SELECT id, run_id, agent_id, logical_seq, wall_time, event_type, "
+                        "causal_parent_ids, payload, idempotency_key FROM events "
+                        "WHERE agent_id = %s AND idempotency_key = %s",
+                        (agent_id, event.idempotency_key),
+                    )
+                    existing_row = cursor.fetchone()
+                    if existing_row is not None:
+                        self.connection.rollback()
+                        return self._row_to_event(existing_row)
+
+                parent_ids = [
+                    self._uuid(value, "Event.causal_parent_ids")
+                    for value in record["causal_parent_ids"]
+                ]
+                if len(parent_ids) != len(set(parent_ids)):
+                    raise ValueError("causal parent IDs must be unique")
                 if parent_ids:
                     cursor.execute(
                         "SELECT id FROM events "

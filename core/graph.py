@@ -24,6 +24,8 @@ def assign_causal_parents(
     run_id: str | None = None,
 ) -> int:
     """Validate explicit parents and allocate the dependent event sequence."""
+    if len(causal_parents) != len(set(causal_parents)):
+        raise ValueError("causal parent IDs must be unique")
     parent_events = [_get_event(log, event_id) for event_id in causal_parents]
     if run_id is not None:
         for event in parent_events:

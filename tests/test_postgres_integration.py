@@ -227,6 +227,7 @@ def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
                 logical_seq=allocated,
                 event_type="context_update",
                 payload={"conflict": True},
+                causal_parent_ids=["not-a-uuid"],
                 idempotency_key="sequence-retry",
             )
         )
