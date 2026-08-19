@@ -55,6 +55,8 @@ def record_causal_event(
             existing = getter(agent_id, idempotency_key)
             if isinstance(existing, Event):
                 return existing
+    if len(parent_ids) != len(set(parent_ids)):
+        raise ValueError("causal parent IDs must be unique")
     logical_seq = assign_causal_parents(agent_id, clock, parent_ids, log, run_id)
     event = Event(
         agent_id=agent_id,

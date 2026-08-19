@@ -106,6 +106,29 @@ def test_record_causal_event_idempotent_retry_does_not_allocate_again() -> None:
     assert clock.current() == first.logical_seq
 
 
+def test_record_causal_event_rejects_duplicate_parent_ids() -> None:
+    log = InMemoryEventLog()
+    log.append(
+        Event(
+            id="parent",
+            agent_id="worker",
+            logical_seq=1,
+            event_type="tool_result",
+            payload={},
+        )
+    )
+
+    with pytest.raises(ValueError, match="must be unique"):
+        record_causal_event(
+            agent_id="planner",
+            clock=AgentClock(),
+            log=log,
+            event_type="context_update",
+            payload={},
+            causal_parents=["parent", "parent"],
+        )
+
+
 def test_assign_causal_parents_rejects_missing_parent() -> None:
     with pytest.raises(ValueError, match="does not exist"):
         assign_causal_parents("planner", AgentClock(), ["missing"], InMemoryEventLog())

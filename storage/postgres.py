@@ -98,6 +98,8 @@ class PostgresEventStore:
         parent_ids = [
             self._uuid(value, "Event.causal_parent_ids") for value in record["causal_parent_ids"]
         ]
+        if len(parent_ids) != len(set(parent_ids)):
+            raise ValueError("causal parent IDs must be unique")
         columns = (
             "id, run_id, agent_id, logical_seq, wall_time, event_type, "
             "causal_parent_ids, payload, idempotency_key"
@@ -148,13 +150,13 @@ class PostgresEventStore:
                         # Roll back a sequence allocated in this transaction
                         # when another writer already stored this idempotent event.
                         self.connection.rollback()
-            if row is not None:
-                self.connection.commit()
+                        return self._row_to_event(row)
         except Exception:
             self.connection.rollback()
             raise
         if row is None:
             raise RuntimeError("event insert did not return an event")
+        self.connection.commit()
         return self._row_to_event(row)
 
     def allocate_logical_seq(

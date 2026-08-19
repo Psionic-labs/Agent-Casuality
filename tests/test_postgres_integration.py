@@ -219,6 +219,17 @@ def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
             idempotency_key="sequence-retry",
             run_id=run_id,
         )
+        allocated = store.allocate_logical_seq(agent_id, AgentClock())
+        conflicting_retry = store.append(
+            Event(
+                run_id=run_id,
+                agent_id=agent_id,
+                logical_seq=allocated,
+                event_type="context_update",
+                payload={"conflict": True},
+                idempotency_key="sequence-retry",
+            )
+        )
         retry = record_event(
             agent_id=agent_id,
             clock=AgentClock(),
@@ -230,6 +241,9 @@ def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
         )
 
         assert event.logical_seq == 1
+        assert allocated == 2
+        assert conflicting_retry.id == event.id
+        assert conflicting_retry.logical_seq == 1
         assert retry.id == event.id
         assert retry.logical_seq == 1
         with connection.cursor() as cursor:
