@@ -1,7 +1,7 @@
-"""Minimal psycopg 3 storage adapter for Phase 1.
+"""Minimal psycopg 3 storage adapter for Phase 1 and Phase 2.
 
-The adapter intentionally owns only event and agent persistence. Graph
-queries, reducers, snapshots, and provenance are later phases.
+The adapter owns the Phase 1 event/agent writes and the Phase 2 graph query.
+State reconstruction, slicing, and provenance remain later phases.
 """
 
 from __future__ import annotations
@@ -55,12 +55,24 @@ CREATE TABLE IF NOT EXISTS events (
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (agent_id, logical_seq)
 );
+CREATE TABLE IF NOT EXISTS snapshots (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id uuid NOT NULL REFERENCES runs(id),
+    agent_id uuid NOT NULL REFERENCES agents(id),
+    logical_seq bigint NOT NULL,
+    state jsonb NOT NULL,
+    state_hash text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
 ALTER TABLE agents DROP CONSTRAINT IF EXISTS fk_spawned_at_event;
 ALTER TABLE agents ADD CONSTRAINT fk_spawned_at_event
     FOREIGN KEY (spawned_at_event_id) REFERENCES events(id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_idempotency
     ON events (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_events_agent_seq ON events (agent_id, logical_seq);
+CREATE INDEX IF NOT EXISTS idx_events_run_seq ON events (run_id, logical_seq);
+CREATE INDEX IF NOT EXISTS idx_snapshots_agent_seq
+    ON snapshots (agent_id, logical_seq DESC);
 """
 
 
@@ -83,9 +95,6 @@ class PostgresEventStore:
         event_id = self._uuid(record["id"], "Event.id")
         run_id = self._uuid(record["run_id"], "Event.run_id")
         agent_id = self._uuid(record["agent_id"], "Event.agent_id")
-        parent_ids = [
-            self._uuid(value, "Event.causal_parent_ids") for value in record["causal_parent_ids"]
-        ]
         columns = (
             "id, run_id, agent_id, logical_seq, wall_time, event_type, "
             "causal_parent_ids, payload, idempotency_key"
@@ -100,6 +109,33 @@ class PostgresEventStore:
         """
         try:
             with self.connection.cursor() as cursor:
+                if event.idempotency_key is not None:
+                    cursor.execute(
+                        "SELECT id, run_id, agent_id, logical_seq, wall_time, event_type, "
+                        "causal_parent_ids, payload, idempotency_key FROM events "
+                        "WHERE agent_id = %s AND idempotency_key = %s",
+                        (agent_id, event.idempotency_key),
+                    )
+                    existing_row = cursor.fetchone()
+                    if existing_row is not None:
+                        self.connection.rollback()
+                        return self._row_to_event(existing_row)
+
+                parent_ids = [
+                    self._uuid(value, "Event.causal_parent_ids")
+                    for value in record["causal_parent_ids"]
+                ]
+                if len(parent_ids) != len(set(parent_ids)):
+                    raise ValueError("causal parent IDs must be unique")
+                if parent_ids:
+                    cursor.execute(
+                        "SELECT id FROM events "
+                        "WHERE id = ANY(%s) AND run_id = %s",
+                        (parent_ids, run_id),
+                    )
+                    owned_parent_ids = {row[0] for row in cursor.fetchall()}
+                    if owned_parent_ids != set(parent_ids):
+                        raise ValueError("causal parent events must belong to the event run")
                 cursor.execute(
                     sql,
                     (
@@ -123,12 +159,17 @@ class PostgresEventStore:
                         (agent_id, event.idempotency_key),
                     )
                     row = cursor.fetchone()
-            self.connection.commit()
+                    if row is not None:
+                        # Roll back a sequence allocated in this transaction
+                        # when another writer already stored this idempotent event.
+                        self.connection.rollback()
+                        return self._row_to_event(row)
         except Exception:
             self.connection.rollback()
             raise
         if row is None:
             raise RuntimeError("event insert did not return an event")
+        self.connection.commit()
         return self._row_to_event(row)
 
     def allocate_logical_seq(
@@ -160,7 +201,6 @@ class PostgresEventStore:
                     "UPDATE agents SET lamport_offset = %s WHERE id = %s",
                     (sequence, agent_uuid),
                 )
-            self.connection.commit()
         except Exception:
             self.connection.rollback()
             raise
@@ -189,6 +229,36 @@ class PostgresEventStore:
             )
             row = cursor.fetchone()
         return None if row is None else self._row_to_event(row)
+
+    def ancestors(self, event_id: str) -> list[str]:
+        """Return an event and all events reachable through causal parents."""
+        event_uuid = self._uuid(event_id, "event_id")
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH RECURSIVE ancestors AS (
+                    SELECT id, run_id, causal_parent_ids
+                    FROM events
+                    WHERE id = %s
+
+                    UNION
+
+                    SELECT e.id, e.run_id, e.causal_parent_ids
+                    FROM events e
+                    JOIN ancestors a
+                      ON e.id = ANY(a.causal_parent_ids)
+                     AND e.run_id = a.run_id
+                )
+                SELECT id::text
+                FROM ancestors
+                ORDER BY id::text
+                """,
+                (event_uuid,),
+            )
+            rows = cursor.fetchall()
+        if not rows:
+            raise ValueError(f"event {event_id} does not exist")
+        return [str(row[0]) for row in rows]
 
     @contextmanager
     def tool_invocation_lock(self, agent_id: str, invocation_id: str) -> Iterator[None]:

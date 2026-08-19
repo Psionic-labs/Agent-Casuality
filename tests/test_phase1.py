@@ -45,6 +45,31 @@ def test_record_event_allocates_before_sink_and_preserves_parents() -> None:
     assert event.causal_parent_ids == ["parent-1", "parent-2"]
 
 
+def test_record_event_idempotent_retry_does_not_allocate_again() -> None:
+    log = InMemoryEventLog()
+    clock = AgentClock()
+    first = record_event(
+        agent_id="a",
+        clock=clock,
+        log=log,
+        event_type="context_update",
+        payload={"attempt": 1},
+        idempotency_key="same-event",
+    )
+
+    retry = record_event(
+        agent_id="a",
+        clock=clock,
+        log=log,
+        event_type="context_update",
+        payload={"attempt": 2},
+        idempotency_key="same-event",
+    )
+
+    assert retry == first
+    assert clock.current() == first.logical_seq
+
+
 @dataclass
 class FakeResponse:
     answer: str

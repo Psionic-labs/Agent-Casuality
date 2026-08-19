@@ -1,8 +1,8 @@
 # Getting Started
 
 Agent-Casuality is a causal event-capture SDK for branching multi-agent
-systems. Phase 1 records model calls, tool calls, memory operations, and
-agent spawning in PostgreSQL.
+systems. Phase 1 records execution events, and Phase 2 makes their causal
+agent/event graph queryable in PostgreSQL.
 
 ## Prerequisites
 
@@ -47,16 +47,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
 The script runs pytest, Ruff, and ty. If `.env` exists, it loads the file so
 the PostgreSQL integration test runs as well.
 
-Run the real PostgreSQL integration test with the `.env` file loaded:
+Run the real Phase 1 and Phase 2 PostgreSQL integration tests with the `.env`
+file loaded:
 
 ```powershell
-uv run --env-file .env pytest tests/test_postgres_integration.py -m integration -q
+uv run --env-file .env pytest tests/test_postgres_integration.py tests/test_phase2.py -m integration -q
 ```
 
 Expected result:
 
 ```text
-1 passed
+3 passed
 ```
 
 To run the complete suite with PostgreSQL enabled:
@@ -147,20 +148,26 @@ transaction-scoped PostgreSQL advisory lock.
 ## Verify the data in Neon
 
 Open the Neon SQL Editor for the same branch used by `DATABASE_URL`. Run the
-queries in [TEST.md](TEST.md). They verify:
+queries in [TEST.md](TEST.md). They verify the Phase 1 capture data and the
+Phase 2 PostgreSQL graph:
 
-- each Phase 1 run has three agents and seven events
+- required Phase 2 tables, columns, indexes, and foreign keys
+- expected agent and event counts for the integration runs
 - workers reference the planner and their spawn events
-- tool calls and results are linked
+- worker model, tool-call, and tool-result branches are linked
 - the planner merge preserves both worker result IDs
+- graph ancestors include both worker branches
+- every causal parent resolves to a real event
 - no agent has duplicate logical sequence numbers
 
-The event count query uses `COUNT(DISTINCT e.id)`. Without `DISTINCT`, the
-join between agents and events can report 21 instead of the actual 7 events.
+The event count query uses `COUNT(DISTINCT ...)` because joining agents and
+events multiplies rows. `TEST.md` explains the purpose and expected result of
+each query, including why logical sequence numbers must not be used as causal
+edges.
 
 ## Current scope
 
-Phase 1 is complete. It includes:
+Phase 1 and Phase 2 are complete. They include:
 
 - `Event` and thread-safe `AgentClock`
 - Anthropic `messages.create` capture
@@ -168,8 +175,10 @@ Phase 1 is complete. It includes:
 - captured memory `get`, `set`, and `delete`
 - agent spawning with `spawned_at_event_id`
 - in-memory and PostgreSQL event/agent stores
+- explicit cross-agent causal-parent assignment
+- PostgreSQL-backed `ancestors(event_id)` queries
 
-Phase 2+ features such as graph queries, state reconstruction, snapshots,
+Phase 3+ features such as state reconstruction, snapshot creation,
 provenance traversal, replay, and minimal slicing are intentionally not yet
 implemented.
 

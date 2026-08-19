@@ -96,6 +96,14 @@ def record_event(
 ) -> Event:
     """Allocate and append an event while preserving its causal metadata."""
     parent_ids = list(causal_parent_ids)
+    if idempotency_key is not None:
+        getter = getattr(log, "get_by_idempotency_key", None)
+        if getter is not None:
+            existing = getter(agent_id, idempotency_key)
+            if isinstance(existing, Event):
+                return existing
+    if len(parent_ids) != len(set(parent_ids)):
+        raise ValueError("causal parent IDs must be unique")
     allocator = getattr(log, "allocate_logical_seq", None)
     if allocator is None:
         sequence = next_seq(clock, causal_parent_seqs)
