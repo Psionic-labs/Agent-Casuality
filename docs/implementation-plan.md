@@ -304,67 +304,86 @@ somewhere you forgot about.
 
 ---
 
-## Phase 2.5: Decision contract and merge metadata
+## Phase 2.5: Decision SCM contract and Resource-Version invariants
 
-**Goal.** Turn the Phase 2 event graph into a stable decision-debugging
-contract before building replay, without prematurely adding a graph
-database or replaying entire runs.
+**Goal.** Formalize the Phase 2 event graph into a Structural Causal Model
+(SCM) over semantic ports, implement Resource-Version invariants for shared
+state, and build capture completeness validation before building replay.
 
 ```mermaid
 flowchart LR
-    A[Declared parent events] --> B[Decision / merge contract]
-    B --> C[Decision inputs]
+    A[Declared parent events] --> B[Decision SCM contract]
+    B --> C[Semantic input ports]
     B --> D[Decision output]
     B --> E[Declared dependency]
-    E -. not yet proven .-> F[Decision influence]
+    E -. not yet proven .-> F[Shapley decision influence]
+    M[Shared memory / file write] --> R[Resource registry]
+    R --> S[Implicit read edge injection]
 ```
 
 **Why.** Phase 2 proves declared dependencies, but a declared parent is
-not automatically proof that the parent influenced the final outcome. The
-product's useful question is `why decision D123?`, not merely `ancestors(A4)`.
-This phase separates execution order, data dependency, and decision
-influence so later analysis does not overclaim.
+not automatically proof that the parent influenced the final outcome.
+Furthermore, uncaptured mutations in shared memory or files create
+disconnected causal subgraphs. This phase establishes:
+1. Resource Version Invariants so shared state is automatically tracked.
+2. Semantic Input Ports so counterfactual interventions execute typed value
+   substitutions (`do(Port_i = baseline)`) rather than prompt-breaking string drops.
+3. Graph Completeness Validation to reject dangling edges or broken timelines.
 
 **Prerequisites.** Phase 2 complete, with real cross-agent merge events
 persisted in PostgreSQL.
 
 **Tasks.**
 
-1. Define a decision contract. Initially represent a decision as a typed
-   merge event or a view over existing events rather than adding a new
-   table. The contract should identify the decision type, input event IDs,
-   output, model/policy version, and outcome.
-2. Document that `causal_parent_ids` means declared data dependency. Add
-   validation and rendering that distinguish it from tested decision
-   influence.
-3. Add explicit merge metadata so the host application can state which
-   branch outputs were actually supplied to the decision, rather than
-   inferring parents from timing or the latest event.
-4. Document the future intervention boundary: recorded branch outputs may
-   be frozen later, external side effects must be refused, and exclusion
-   semantics must be chosen next to the Phase 5 benchmark.
-5. Add capture-completeness checks for missing parents, missing merge
-   inputs, dangling edges, duplicate idempotency keys, and cross-run
-   dependencies.
-6. Define a privacy and failure policy before real integrations: payload
-   redaction, secret handling, retention, and whether capture fails open or
-   closed when PostgreSQL is unavailable.
+1. **Define the Semantic Port Decision Contract (`core/decision.py`):**
+   ```python
+   @dataclass(frozen=True)
+   class DecisionPort:
+       port_id: str
+       source_event_id: str
+       field_path: str
+       recorded_value: Any
+       baseline_value: Any  # SENTINEL, CANONICAL, or HISTORICAL_PRIOR
+
+   @dataclass
+   class DecisionContract:
+       decision_id: str
+       run_id: str
+       agent_id: str
+       decision_event_id: str
+       ports: list[DecisionPort]
+       decision_type: str
+       policy_version: str | None = None
+   ```
+2. **Implement the Resource Version Invariant (`sdk/memory.py` & `sdk/tools.py`):**
+   - Add a thread-safe `ResourceRegistry` tracking `(resource_uri -> (version, last_event_id))`.
+   - On `memory.set(key, ...)`: Register `mem://{agent_id}/{key}` $\to (\text{seq}, \text{event.id})$.
+   - On `memory.get(key, ...)`: Auto-inject `last_event_id` into `causal_parent_ids`.
+3. **Implement Intra-Agent Timeline Continuity:**
+   - Extend `sdk/tools.py` and `sdk/client.py` so consecutive events on the
+     same agent automatically chain unless explicitly configured otherwise,
+     preventing reachability gaps during recursive graph traversal.
+4. **Implement the Graph Completeness Validator (`core/validator.py`):**
+   - `check_dangling_parents(run_id)`: Verifies all `causal_parent_ids` exist in PostgreSQL.
+   - `check_cross_run_isolation(run_id)`: Ensures no edges cross run boundaries.
+   - `check_intra_agent_continuity(run_id)`: Flags timeline gaps where $E_{t+1}$ has no causal link to $E_t$.
+   - `check_decision_port_resolution(decision_id)`: Confirms every decision port binds to a valid ancestor event.
+5. **Define Privacy and Failure Policies:**
+   - Payload redaction, secret filtering, retention, and explicit fail-open/closed
+     behavior during storage unavailability.
 
 **Acceptance criteria.**
 
-- The real fixture can be queried as a decision, not only as an event.
-- The system distinguishes declared dependency from tested influence.
-- A missing or incorrect parent is reported as incomplete evidence rather
-  than silently treated as a causal fact.
+- The real fixture can be queried as a decision with typed Semantic Ports.
+- Memory mutations automatically create causal edges on subsequent reads without manual wiring.
+- The Completeness Validator flags any synthetic dangling parent or broken intra-agent link.
 - The capture contract remains compatible with the current Phase 2 store.
 
-**Owner.** You own the decision and capture contract. The benchmark owner
-can implement the interaction matrix against it.
+**Owner.** You own the decision contract, resource registry, and completeness validator.
 
-**Pitfalls.** Do not add a graph database, a full dashboard, or a general
-replay engine, or interaction analysis in this phase. Do not call the LLM
-again just to test whether an upstream branch mattered; that changes the
-experiment from decision influence to a noisy second model run.
+**Pitfalls.** Do not add a graph database or full dashboard. Do not re-run the LLM
+with raw string exclusions during this phase; baseline substitutions are defined here
+and executed in Phase 5.
 
 ---
 
@@ -611,74 +630,69 @@ you, since it plugs directly into the schema you already own.
 
 **Goal.** The system can determine whether a decision failure came from
 one branch, multiple branches, or an interaction between converging
-branches. `test_interaction` and `counterfactual_replay` work against real
-captured runs, followed by `ddmin` for cases that need broader reduction.
+branches using Semantic Port substitutions and Shapley-Owen interaction indices.
 
 ```mermaid
 flowchart LR
-    A[Branch A output] --> M[Merge decision]
-    B[Branch B output] --> M
+    A[Branch A port] --> M[Decision SCM]
+    B[Branch B port] --> M
     M --> Y[Outcome]
-    M --> R[Recorded-output replay]
-    R --> R1[A + B]
-    R --> R2[A only]
-    R --> R3[B only]
-    R --> R4[Neither]
-    R1 --> C[Interaction classification]
-    R2 --> C
-    R3 --> C
-    R4 --> C
-    C --> D[Optional ddmin / broader replay]
+    M --> R[Semantic Port Replay]
+    R --> R1[Active: A + B]
+    R --> R2[A active, B baseline]
+    R --> R3[B active, A baseline]
+    R --> R4[A + B baseline]
+    R1 --> S[Monte Carlo sampling]
+    R2 --> S
+    R3 --> S
+    R4 --> S
+    S --> C[Shapley interaction index<br/>with confidence bounds]
+    C --> D[Optional ddmin / minimal slice]
 ```
 
 **Why.** This is the actual research contribution of the whole project,
 the part that answers "was it one branch, or the interaction between
-branches?" The efficient path is merge-local attribution, not replaying
-the entire upstream run for every intervention.
+branches?" Interventions execute typed value substitutions (`do(Port_i = baseline)`)
+on recorded branch outputs, avoiding prompt syntax collapse and quantifying
+interaction strength under stochastic LLM decoding.
 
 **Prerequisites.** Phases 1 through 3 complete and correct, since this
 phase calls `reconstruct`, the structural slice, and the decision contract.
 Phase 4 is useful but is not required for the first merge-local
 interaction result.
 
-**Before writing any code here, make one decision and write it down.**
-Thesis section 30.6 flags this openly: what does "exclude an event"
-actually mean when testing for interaction. A neutral placeholder value,
-the value from a known passing run, or the state right before that
-branch started. Pick one. This is genuinely the AI guy's call to make,
-since it's a methodology decision, not an implementation detail, and it
-should live next to the benchmark definition, not get decided implicitly
-by whatever the first version of the code happens to do.
+**Methodology Decision.** Interventions are defined as Semantic Port
+baseline substitutions (`DEFAULT_SENTINEL`, `CANONICAL_BASELINE`, or
+`HISTORICAL_PRIOR`) on the Decision SCM ports defined in Phase 2.5.
 
 **Tasks.**
 
 1. Implement merge-local recorded-output replay: freeze upstream branch
-   outputs and rerun only the merge and downstream decision.
-2. Implement the four-run interaction matrix: both parents, parent A
-   only, parent B only, and neither. Return `sufficient`, `redundant`,
-   `interaction`, `neither`, or `inconclusive`.
-3. Implement `counterfactual_replay` with explicit side-effect refusal,
+   outputs and evaluate the decision function with port overrides.
+2. Implement the **Shapley-Owen Interaction Index (`core/replay.py`)**:
+   Compute individual branch Shapley values $\phi_i$ and pairwise interaction
+   indices $I_{ij}$ across Monte Carlo sampling runs ($M$ replays per subset).
+3. Compute bootstrap standard errors and statistical confidence intervals
+   ($I_{ij} \pm \sigma, p$-value) to eliminate false interaction flags from
+   model temperature variance.
+4. Implement `counterfactual_replay` with explicit side-effect refusal,
    not a guess based on tool name. Use full downstream replay only when
    the merge-local contract is insufficient.
-4. Implement `ddmin` with caching and a replay budget cap for broader
+5. Implement `ddmin` with subset caching and a replay budget cap for broader
    minimal-slice reduction.
-5. Run all of these against the real capture of the fixture scenario and
-   confirm the output matches `fixture.json`'s `ground_truth` block. If
-   it doesn't match, that's either a bug in the real implementation or a
-   sign the ground truth itself needs revisiting, both are useful things
-   to find out now.
+6. Run all of these against the real capture of the fixture scenario and
+   confirm the output matches `fixture.json`'s `ground_truth` block.
 
 **Acceptance criteria.** Running the real system against a real capture
 of the customer approval scenario produces `slice_minimal` equal to
-`["B3", "C3", "A3", "A4"]` and `interactions` correctly classifies it as
-an interaction between B3 and C3, not a guess planted in a fixture.
+`["B3", "C3", "A3", "A4"]` and `interactions` correctly reports a statistically
+significant joint interaction between B3 and C3 ($I_{BC} \gg 0, p < 0.01$).
 
 **Owner.** AI guy.
 
 **Pitfalls.** `ddmin` without a budget cap will happily run an unbounded
 number of replay calls on a large real run. Build the cap in from day
-one of this phase, not as a fix after something takes twenty minutes to
-return.
+one of this phase. Ensure Monte Carlo samples per cell are configurable.
 
 ---
 
@@ -828,13 +842,22 @@ benchmark once each adapter exists; they do not delay the core benchmark.
 3. **The five benchmark scenarios** from thesis section 23, single cause,
    multiple parents, interaction, distractor branches, memory
    contamination. Each one needs a small synthetic agent run built to
-   trigger it, plus a known ground truth to score against, the same
-   pattern the fixture already demonstrates for the interaction case.
-4. **Baseline comparison.** Benchmark against an existing tool's diff
+   trigger it, plus a known ground truth to score against.
+4. **Three Critical Validation Experiments (from `research-memo.md`):**
+   - *Experiment 1 (Stochastic $B \times C$ Sensitivity):* Verify that the Shapley
+     Interaction Index isolates joint branch interactions from independent causes across
+     varying model temperatures ($T \in \{0.0, 0.3, 0.7, 1.0\}$), achieving $< 1\%$ false positive
+     rate where naive 2x2 matrices exceed $15\%$.
+   - *Experiment 2 (Shared-State Causal Recovery):* Verify that the Resource-Version Invariant
+     automatically recovers $100\%$ of unannotated memory/file dependencies without manual wiring.
+   - *Experiment 3 (Prompt Malformation vs Semantic Port Ablation):* Demonstrate that
+     Semantic Port substitutions eliminate syntax/parsing errors across 20 prompt formats
+     where raw text deletion fails $> 35\%$ of the time.
+5. **Baseline comparison.** Benchmark against an existing tool's diff
    feature, not a flat trace log, as discussed earlier. This is what
    makes the eventual write up credible rather than a strawman
    comparison.
-5. **Post-MVP coding-agent benchmark.** Run the same ground-truth scenarios
+6. **Post-MVP coding-agent benchmark.** Run the same ground-truth scenarios
    through the OpenCode, Claude Code, and Codex adapters as they become
    available, measuring capture completeness and diagnosis quality separately
    from the core engine.

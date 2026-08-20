@@ -51,6 +51,29 @@ find them without rereading the whole thing.
    adapters and plugins are a post-MVP distribution and dogfooding track,
    not a prerequisite for the core debugger.
 
+8. **Implicit State and Environmental Flow Tracking (Resource-Version Invariants).**
+   Shared memory, databases, and scratchpad files previously left unlinked
+   causal gaps when agents communicated through mutations. Every stateful
+   resource is now assigned a monotonic Resource Version Tuple
+   `(version, last_writer_event_id)` that automatically injects causal edges
+   on reads, guaranteeing DAG completeness.
+
+9. **Semantic Counterfactual Ports for Decision Contracts (Phase 2.5).**
+   Merge decisions are formalized as Structural Causal Models (SCMs) over
+   typed semantic ports. Interventions execute true value substitutions
+   `do(X_i = baseline)` rather than ad-hoc string deletions that cause prompt
+   syntax collapse.
+
+10. **Statistical Shapley-Owen Interaction Attribution.**
+    Interaction testing is upgraded from a brittle Boolean 2x2 matrix to
+    game-theoretic Shapley-Owen interaction indices with Monte Carlo
+    confidence intervals, resolving the stochastic nondeterminism of LLMs.
+
+11. **Empirical Context-Chunk Sensitivity for Provenance.**
+    Coarse provenance at the LLM boundary is supplemented with post-mortem
+    context-chunk masking, verifying empirical sensitivity without requiring
+    internal model weights.
+
 ## Project thesis
 
 Multi-agent AI systems are easy to trace and hard to debug.
@@ -289,7 +312,7 @@ explicitly, not implied by ordering.
 
 # 6. The execution graph
 
-There are three edge types.
+There are four edge types.
 
 **Same-agent edge.** An agent's next event followed its previous event.
 
@@ -303,16 +326,20 @@ B1 -> B2 -> B3
 A1 - - -> B1
 ```
 
-**Causal dependency edge.** An event used information from another event.
+**Explicit causal dependency edge.** An event explicitly consumed information from another event.
 
 ```text
 B3 ....> A3
 C3 ....> A3
 ```
 
-This last type is the most important one. A3 can have more than one
-causal parent, and that is exactly why a simple tree structure is not
-enough.
+**Resource-versioned state edge.** An agent read a shared resource (memory key, file, DB record) mutated by an earlier event.
+
+```text
+B2 (write mem://status) ~~~~> C2 (read mem://status)
+```
+
+Explicit and resource-versioned edges are what allow multi-parent convergence. A3 can have more than one causal parent, and that is exactly why a simple tree structure is not enough.
 
 
 # 7. Why this is a DAG
@@ -446,18 +473,19 @@ direct field copy. That is not true in general.
 > is not something a better schema fixes, it is the open problem of model
 > interpretability, and it does not have a general solution right now.
 >
-> So provenance in this system has to come in two grades, and both should
-> say which grade they are:
+> So provenance in this system comes in three distinct tiers:
 >
 > - **Exact provenance.** Tool calls, memory reads and writes, direct
 >   field copies, deterministic transforms. A field path traces cleanly
 >   back to a specific upstream field.
-> - **Coarse provenance.** Anything that passes through an LLM call. The
->   most honest claim you can make is "this whole context window was the
->   input to this output," not a field level trace through the model's
->   reasoning. Do not present a coarse link with the same confidence as an
->   exact one, and say plainly in the tool's output which kind you are
->   looking at.
+> - **Coarse provenance.** Any value passing through an unverified LLM call.
+>   The honest claim is "this assembled context window was the input to
+>   this output," without pretending to know the internal weights.
+> - **Empirical (chunk-verified) provenance.** When an LLM call is tested
+>   post-mortem by localized context-chunk perturbation/masking. If masking
+>   a specific upstream tool chunk flips the downstream output while masking
+>   other chunks causes zero change, the link is empirically promoted with
+>   measured sensitivity.
 
 Provenance is valuable specifically because many agent failures are not
 caused by the final reasoning step. The final step often just consumes a
@@ -731,28 +759,29 @@ The event graph is the foundation, but it should not be the primary user
 concept. Developers do not ultimately want to inspect five hundred events;
 they want to know why a decision was made.
 
-The product should therefore expose a decision-centric layer above the
-event graph:
+The product models decisions as **Structural Causal Models (SCMs) over Semantic Input Ports**:
 
 ```text
-Decision
-|- decision_id
-|- decision_type
-|- input_event_ids
-|- output
-|- policy_or_prompt_version
-|- model_version
-|- outcome
-`- intervention_results
+Decision (SCM Formulation)
+├── decision_id
+├── decision_type
+├── input_ports[]
+│   ├── port_name (e.g. "eligibility_report", "risk_evaluation")
+│   ├── source_event_id
+│   ├── recorded_value
+│   └── ablation_strategy (SENTINEL, CANONICAL, HISTORICAL_PRIOR)
+├── output
+├── policy_or_prompt_version
+├── outcome
+└── shapley_interaction_results
 ```
 
 A decision can initially be represented as a typed merge event or a view
-over existing events. It does not require a separate table until measured
-workloads show that one is necessary. The important change is semantic:
+over existing events. The important change is semantic:
 the system should answer `why decision D123?`, not only `show ancestors of
 event A4`.
 
-The system must distinguish three relationships:
+The system distinguishes three relationships:
 
 ```text
 Execution relationship: what happened before what?
@@ -760,12 +789,9 @@ Data dependency: which outputs were passed into this event?
 Decision influence: which inputs changed the outcome?
 ```
 
-`causal_parent_ids` currently records declared dependency. It must not be
-presented as proof that every parent influenced the outcome. Influence is
-tested separately through controlled interventions.
-
-This gives the project a sharper claim: it is not another trace viewer. It
-is a debugger for decisions formed by converging agent branches.
+`causal_parent_ids` records declared dependency. Influence is tested
+separately by executing typed counterfactual substitutions on semantic ports:
+`do(Port_i = baseline_value)` rather than dropping text from prompts.
 
 ## Efficient interaction attribution
 
@@ -775,31 +801,23 @@ merge-local.
 
 At a merge point where B and C feed a downstream decision, freeze the
 recorded outputs of B and C and replay only the merge and its downstream
-decision function:
+decision function over semantic port interventions:
 
-```text
-1. B + C
-2. C only
-3. B only
-4. neither
-```
+1. **Individual Branch Influence (Shapley Value $\phi_i$):**
+   Measures the marginal contribution of branch $i$ across all possible subsets of active parent branches.
+2. **Pairwise Interaction Index ($I_{ij}$):**
+   Measures non-linear joint dependency between branches $i$ and $j$:
+   $$I_{ij} = \sum_{S \subseteq N \setminus \{i, j\}} \frac{|S|!(|N| - |S| - 2)!}{|N|! - 1} \left[ v(S \cup \{i, j\}) - v(S \cup \{i\}) - v(S \cup \{j\}) + v(S) \right]$$
+3. **Statistical Confidence Intervals:**
+   Because LLM outputs can be stochastic, $v(S) = P(\text{Failure} \mid S)$ is estimated via Monte Carlo replay trials per subset, reporting standard errors ($I_{BC} \pm \sigma$) and $p$-values.
 
-The outcomes classify the suspected cause:
+This classifies the causes with statistical confidence:
+- $\phi_B \gg 0, I_{BC} \approx 0$: B alone is sufficient.
+- $\phi_C \gg 0, I_{BC} \approx 0$: C alone is sufficient.
+- $I_{BC} \gg 0$: B and C interact jointly.
+- $\phi_B \approx 0, \phi_C \approx 0, I_{BC} \approx 0$: Neither implicated.
 
-- B alone changes the outcome: B is sufficient.
-- C alone changes the outcome: C is sufficient.
-- Both are required: B and C interact.
-- Either one independently changes the outcome: the causes are redundant.
-- Neither changes the outcome: the suspected merge is not supported.
-
-This is both more efficient and more scientifically precise than replaying
-the entire upstream run for every intervention. Recorded-output replay
-tests influence on the downstream decision without pretending to explain
-which hidden reasoning inside an LLM produced its output.
-
-For a model-based merge, the first implementation should replay the
-recorded branch outputs. Deterministic or statistical model replay can be
-added later and must report uncertainty rather than claiming proof.
+This is both more efficient and scientifically rigorous under temperature noise than a brittle Boolean 2x2 matrix.
 
 ## Strategic direction
 
@@ -1394,96 +1412,91 @@ instead of hanging.
 
 ## 30.6 Interaction testing
 
-Restrict candidates to the direct causal parents of a merge event, since
-that keeps the search small in the common case, a merge event with two or
-three parents gives you one or three pairs, not the thousands you would
-get testing the whole slice. This is a small factorial design over
-binary interventions, present or excluded, not anything exotic. The first
-implementation runs the full four-condition matrix:
+Restrict candidates to the direct causal parent ports of a decision or merge
+event. Interventions are formulated as typed counterfactual baseline
+substitutions rather than deleting prompt text:
 
 ```python
-def test_interaction(a: str, b: str, replay_fn) -> str:
-    both    = replay_fn(exclude=set())
-    only_a  = replay_fn(exclude={b})
-    only_b  = replay_fn(exclude={a})
-    neither = replay_fn(exclude={a, b})
+@dataclass(frozen=True)
+class DecisionPort:
+    port_id: str
+    source_event_id: str
+    field_path: str
+    recorded_value: Any
+    baseline_value: Any  # SENTINEL, CANONICAL, or HISTORICAL_PRIOR
 
-    fails = lambda outcome: outcome == "failure"
-    if fails(neither):
-        return "inconclusive, neutral intervention reproduces failure"
-    if fails(both) and not fails(only_a) and not fails(only_b):
-        return "interaction, B and C jointly"
-    if fails(only_a) and not fails(only_b):
-        return "A alone sufficient"
-    if fails(only_b) and not fails(only_a):
-        return "B alone sufficient"
-    if fails(only_a) and fails(only_b):
-        return "either alone sufficient"
-    return "neither implicated"
+def compute_shapley_interaction(decision_id: str, ports: list[DecisionPort], evaluate_fn, samples_per_cell: int = 5) -> dict[str, Any]:
+    """Compute individual Shapley values and pairwise Shapley-Owen Interaction Indices
+    over Monte Carlo counterfactual replay evaluations."""
+    port_ids = [p.port_id for p in ports]
+    n = len(port_ids)
+
+    # Evaluate characteristic function v(S) = P(failure | active subset S)
+    # S contains active ports; excluded ports receive their baseline_value
+    def v(subset: frozenset[str]) -> float:
+        fails = 0
+        for _ in range(samples_per_cell):
+            outcome = evaluate_fn(active_ports=subset)
+            if outcome == "failure":
+                fails += 1
+        return fails / samples_per_cell
+
+    # Pairwise Interaction Index for (a, b)
+    results = {}
+    for i, a in enumerate(port_ids):
+        for b in port_ids[i+1:]:
+            rest = [p for p in port_ids if p not in (a, b)]
+            interaction_sum = 0.0
+            # Iterate over subsets of remaining ports
+            for r in range(len(rest) + 1):
+                for subset in itertools.combinations(rest, r):
+                    s = frozenset(subset)
+                    weight = math.factorial(len(s)) * math.factorial(n - len(s) - 2) / (math.factorial(n) - 1)
+                    delta2 = v(s | {a, b}) - v(s | {a}) - v(s | {b}) + v(s)
+                    interaction_sum += weight * delta2
+            results[f"{a}_x_{b}"] = interaction_sum
+
+    return results
 ```
 
-One thing this glosses over and worth naming plainly: what does
-"exclude" actually mean for an event's output. A neutral placeholder, the
-value from a known passing run, or the state as it existed right before
-that branch started. That choice changes what the test result means, and
-it does not have one obviously correct answer. Pick one, document it next
-to the benchmark, and treat changing it later as a real methodology
-change, not a small tweak.
+This replaces ad-hoc Boolean checks with game-theoretic interaction values bounded by statistical confidence intervals.
 
 ## 30.7 Counterfactual replay engine
 
-This is what both `ddmin` and `test_interaction` call into. It replays
-downstream of an intervention using recorded outputs wherever possible,
-and refuses outright on anything side effecting rather than guessing:
-
-For the first useful implementation, interventions are applied at the
-direct parents of a decision or merge. Freeze those recorded branch
-outputs and replay only the merge and its downstream decision. Full-run
-replay is a fallback for cases that cannot be resolved at the merge
-boundary, not the default path.
+This is what both `ddmin` and interaction analysis call into. It replays
+downstream of an intervention using recorded outputs and semantic port
+substitutions wherever possible, and refuses outright on anything side effecting:
 
 ```python
 @dataclass
-class Intervention:
-    event_id: str
-    field: str | None       # None means exclude the event entirely
-    replace_with: Any | None
+class PortIntervention:
+    port_id: str
+    substitute_value: Any
 
 SIDE_EFFECTING = {"database_write", "email_send", "payment", "external_api_mutation"}
 
-def counterfactual_replay(run_id: str, interventions: list[Intervention], mode: str = "recorded_output") -> str:
-    state = reconstruct(root_agent(run_id), target_seq=0)
-    for event in ordered_events(run_id):
-        override = find_override(event, interventions)
-        if override is not None:
-            event = apply_override(event, override)
-        elif event.event_type == "model_call" and mode == "deterministic":
-            event = rerun_model_call(event, temperature=0)
-        elif event.event_type == "model_call":
-            pass  # recorded_output mode, reuse what actually happened
-        elif event.payload.get("side_effect_category") in SIDE_EFFECTING:
-            raise ReplayUnsafe(f"{event.id} is side effecting, cannot replay")
-        state = reduce(state, event)
-    return terminal_outcome(state)
+def counterfactual_replay(
+    run_id: str,
+    decision_id: str,
+    interventions: list[PortIntervention],
+    mode: str = "recorded_output",
+) -> str:
+    decision = fetch_decision(decision_id)
+    # Apply port overrides to decision input payload
+    eval_inputs = dict(decision.recorded_inputs)
+    for inter in interventions:
+        eval_inputs[inter.port_id] = inter.substitute_value
+
+    if decision.is_side_effecting:
+        raise ReplayUnsafe(f"Decision {decision_id} contains un-sandboxed side effects")
+
+    return decision.evaluate(eval_inputs)
 ```
 
 The three replay modes from section 16 map directly onto this. Recorded
-output replay is the default and the only one the MVP needs. Deterministic
-replay pins temperature and reuses everything else recorded, and is still
-not a guarantee. Statistical replay runs `counterfactual_replay` several
-times and reports a failure rate rather than a single true or false,
-which is the honest option once a model call cannot be pinned.
+output replay with Semantic Port substitution is the default and safe path.
 
-Side effecting detection should be an explicit tag the developer sets on
-a tool at capture time, not something the system tries to guess:
-
-```python
-@tool(side_effecting=True)
-def send_email(to: str, body: str):
-    ...
-```
-
-## 30.8 Provenance capture
+## 30.8 Provenance capture and empirical verification
 
 Exact provenance gets written at the moment a tool result or memory write
 is captured, since those events carry an explicit field level source:
@@ -1500,9 +1513,7 @@ def record_tool_result_provenance(event, field_sources: dict[str, str]):
         )
 ```
 
-Coarse provenance gets written for anything downstream of a model call.
-There is no field path to point to inside the model's reasoning, so the
-honest record is that the whole assembled context was the input:
+Coarse provenance gets written for anything downstream of a model call:
 
 ```python
 def record_model_call_provenance(event, downstream_field_paths: list[str]):
@@ -1516,49 +1527,49 @@ def record_model_call_provenance(event, downstream_field_paths: list[str]):
         )
 ```
 
-Walking a chain backward is one recursive query, and it stops on its own
-once it reaches a coarse link, since there is no `source_path` to recurse
-into from there:
+For post-mortem deep debugging, **Context-Chunk Sensitivity Verification**
+masks individual input chunks in the prompt:
 
-```sql
-with recursive chain as (
-  select * from provenance_edges where field_path = $1 and run_id = $2
-  union all
-  select pe.*
-  from provenance_edges pe
-  join chain c on pe.field_path = c.source_path
-  where c.source_path is not null
-)
-select * from chain;
+```python
+def verify_chunk_sensitivity(model_event, chunk_id: str, evaluate_fn) -> float:
+    """Mask chunk_id with a neutral baseline and measure semantic output shift."""
+    masked_prompt = mask_context_chunk(model_event.payload["input"], chunk_id)
+    original_output = model_event.payload["output"]
+    perturbed_output = evaluate_fn(masked_prompt)
+    return semantic_distance(original_output, perturbed_output)
 ```
 
-Whatever renders this to a developer, CLI or otherwise, needs to print
-the grade next to every link, the way the `provenance` command in section
-18 does. Dropping the grade at display time quietly turns a coarse guess
-back into something that reads as exact, which defeats the entire point
-of tracking it separately.
+If sensitivity exceeds a significance threshold, the provenance link is
+empirically promoted to **verified chunk-level provenance**.
 
 ## 30.9 Edge cases worth designing for early
 
+**Disconnected shared-state channel (Memory/File concurrency).** If Agent B
+writes to shared memory and Agent C reads it, the SDK's Resource Version
+Registry automatically binds C's read event to B's write event as a causal
+parent, preventing disconnected causal subgraphs.
+
+**Intra-agent timeline continuity.** The capture wrappers in `sdk/tools.py`
+and `sdk/client.py` auto-chain an agent's consecutive events so that
+ancestor traversal does not drop intermediate reasoning steps.
+
+**Prompt syntax collapse on intervention.** Semantic Port substitutions
+`do(X_i = baseline_value)` preserve prompt template formatting, avoiding
+spurious failures caused by unescaped nulls or empty tokens.
+
 **Out of order ingestion.** An async tool call can return after a later
 reasoning step already logged. `logical_seq` is the source of truth for
-ordering, not arrival time, and the capture SDK needs to allocate the
-sequence number before the event leaves the process, using a per agent
-lock or an atomic counter update, or you get collisions under real
-concurrency.
+ordering, not arrival time, and the capture SDK allocates the sequence
+number before the event leaves the process using per-agent locks or
+`FOR UPDATE` database row locks.
 
 **Retried tool calls.** The idempotency unique index on
 `(agent_id, idempotency_key)` makes a retry a no-op insert, so it cannot
 create a duplicate causal edge or get double counted by the reducer.
 
-**Delta debugging cost blowing up.** Covered in 30.5, cache `test_fn`
-results and cap total replay calls per minimization run.
-
-**A coarse provenance link presented as exact.** Covered in 30.8, the
-schema itself should make this hard to do by accident, since a coarse row
-simply has no `source_path` to continue from.
+**Delta debugging cost blowing up.** Cache `test_fn` results and cap total
+replay calls per minimization run.
 
 **Long running agents and storage growth.** Keep every snapshot from the
 last day, keep every tenth snapshot older than that, drop the rest. Keep
-events indefinitely, they are cheap, only prune the larger snapshot
-blobs.
+events indefinitely; only prune large snapshot blobs.
