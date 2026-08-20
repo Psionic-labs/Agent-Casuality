@@ -3,8 +3,8 @@
 ## Changes from the previous version
 
 This is a rewrite of the ChatGPT document, not a new document. Everything
-that already worked is kept. Five things were changed, and each one is
-marked inline with a **Changed** note at the spot it applies, so you can
+that already worked is kept. The main changes are listed below, and each one
+is marked inline with a **Changed** note at the spot it applies, so you can
 find them without rereading the whole thing.
 
 1. **Causal slicing was actually two different things wearing one name.**
@@ -41,6 +41,15 @@ find them without rereading the whole thing.
 5. **The one sentence pitch was sharpened toward the specific claim that
    is actually defensible**, which is interaction attribution between
    independent agent branches, not causal debugging in general.
+
+6. **The architecture became decision-centric.** The event graph remains
+   the foundation, but declared dependency and tested decision influence
+   are now separate concepts. A decision or merge contract sits above the
+   event graph.
+
+7. **Agent runtime integrations moved after the MVP.** Coding-agent
+   adapters and plugins are a post-MVP distribution and dogfooding track,
+   not a prerequisite for the core debugger.
 
 ## Project thesis
 
@@ -668,57 +677,148 @@ produced, it does not generate new claims of its own.
 
 # 19. Architecture
 
-```text
-                 Agent application
-                        |
-                        v
-                 +-------------+
-                 | Capture SDK |
-                 +-------------+
-                        |
-                        v
-                 +-------------+
-                 | Event store |
-                 +-------------+
-                        |
-           +------------+------------+
-           |                         |
-           v                         v
-    +---------------+        +---------------+
-    | Event / Agent |        |  Snapshots    |
-    |      DAG      |        |  and State    |
-    +---------------+        +---------------+
-           |                         |
-           +------------+------------+
-                        v
-                +-------------------+
-                | State reconstruction|
-                +-------------------+
-                        |
-                        v
-                +-------------------+
-                | Structural slice   |
-                +-------------------+
-                        |
-           +------------+------------+
-           v                         v
-    +---------------+        +---------------------+
-    | Provenance     |        | Minimal slice +      |
-    | exact / coarse |        | interaction analysis |
-    +---------------+        | + counterfactuals     |
-                              +---------------------+
-                        |
-                        v
-                +-------------------+
-                | Explanation / CLI  |
-                +-------------------+
+```mermaid
+flowchart TD
+    APP[Agent application or coding agent]
+    ADAPTER[Post-MVP runtime adapter or plugin]
+    CAPTURE[Capture SDK + event contract]
+    STORE[(Event store)]
+    DAG[Event / agent DAG]
+    STATE[Snapshots + state]
+    DECISION[Decision / merge contract]
+    RECON[State reconstruction]
+    SLICE[Structural slice]
+    PROV[Provenance<br/>exact or coarse]
+    REPLAY[Merge-local interaction<br/>and controlled replay]
+    EVIDENCE[Evidence package]
+    OUTPUT[Explanation, CLI, or API]
+
+    APP --> ADAPTER
+    ADAPTER --> CAPTURE
+    APP --> CAPTURE
+    CAPTURE --> STORE
+    STORE --> DAG
+    STORE --> STATE
+    STORE --> DECISION
+    DAG --> RECON
+    STATE --> RECON
+    DAG --> SLICE
+    RECON --> SLICE
+    DECISION --> REPLAY
+    DAG --> REPLAY
+    SLICE --> PROV
+    STATE --> PROV
+    DECISION --> PROV
+    SLICE --> EVIDENCE
+    PROV --> EVIDENCE
+    REPLAY --> EVIDENCE
+    EVIDENCE --> OUTPUT
 ```
 
-> **Changed.** The structural slice now sits right after state
-> reconstruction, since it only needs the graph, not replay. Provenance,
-> minimal slicing, interaction analysis, and counterfactuals sit together
-> as the layer that actually needs execution, instead of being drawn as
-> four separate sequential boxes.
+The adapter/plugin boundary is optional during the MVP and becomes the
+integration surface after Phase 3. The decision contract records which
+branch outputs entered a decision; the replay layer tests which of those
+inputs influenced its outcome.
+
+The structural slice remains cheap graph traversal. Provenance and
+interaction analysis consume its evidence, but neither is allowed to turn
+declared dependency into a proven causal claim without the appropriate
+evidence.
+
+## Decision-centric debugging
+
+The event graph is the foundation, but it should not be the primary user
+concept. Developers do not ultimately want to inspect five hundred events;
+they want to know why a decision was made.
+
+The product should therefore expose a decision-centric layer above the
+event graph:
+
+```text
+Decision
+|- decision_id
+|- decision_type
+|- input_event_ids
+|- output
+|- policy_or_prompt_version
+|- model_version
+|- outcome
+`- intervention_results
+```
+
+A decision can initially be represented as a typed merge event or a view
+over existing events. It does not require a separate table until measured
+workloads show that one is necessary. The important change is semantic:
+the system should answer `why decision D123?`, not only `show ancestors of
+event A4`.
+
+The system must distinguish three relationships:
+
+```text
+Execution relationship: what happened before what?
+Data dependency: which outputs were passed into this event?
+Decision influence: which inputs changed the outcome?
+```
+
+`causal_parent_ids` currently records declared dependency. It must not be
+presented as proof that every parent influenced the outcome. Influence is
+tested separately through controlled interventions.
+
+This gives the project a sharper claim: it is not another trace viewer. It
+is a debugger for decisions formed by converging agent branches.
+
+## Efficient interaction attribution
+
+Full-run replay is expensive, nondeterministic, and unsafe around external
+side effects. The first interaction analysis should therefore be
+merge-local.
+
+At a merge point where B and C feed a downstream decision, freeze the
+recorded outputs of B and C and replay only the merge and its downstream
+decision function:
+
+```text
+1. B + C
+2. C only
+3. B only
+4. neither
+```
+
+The outcomes classify the suspected cause:
+
+- B alone changes the outcome: B is sufficient.
+- C alone changes the outcome: C is sufficient.
+- Both are required: B and C interact.
+- Either one independently changes the outcome: the causes are redundant.
+- Neither changes the outcome: the suspected merge is not supported.
+
+This is both more efficient and more scientifically precise than replaying
+the entire upstream run for every intervention. Recorded-output replay
+tests influence on the downstream decision without pretending to explain
+which hidden reasoning inside an LLM produced its output.
+
+For a model-based merge, the first implementation should replay the
+recorded branch outputs. Deterministic or statistical model replay can be
+added later and must report uncertainty rather than claiming proof.
+
+## Strategic direction
+
+The project should use coding agents as a practical dogfooding environment
+and decision attribution as the general core. A coding task can be modeled
+as a decision whose evidence includes model outputs, shell commands, file
+edits, tests, and subagent reports. The same abstraction then applies to
+risk allocation, underwriting, incident diagnosis, moderation, medical
+decision support, and supply-chain planning.
+
+The strongest evaluation is not storage throughput alone. It is whether a
+known failure involving two converging branches is correctly classified as
+an interaction, while ordinary tracing or a single-cause debugger blames
+one branch.
+
+The project should deliberately avoid a graph database, a large dashboard,
+many integrations, automatic repair, exact provenance through an LLM, and
+unrestricted production replay until the benchmark demonstrates that they
+are needed.
 
 # 20. MVP
 
@@ -726,6 +826,10 @@ produced, it does not generate new claims of its own.
 > slicing, interaction analysis, and counterfactuals are all pushed to a
 > second milestone. The goal of the MVP is narrower: prove the structural
 > `why` command works end to end on a real multi-agent run.
+
+The implementation of the MVP spans Phases 1 through 3. Phase 2.5 is a
+small contract-hardening step between the graph and replay work; it does
+not expand the MVP into interaction analysis or full counterfactual replay.
 
 ## Goal
 
@@ -771,6 +875,19 @@ unrestricted replay of production side effects
 > phase, since they share the same replay dependency instead of being
 > three separate phases that each build it again.
 
+```mermaid
+flowchart LR
+    P1[Phase 1<br/>Capture] --> P2[Phase 2<br/>Graph]
+    P2 --> P25[Phase 2.5<br/>Decision contract]
+    P25 --> P3[Phase 3<br/>State + structural slice]
+    P3 --> P4[Phase 4<br/>Provenance]
+    P4 --> P5[Phase 5<br/>Interaction + replay]
+    P5 --> P6[Phase 6<br/>Explanation]
+    P3 --> I[Post-MVP<br/>Agent adapters/plugins]
+    I -. parallel .-> P4
+    I -. parallel .-> P5
+```
+
 ## Phase 1: Capture
 
 Input: a small multi-agent application. Output: a correct event log. Main
@@ -781,25 +898,53 @@ risk: missing or incorrectly linked events.
 Input: recorded events and dependency metadata. Output: agent graph and
 event DAG. Main risk: incorrect cross-agent dependencies.
 
-## Phase 3: Replay and structural slice
+## Phase 2.5: Decision contract
+
+Input: the Phase 2 event graph. Output: an explicit contract for decision
+and merge events, including which branch outputs were supplied to the
+decision. Main risk: confusing declared dependency with proven decision
+influence.
+
+This phase remains inside MVP hardening. It does not replay upstream model
+calls or claim that every declared parent changed the outcome.
+
+## Phase 3: State reconstruction and structural slice
 
 Input: event log and snapshots. Output: historical state reconstruction,
 plus a structural causal slice from any failure event. Main risk:
 reconstructed state differs from the original recorded state.
 
+Phase 3 completes the MVP. It provides the historical state and structural
+evidence that later provenance and interaction analysis consume.
+
+## Post-MVP: Agent runtime adapters and plugins
+
+Input: the completed Phase 3 MVP and its stable event/decision contract.
+Output: vendor-neutral runtime adapters and plugins that capture real coding
+agent sessions and send them through the same core pipeline. This track starts
+after Phase 3 and may run in parallel with Phases 4 and 5; it is a distribution
+and dogfooding track, not a prerequisite for the core debugger.
+
 ## Phase 4: Provenance
 
 Input: state and causal graph. Output: origin chain for selected values,
 marked exact or coarse. Main risk: presenting a coarse, LLM mediated link
-with the same confidence as an exact one.
+with the same confidence as an exact one. Provenance should be especially
+useful for tracing the inputs that entered a decision, while remaining
+honest about the limits of field-level attribution through an LLM.
 
 ## Phase 5: Minimal slicing, interaction analysis, and counterfactuals
 
-Input: replayable structural slice. Output: a minimized slice through
-delta debugging, individual versus joint cause attribution, and
-controlled intervention results where safe. Main risk: nondeterminism or
+Input: a replayable structural slice and a decision/merge contract. Output:
+merge-local interaction attribution first, followed by minimal slicing and
+broader controlled replay where necessary. Main risk: nondeterminism or
 external side effects making an experiment inconclusive, and blaming one
 branch when the real cause is a combination of branches.
+
+The efficient first step is to freeze recorded branch outputs and replay
+only the downstream merge. Test both branches, each branch alone, and
+neither branch. Full-run replay is a fallback for cases that cannot be
+resolved at the merge boundary, not the default path.
 
 ## Phase 6: Explanation
 
@@ -1253,16 +1398,20 @@ Restrict candidates to the direct causal parents of a merge event, since
 that keeps the search small in the common case, a merge event with two or
 three parents gives you one or three pairs, not the thousands you would
 get testing the whole slice. This is a small factorial design over
-binary interventions, present or excluded, not anything exotic:
+binary interventions, present or excluded, not anything exotic. The first
+implementation runs the full four-condition matrix:
 
 ```python
 def test_interaction(a: str, b: str, replay_fn) -> str:
-    only_a = replay_fn(exclude={b})
-    only_b = replay_fn(exclude={a})
-    both   = replay_fn(exclude=set())
+    both    = replay_fn(exclude=set())
+    only_a  = replay_fn(exclude={b})
+    only_b  = replay_fn(exclude={a})
+    neither = replay_fn(exclude={a, b})
 
     fails = lambda outcome: outcome == "failure"
-    if not fails(only_a) and not fails(only_b) and fails(both):
+    if fails(neither):
+        return "inconclusive, neutral intervention reproduces failure"
+    if fails(both) and not fails(only_a) and not fails(only_b):
         return "interaction, B and C jointly"
     if fails(only_a) and not fails(only_b):
         return "A alone sufficient"
@@ -1286,6 +1435,12 @@ change, not a small tweak.
 This is what both `ddmin` and `test_interaction` call into. It replays
 downstream of an intervention using recorded outputs wherever possible,
 and refuses outright on anything side effecting rather than guessing:
+
+For the first useful implementation, interventions are applied at the
+direct parents of a decision or merge. Freeze those recorded branch
+outputs and replay only the merge and its downstream decision. Full-run
+replay is a fallback for cases that cannot be resolved at the merge
+boundary, not the default path.
 
 ```python
 @dataclass

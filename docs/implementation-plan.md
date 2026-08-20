@@ -59,6 +59,10 @@ causal-debugger/
 ├── storage/
 │   ├── postgres.py
 │   └── migrations/
+├── adapters/             post-MVP runtime integrations
+│   ├── opencode/
+│   ├── claude_code/
+│   └── codex/
 ├── cli/
 │   └── main.py
 ├── frontend/
@@ -80,11 +84,16 @@ From the earlier conversation, restated here so it's next to the actual
 tasks instead of buried in chat history.
 
 - **You:** phases 1 through 3. Capture, the graph, state reconstruction,
-  the structural slice. This is the correctness core, and it's also the
-  API contract everyone else builds against.
+  the structural slice, plus the Phase 2.5 decision contract. This is the
+  correctness core, and it's also the API contract everyone else builds
+  against.
 - **AI guy:** phase 5, plus the benchmark. Minimal slicing, interaction
   testing, counterfactual replay, and defining what the five benchmark
   scenarios actually measure.
+- **Post-MVP adapter owner:** the runtime adapter/plugin track starts after
+  Phase 3. It may run in parallel with Phases 4 and 5, but it must consume
+  the common event contract rather than add vendor-specific logic to the
+  core SDK.
 - **Frontend guy:** the visualization track, which runs in parallel to
   all of the above starting from day one, against the fixture, then
   against your real API once it exists.
@@ -113,6 +122,19 @@ different assumptions.
 **Goal.** Every model call, tool call, tool result, memory operation, and
 lifecycle event from a real agent run gets written to the event store,
 correctly, without the agent code needing to know tracing exists.
+
+```mermaid
+flowchart LR
+    A[Real agent run] --> B[Model call]
+    A --> C[Tool call]
+    A --> D[Memory operation]
+    A --> E[Agent lifecycle]
+    B --> F[Event log]
+    C --> F
+    D --> F
+    E --> F
+    F --> G[Complete linked events]
+```
 
 **Why this phase first.** Nothing downstream works without a correct
 event log. A bug here is invisible until much later, when the causal
@@ -223,6 +245,15 @@ buffering logic, not after debugging a race condition.
 resolve correctly, and the small three agent example from the fixture
 reconstructs exactly when run for real instead of read from JSON.
 
+```mermaid
+flowchart LR
+    E[Recorded events] --> G[Agent + event DAG]
+    S[Spawn events] --> G
+    P[Explicit causal parents] --> G
+    G --> Q[Ancestor query]
+    Q --> R[Structural dependency result]
+```
+
 **Why.** This is where `causal_parent_ids` actually gets tested against a
 real spawn and merge, not a hand written fixture. If dependency
 assignment is wrong here, everything built on top of it, slicing,
@@ -273,21 +304,98 @@ somewhere you forgot about.
 
 ---
 
+## Phase 2.5: Decision contract and merge metadata
+
+**Goal.** Turn the Phase 2 event graph into a stable decision-debugging
+contract before building replay, without prematurely adding a graph
+database or replaying entire runs.
+
+```mermaid
+flowchart LR
+    A[Declared parent events] --> B[Decision / merge contract]
+    B --> C[Decision inputs]
+    B --> D[Decision output]
+    B --> E[Declared dependency]
+    E -. not yet proven .-> F[Decision influence]
+```
+
+**Why.** Phase 2 proves declared dependencies, but a declared parent is
+not automatically proof that the parent influenced the final outcome. The
+product's useful question is `why decision D123?`, not merely `ancestors(A4)`.
+This phase separates execution order, data dependency, and decision
+influence so later analysis does not overclaim.
+
+**Prerequisites.** Phase 2 complete, with real cross-agent merge events
+persisted in PostgreSQL.
+
+**Tasks.**
+
+1. Define a decision contract. Initially represent a decision as a typed
+   merge event or a view over existing events rather than adding a new
+   table. The contract should identify the decision type, input event IDs,
+   output, model/policy version, and outcome.
+2. Document that `causal_parent_ids` means declared data dependency. Add
+   validation and rendering that distinguish it from tested decision
+   influence.
+3. Add explicit merge metadata so the host application can state which
+   branch outputs were actually supplied to the decision, rather than
+   inferring parents from timing or the latest event.
+4. Document the future intervention boundary: recorded branch outputs may
+   be frozen later, external side effects must be refused, and exclusion
+   semantics must be chosen next to the Phase 5 benchmark.
+5. Add capture-completeness checks for missing parents, missing merge
+   inputs, dangling edges, duplicate idempotency keys, and cross-run
+   dependencies.
+6. Define a privacy and failure policy before real integrations: payload
+   redaction, secret handling, retention, and whether capture fails open or
+   closed when PostgreSQL is unavailable.
+
+**Acceptance criteria.**
+
+- The real fixture can be queried as a decision, not only as an event.
+- The system distinguishes declared dependency from tested influence.
+- A missing or incorrect parent is reported as incomplete evidence rather
+  than silently treated as a causal fact.
+- The capture contract remains compatible with the current Phase 2 store.
+
+**Owner.** You own the decision and capture contract. The benchmark owner
+can implement the interaction matrix against it.
+
+**Pitfalls.** Do not add a graph database, a full dashboard, or a general
+replay engine, or interaction analysis in this phase. Do not call the LLM
+again just to test whether an upstream branch mattered; that changes the
+experiment from decision influence to a noisy second model run.
+
+---
+
 ## Phase 3: State reconstruction and structural slice
 
 **Goal.** `reconstruct(agent_id, seq)` and `structural_slice(event_id)`
-both work against real data, and the state hash invariant from thesis
-section 30.3 holds.
+both work against real data, the state hash invariant from thesis
+section 30.3 holds, and the decision contract can identify a structural
+slice for a real merge event. This phase completes the MVP.
+
+```mermaid
+flowchart LR
+    E[Event log] --> S[Snapshots]
+    E --> R[State reconstruction]
+    S --> R
+    R --> D[State at event]
+    E --> G[Causal graph]
+    G --> C[Structural slice]
+    D --> W[Why command]
+    C --> W
+```
 
 **Why.** This is the primitive everything else reads from. The AI guy's
-phase 5 replay engine calls `reconstruct` internally. Provenance in phase
-4 reads state the reducer built. If this phase has a subtle bug, every
-phase after it inherits a wrong answer silently, which is exactly the
-failure mode thesis section 16 (as referenced in the earlier deep dive)
-warns about for the reducer specifically.
+phase 5 analysis calls `reconstruct` internally. Provenance in phase 4
+reads state from the reducer. If this phase has a subtle bug, every phase
+after it inherits a wrong answer silently. Phase 3 must also preserve the
+distinction between structural evidence and tested decision influence;
+the structural slice is not allowed to overclaim causality.
 
-**Prerequisites.** Phase 2 complete, real events and a real graph to
-replay.
+**Prerequisites.** Phase 2.5 complete, real events and a real graph to
+replay, and the decision/merge contract defined.
 
 **Tasks.**
 
@@ -337,7 +445,9 @@ otherwise invisible until much further downstream.
 **Acceptance criteria.** All four property tests pass against a real
 multi agent run captured through phase 1 and 2. `slice A4` against the
 real system returns the same nine events as `fixture.json` says it
-should, when you run the same scenario for real.
+should, when you run the same scenario for real. The MVP is complete only
+when the run can also be addressed as a decision or merge with its declared
+input events visible.
 
 **Owner.** You.
 
@@ -348,20 +458,131 @@ week on a tuning problem that doesn't matter yet.
 
 ---
 
+## Post-MVP track: Agent runtime adapters and plugins
+
+**Timing.** Start this only after the MVP is complete: real capture,
+the event and agent graph, state reconstruction, structural slicing, and
+the basic CLI all work against a real run. Agent integrations are a
+distribution and dogfooding track, not a prerequisite for proving the
+core debugger or for starting Phase 4 or Phase 5. It may run in parallel
+with those phases once Phase 3 is complete.
+
+**Goal.** Use Agent-Casuality inside real coding agents without coupling
+the core engine to one vendor's event format.
+
+```mermaid
+flowchart LR
+    O[OpenCode] --> A[Runtime adapter]
+    C[Claude Code] --> A
+    X[Codex] --> A
+    A --> S[Common event contract]
+    S --> P[Agent-Casuality core]
+    P --> G[PostgreSQL graph]
+```
+
+**Principle.** Build an adapter first and package it as a plugin second.
+The adapter translates a host agent's native lifecycle into the common
+Agent-Casuality event contract. The plugin is the installable configuration
+and packaging layer for that adapter.
+
+```text
+OpenCode events       ┐
+Claude Code hooks     ├──> runtime adapter ──> Agent-Casuality events
+Codex events/API      ┘                              |
+                                             PostgreSQL graph
+```
+
+**Prerequisites.**
+
+- MVP acceptance criteria have passed on a real multi-agent run.
+- The event and decision contracts are stable.
+- Capture has a documented privacy policy for prompts, files, secrets,
+  and tool outputs.
+- Capture failure behavior is defined, preferably fail-open for the first
+  coding-agent integrations.
+
+**Tasks.**
+
+1. Define a small adapter interface for run start/end, model calls where
+   available, tool calls/results, file edits, test runs, subagent creation
+   and completion, errors, retries, cancellations, and final patches.
+2. Add automatic event emission through hooks or plugin callbacks. Do not
+   depend on the agent voluntarily calling a `record_event` MCP tool;
+   MCP is useful for access, but passive tracing needs a host lifecycle
+   surface.
+3. Build one OpenCode adapter first and use it to dogfood the debugger on
+   real coding tasks. Package the working adapter as an OpenCode plugin.
+4. Build the Claude Code integration using its hooks/plugin surface, then
+   package it as a reusable Claude Code plugin.
+5. Build the Codex integration using the strongest supported surface
+   available for the target deployment, such as the SDK/App Server or
+   supported hooks. Use MCP as a shared external interface where useful,
+   but do not treat MCP alone as complete passive tracing.
+6. Add session correlation and parent propagation so a test result can be
+   linked to the edit or final patch that consumed it.
+7. Add a coding-agent benchmark with stale research, conflicting review
+   feedback, failed tests, retries, and subagent disagreement.
+
+**First coding-agent event model.**
+
+```text
+session/run start
+  -> model_call
+    -> tool_call: search, shell, edit, or test
+      -> tool_result
+        -> model_call
+          -> subagent_spawn / subagent_result
+            -> final_patch or final_answer
+```
+
+**Acceptance criteria.**
+
+- A real coding-agent session is captured without changing its behavior.
+- The adapter records tools, tests, edits, subagents, errors, and the final
+  patch with stable IDs.
+- A failed coding task can be queried with `why` and returns the relevant
+  structural slice.
+- The system can distinguish a bad branch from a conflict between two
+  branches when both contribute to the final patch.
+- Capture can be disabled or unavailable without corrupting the agent
+  session, according to the documented failure policy.
+- The core SDK and storage layer require no vendor-specific conditionals.
+
+**Pitfalls.** Do not build three integrations simultaneously. Do not make
+the plugin a second tracing engine. Do not capture hidden chain-of-thought.
+Record observable inputs, outputs, tool activity, state transitions, and
+explicit dependencies. Do not claim full visibility when a host exposes
+only tool and lifecycle hooks.
+
+---
+
 ## Phase 4: Provenance
 
 **Goal.** Field level provenance works for tool calls and memory writes,
-and is correctly marked coarse the moment a model call is anywhere in the
-chain.
+is correctly marked coarse the moment a model call is anywhere in the
+chain, and can trace the origins of inputs that entered a decision.
+
+```mermaid
+flowchart LR
+    D[Decision input] --> P[Provenance traversal]
+    P --> T[Tool result]
+    P --> M[Memory write]
+    P --> L[LLM-mediated value]
+    T --> E[Exact provenance]
+    M --> E
+    L --> K[Coarse provenance]
+```
 
 **Why.** This is the phase where the honesty from thesis section 12
 either becomes real or becomes a comment nobody enforces. The schema
 already makes coarse links dead end on their own, section 30.8, but that
 only works if the capture code actually writes the grade correctly at
-write time.
+write time. Provenance answers where a decision input came from; it does
+not claim to identify which hidden part of an LLM produced the output.
 
-**Prerequisites.** Phase 1 capturing tool results and memory writes with
-enough structure to know what field came from where.
+**Prerequisites.** Phase 3 complete, the decision/merge contract stable,
+and Phase 1 capture of tool results and memory writes with enough
+structure to know what field came from where.
 
 **Tasks.**
 
@@ -376,10 +597,10 @@ enough structure to know what field came from where.
    time the way section 30.8 explicitly warns about.
 
 **Acceptance criteria.** `provenance A3.output.approve` against the real
-system returns the same two exact edges the fixture already predicts.
-Then, separately, trace `B2.args.query` and confirm it correctly returns
-one coarse edge and stops, since that value came from an LLM call in
-`B1`.
+system returns the same two exact edges the fixture already predicts and
+labels them as inputs to the decision. Then, separately, trace
+`B2.args.query` and confirm it correctly returns one coarse edge and stops,
+since that value came from an LLM call in `B1`.
 
 **Owner.** Whoever finishes their primary phase first, most naturally
 you, since it plugs directly into the schema you already own.
@@ -388,20 +609,37 @@ you, since it plugs directly into the schema you already own.
 
 ## Phase 5: Minimal slicing, interaction analysis, counterfactual replay
 
-**Goal.** `ddmin`, `test_interaction`, and `counterfactual_replay` from
-thesis sections 30.5 through 30.7 work against real captured runs, not
-just the fixture's precomputed ground truth.
+**Goal.** The system can determine whether a decision failure came from
+one branch, multiple branches, or an interaction between converging
+branches. `test_interaction` and `counterfactual_replay` work against real
+captured runs, followed by `ddmin` for cases that need broader reduction.
+
+```mermaid
+flowchart LR
+    A[Branch A output] --> M[Merge decision]
+    B[Branch B output] --> M
+    M --> Y[Outcome]
+    M --> R[Recorded-output replay]
+    R --> R1[A + B]
+    R --> R2[A only]
+    R --> R3[B only]
+    R --> R4[Neither]
+    R1 --> C[Interaction classification]
+    R2 --> C
+    R3 --> C
+    R4 --> C
+    C --> D[Optional ddmin / broader replay]
+```
 
 **Why.** This is the actual research contribution of the whole project,
 the part that answers "was it one branch, or the interaction between
-branches," which is the thing nothing else out there is doing yet, based
-on what turned up when this was checked earlier in the project's design
-discussion.
+branches?" The efficient path is merge-local attribution, not replaying
+the entire upstream run for every intervention.
 
 **Prerequisites.** Phases 1 through 3 complete and correct, since this
-phase calls `reconstruct` and the structural slice repeatedly. This
-phase cannot meaningfully start before those are solid, there's no way
-around that dependency, so plan the calendar accordingly.
+phase calls `reconstruct`, the structural slice, and the decision contract.
+Phase 4 is useful but is not required for the first merge-local
+interaction result.
 
 **Before writing any code here, make one decision and write it down.**
 Thesis section 30.6 flags this openly: what does "exclude an event"
@@ -414,14 +652,17 @@ by whatever the first version of the code happens to do.
 
 **Tasks.**
 
-1. Implement `counterfactual_replay` exactly as in thesis section 30.7,
-   including the explicit side effecting refusal, not a guess based on
-   tool name.
-2. Implement `ddmin` with the caching and budget cap thesis section 30.5
-   calls for.
-3. Implement `test_interaction`, restricted to direct parents of a merge
-   event as the document recommends, not the whole structural slice.
-4. Run all three against the real capture of the fixture scenario and
+1. Implement merge-local recorded-output replay: freeze upstream branch
+   outputs and rerun only the merge and downstream decision.
+2. Implement the four-run interaction matrix: both parents, parent A
+   only, parent B only, and neither. Return `sufficient`, `redundant`,
+   `interaction`, `neither`, or `inconclusive`.
+3. Implement `counterfactual_replay` with explicit side-effect refusal,
+   not a guess based on tool name. Use full downstream replay only when
+   the merge-local contract is insufficient.
+4. Implement `ddmin` with caching and a replay budget cap for broader
+   minimal-slice reduction.
+5. Run all of these against the real capture of the fixture scenario and
    confirm the output matches `fixture.json`'s `ground_truth` block. If
    it doesn't match, that's either a bug in the real implementation or a
    sign the ground truth itself needs revisiting, both are useful things
@@ -446,6 +687,15 @@ return.
 **Goal.** `explain(event_id)` produces a genuinely useful explanation
 grounded only in the structural evidence, provenance, and interaction
 results already computed, never inventing a causal claim of its own.
+
+```mermaid
+flowchart LR
+    S[Structural slice] --> E[Evidence package]
+    P[Provenance] --> E
+    I[Interaction result] --> E
+    E --> X[Grounded explanation]
+    X --> U[Developer / operator]
+```
 
 **Why.** This is the layer a developer actually reads. Everything before
 it exists to feed this one correctly, not the other way around, which is
@@ -564,8 +814,9 @@ A4.
 
 ## Testing and benchmark phase
 
-Once phases 1 through 6 are individually working, this is where they get
-proven together.
+Once core phases 1 through 6 are individually working, this is where they get
+proven together. Adapter integrations receive a separate coding-agent
+benchmark once each adapter exists; they do not delay the core benchmark.
 
 1. **Integration test.** The exact fixture scenario, run for real start
    to finish, capture through explanation, matched against
@@ -583,6 +834,10 @@ proven together.
    feature, not a flat trace log, as discussed earlier. This is what
    makes the eventual write up credible rather than a strawman
    comparison.
+5. **Post-MVP coding-agent benchmark.** Run the same ground-truth scenarios
+   through the OpenCode, Claude Code, and Codex adapters as they become
+   available, measuring capture completeness and diagnosis quality separately
+   from the core engine.
 
 ---
 
