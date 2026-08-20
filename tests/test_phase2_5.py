@@ -1,9 +1,9 @@
 """Tests for Phase 2.5: Decision SCM Contract, Resource Invariants, and Graph Completeness Validator."""
 
-from concurrent.futures import ThreadPoolExecutor
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import pytest
+from typing import Any
 
 from core.decision import (
     AblationStrategy,
@@ -12,10 +12,11 @@ from core.decision import (
     create_decision_contract,
     create_fixture_decision,
 )
-from core.validator import GraphValidator, ValidationReport
+from core.validator import GraphValidator
 from sdk.events import AgentClock, Event, InMemoryEventLog, record_event
-from sdk.memory import CapturedMemory, ResourceRegistry, ResourceVersionTuple
-
+from sdk.memory import CapturedMemory, ResourceRegistry
+from sdk.privacy import IDENTITY_REDACTOR, PayloadRedactor, make_fail_open_append
+from sdk.tools import capture_tool
 
 # --- 1. ResourceRegistry Tests ---
 
@@ -115,8 +116,12 @@ def test_captured_memory_auto_injects_prior_writer_dependency() -> None:
     clock_b = AgentClock()
     clock_c = AgentClock()
 
-    mem_b = CapturedMemory(agent_id="B", clock=clock_b, log=log, store=shared_store, registry=registry, run_id="run_1")
-    mem_c = CapturedMemory(agent_id="C", clock=clock_c, log=log, store=shared_store, registry=registry, run_id="run_1")
+    mem_b = CapturedMemory(
+        agent_id="B", clock=clock_b, log=log, store=shared_store, registry=registry, run_id="run_1"
+    )
+    mem_c = CapturedMemory(
+        agent_id="C", clock=clock_c, log=log, store=shared_store, registry=registry, run_id="run_1"
+    )
 
     # Agent B writes to shared key "policy_limit"
     mem_b.set("policy_limit", 5000)
@@ -143,8 +148,12 @@ def test_captured_memory_with_custom_resource_uri() -> None:
     clock_b = AgentClock()
     clock_c = AgentClock()
 
-    mem_b = CapturedMemory(agent_id="B", clock=clock_b, log=log, store=shared_store, registry=registry)
-    mem_c = CapturedMemory(agent_id="C", clock=clock_c, log=log, store=shared_store, registry=registry)
+    mem_b = CapturedMemory(
+        agent_id="B", clock=clock_b, log=log, store=shared_store, registry=registry
+    )
+    mem_c = CapturedMemory(
+        agent_id="C", clock=clock_c, log=log, store=shared_store, registry=registry
+    )
 
     custom_uri = "db://orders/order_9981"
     mem_b.set("order", {"status": "paid"}, resource_uri=custom_uri)
@@ -168,7 +177,9 @@ def test_agent_clock_tracks_last_event_id_and_auto_chains() -> None:
     e1 = record_event(agent_id="A", clock=clock, log=log, event_type="step1", payload={})
     assert clock.get_last_event_id() == e1.id
 
-    e2 = record_event(agent_id="A", clock=clock, log=log, event_type="step2", payload={}, auto_chain=True)
+    e2 = record_event(
+        agent_id="A", clock=clock, log=log, event_type="step2", payload={}, auto_chain=True
+    )
     assert clock.get_last_event_id() == e2.id
     assert e2.causal_parent_ids == [e1.id]
 
@@ -403,3 +414,135 @@ def test_validator_catches_decision_port_unreachable_source() -> None:
     violations, _ = validator.check_decision_ports(invalid_contract)
     assert len(violations) == 1
     assert "not an ancestor of decision event 'A3'" in violations[0]
+
+
+# --- 6. Privacy: PayloadRedactor ---
+
+
+def test_payload_redactor_strips_builtin_sensitive_keys() -> None:
+    redactor = PayloadRedactor()
+    payload = {"api_key": "sk-secret", "action": "enroll", "token": "bearer-xyz"}
+    safe = redactor.redact(payload)
+
+    assert safe["api_key"] == "[REDACTED]"
+    assert safe["token"] == "[REDACTED]"
+    assert safe["action"] == "enroll"  # non-sensitive key preserved
+
+
+def test_payload_redactor_merges_extra_keys() -> None:
+    redactor = PayloadRedactor(extra_keys={"ssn", "dob"}, redaction_marker="***")
+    payload = {"ssn": "123-45-6789", "dob": "1990-01-01", "name": "Alice"}
+    safe = redactor.redact(payload)
+
+    assert safe["ssn"] == "***"
+    assert safe["dob"] == "***"
+    assert safe["name"] == "Alice"
+    assert redactor.is_sensitive("ssn") is True
+    assert redactor.is_sensitive("name") is False
+
+
+def test_identity_redactor_is_a_passthrough() -> None:
+    payload = {"api_key": "sk-secret", "value": 42}
+    assert IDENTITY_REDACTOR.redact(payload) is payload  # same object, no copy
+    assert IDENTITY_REDACTOR.sensitive_keys == frozenset()
+
+
+# --- 7. Privacy: make_fail_open_append ---
+
+
+def test_make_fail_open_append_swallows_storage_errors(capsys: Any) -> None:
+    log = InMemoryEventLog()
+
+    # Patch append to always raise
+    original_append = log.append
+
+    def _bad_append(event: Any) -> Any:
+        raise RuntimeError("disk full")
+
+    log.append = _bad_append  # type: ignore[method-assign]
+
+    fail_open_log = make_fail_open_append(log)
+    clock = AgentClock()
+
+    # Should NOT raise even though the underlying append explodes
+    event = record_event(
+        agent_id="A",
+        clock=clock,
+        log=fail_open_log,
+        event_type="test",
+        payload={"x": 1},
+    )
+    assert event is not None  # original event returned unchanged
+
+    captured = capsys.readouterr()
+    assert "fail_open=True" in captured.err
+    assert "disk full" in captured.err
+
+
+# --- 8. capture_tool registry wiring ---
+
+
+def test_capture_tool_registers_resource_uri_in_registry() -> None:
+    log = InMemoryEventLog()
+    registry = ResourceRegistry()
+    clock = AgentClock()
+
+    @capture_tool
+    def write_patch(content: str) -> str:
+        return f"patch:{content}"
+
+    write_patch(
+        "diff --git a/x",
+        agent_id="C",
+        clock=clock,
+        log=log,
+        registry=registry,
+        resource_uri="file:///workspace/changes.patch",
+    )
+
+    entry = registry.get_latest("file:///workspace/changes.patch")
+    assert entry is not None
+    assert entry.last_writer_agent_id == "C"
+
+    # Verify the tool_result event embeds the resource_uri in its payload
+    result_events = [e for e in log.events() if e.event_type == "tool_result"]
+    assert len(result_events) == 1
+    assert result_events[0].payload["resource_uri"] == "file:///workspace/changes.patch"
+
+
+def test_capture_tool_reader_auto_injects_tool_result_as_causal_parent() -> None:
+    """A memory read after a cross-agent tool write inherits the tool_result event."""
+    log = InMemoryEventLog()
+    registry = ResourceRegistry()
+    shared_store: dict[str, Any] = {}
+    clock_c = AgentClock()
+    clock_d = AgentClock()
+
+    @capture_tool
+    def generate_report() -> str:
+        return "report_v1"
+
+    generate_report(
+        agent_id="C",
+        clock=clock_c,
+        log=log,
+        registry=registry,
+        resource_uri="mem://shared/report",
+    )
+    tool_result_id = next(e for e in log.events() if e.event_type == "tool_result").id
+
+    # Agent D writes to shared store with the same key as the resource_uri prefix
+    mem_d = CapturedMemory(
+        agent_id="D", clock=clock_d, log=log, store=shared_store, registry=registry
+    )
+    # Manually register the tool write under the shared key so the memory lookup works
+    registry.register_write(
+        resource_uri="mem://shared/report",
+        writer_event_id=tool_result_id,
+        writer_agent_id="C",
+        logical_seq=1,
+    )
+    mem_d.get("report", resource_uri="mem://shared/report")
+
+    d_read = next(e for e in log.events() if e.event_type == "memory_read" and e.agent_id == "D")
+    assert tool_result_id in d_read.causal_parent_ids
