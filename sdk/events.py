@@ -14,13 +14,12 @@ from uuid import uuid4
 class AgentClock:
     """A thread-safe Lamport clock owned by one agent.
 
-    The lock covers both reading the current counter and allocating the next
-    value.  Allocation is deliberately a separate operation from persistence:
-    callers receive the sequence number before they hand an event to a log or
-    buffer.
+    The lock covers reading the current counter, allocating the next
+    value, and tracking the last recorded event ID for intra-agent timeline continuity.
     """
 
     counter: int = 0
+    last_event_id: str | None = None
     _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
 
     def allocate(self, causal_parent_seqs: Iterable[int] = ()) -> int:
@@ -37,6 +36,14 @@ class AgentClock:
     def observe(self, logical_seq: int) -> None:
         with self._lock:
             self.counter = max(self.counter, logical_seq)
+
+    def set_last_event_id(self, event_id: str) -> None:
+        with self._lock:
+            self.last_event_id = event_id
+
+    def get_last_event_id(self) -> str | None:
+        with self._lock:
+            return self.last_event_id
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,7 @@ def record_event(
     causal_parent_seqs: Iterable[int] = (),
     idempotency_key: str | None = None,
     run_id: str | None = None,
+    auto_chain: bool = False,
 ) -> Event:
     """Allocate and append an event while preserving its causal metadata."""
     parent_ids = list(causal_parent_ids)
@@ -101,7 +109,12 @@ def record_event(
         if getter is not None:
             existing = getter(agent_id, idempotency_key)
             if isinstance(existing, Event):
+                clock.set_last_event_id(existing.id)
                 return existing
+    if auto_chain and not parent_ids:
+        prev_id = clock.get_last_event_id()
+        if prev_id is not None:
+            parent_ids = [prev_id]
     if len(parent_ids) != len(set(parent_ids)):
         raise ValueError("causal parent IDs must be unique")
     allocator = getattr(log, "allocate_logical_seq", None)
@@ -109,7 +122,7 @@ def record_event(
         sequence = next_seq(clock, causal_parent_seqs)
     else:
         sequence = allocator(agent_id, clock, causal_parent_seqs)
-    return _append(
+    event = _append(
         log,
         Event(
             agent_id=agent_id,
@@ -121,6 +134,8 @@ def record_event(
             run_id=run_id,
         ),
     )
+    clock.set_last_event_id(event.id)
+    return event
 
 
 class InMemoryEventLog:
