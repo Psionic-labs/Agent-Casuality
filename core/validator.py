@@ -225,19 +225,27 @@ class GraphValidator:
         violations.extend(continuity_violations)
         warnings.extend(continuity_warnings)
 
+        seen_decisions: set[tuple[str, str]] = set()
+
+        def _check(contract: DecisionContract) -> None:
+            key = (contract.run_id, contract.decision_id)
+            if key in seen_decisions:
+                return
+            seen_decisions.add(key)
+            port_violations, port_warnings = self.check_decision_ports(contract)
+            violations.extend(port_violations)
+            warnings.extend(port_warnings)
+
         if decisions:
             for decision in decisions:
-                port_violations, port_warnings = self.check_decision_ports(decision)
-                violations.extend(port_violations)
-                warnings.extend(port_warnings)
+                _check(decision)
 
-        # Also discover any DecisionContracts embedded directly in event payloads
+        # Also discover any DecisionContracts embedded directly in event payloads,
+        # skipping contracts already validated via the explicit list.
         for event in self.get_events(run_id):
             embedded_contract = DecisionContract.from_event(event)
             if embedded_contract is not None:
-                port_violations, port_warnings = self.check_decision_ports(embedded_contract)
-                violations.extend(port_violations)
-                warnings.extend(port_warnings)
+                _check(embedded_contract)
 
         events_count = len(self.get_events(run_id))
         return ValidationReport(

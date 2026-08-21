@@ -142,7 +142,10 @@ def record_event(
         if getter is not None:
             existing = getter(agent_id, idempotency_key)
             if isinstance(existing, Event):
-                clock.set_last_event_id(existing.id)
+                # Only advance the continuity pointer; a stale retry must not
+                # move it backwards past newer events.
+                if existing.logical_seq >= clock.current():
+                    clock.set_last_event_id(existing.id)
                 return existing, True
     if auto_chain and not parent_ids:
         prev_id = clock.get_last_event_id()

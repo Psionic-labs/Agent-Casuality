@@ -220,6 +220,30 @@ def test_agent_clock_tracks_last_event_id_and_auto_chains() -> None:
     assert e2.causal_parent_ids == [e1.id]
 
 
+def test_stale_idempotent_retry_does_not_rewind_clock_pointer() -> None:
+    clock = AgentClock()
+    log = InMemoryEventLog()
+
+    first, _ = record_event(
+        agent_id="A", clock=clock, log=log, event_type="step1", payload={}, idempotency_key="k1"
+    )
+    second, _ = record_event(
+        agent_id="A", clock=clock, log=log, event_type="step2", payload={}
+    )
+
+    # Retry the older event: pointer must stay on step2
+    retried, _ = record_event(
+        agent_id="A", clock=clock, log=log, event_type="step1", payload={}, idempotency_key="k1"
+    )
+    assert retried is first
+    assert clock.get_last_event_id() == second.id
+
+    third, _ = record_event(
+        agent_id="A", clock=clock, log=log, event_type="step3", payload={}, auto_chain=True
+    )
+    assert third.causal_parent_ids == [second.id]
+
+
 # --- 4. DecisionContract & Semantic Ports ---
 
 
@@ -342,6 +366,31 @@ def test_validator_passes_on_valid_fixture_run() -> None:
     assert report.is_valid is True
     assert len(report.violations) == 0
     assert report.details["violation_count"] == 0
+
+
+def test_validator_does_not_duplicate_contract_supplied_both_ways() -> None:
+    log = InMemoryEventLog()
+    decision = create_fixture_decision()
+    # Embed the same contract into the decision event payload
+    log.append(
+        Event(
+            id="A3",
+            agent_id="A",
+            logical_seq=3,
+            event_type="merge_decision",
+            payload=decision.to_event_payload(),
+            run_id=decision.run_id,
+        )
+    )
+
+    validator = GraphValidator(log)
+    report = validator.validate_run(run_id=decision.run_id, decisions=[decision])
+
+    # Ports reference events absent from this log; each violation must appear
+    # exactly once despite the contract being both explicit and embedded.
+    customer_violations = [v for v in report.violations if "customer_status" in v]
+    assert len(customer_violations) == 1
+    assert report.details["violation_count"] == len(report.violations)
 
 
 def test_validator_catches_dangling_causal_parent() -> None:
