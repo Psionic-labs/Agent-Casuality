@@ -62,6 +62,22 @@ def _run_captured_tool(
     prior = _find_events(log, agent_id, invocation_id)
     prior_result = next((event for event in prior if event.event_type == "tool_result"), None)
     if prior_result is not None:
+        # Restore registry state so downstream reads still inherit the
+        # tool-result causal edge (e.g. after restart or a fresh registry).
+        restore_uri = resource_uri or prior_result.payload.get("resource_uri")
+        if (
+            registry is not None
+            and restore_uri
+            and not registry.get_latest(restore_uri, run_id=run_id)
+        ):
+            registry.register_write(
+                resource_uri=restore_uri,
+                writer_event_id=prior_result.id,
+                writer_agent_id=prior_result.agent_id,
+                logical_seq=prior_result.logical_seq,
+                wall_time=prior_result.wall_time,
+                run_id=run_id,
+            )
         return prior_result.payload.get("output")
     prior_error = next((event for event in prior if event.event_type == "agent_error"), None)
     if prior_error is not None:
@@ -85,7 +101,7 @@ def _run_captured_tool(
     try:
         result = fn(*args, **kwargs)
     except Exception as exc:
-        error_event, _ = record_event(
+        record_event(
             agent_id=agent_id,
             clock=clock,
             log=log,

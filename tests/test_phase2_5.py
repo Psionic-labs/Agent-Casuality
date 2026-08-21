@@ -416,6 +416,93 @@ def test_validator_catches_decision_port_unreachable_source() -> None:
     assert "not an ancestor of decision event 'A3'" in violations[0]
 
 
+def test_validator_catches_decision_event_from_foreign_run() -> None:
+    log = build_seeded_fixture_log()
+    validator = GraphValidator(log)
+
+    contract = create_decision_contract(
+        decision_id="foreign_dec",
+        run_id="run_other",
+        agent_id="A",
+        decision_event_id="A3",
+        ports=[],
+        decision_type="merge",
+    )
+
+    violations, _ = validator.check_decision_ports(contract)
+    assert len(violations) == 1
+    assert "not contract run 'run_other'" in violations[0]
+
+
+def test_validator_catches_decision_port_source_from_foreign_run() -> None:
+    log = InMemoryEventLog()
+    log.append(
+        Event(
+            id="src_local",
+            agent_id="B",
+            logical_seq=1,
+            event_type="research",
+            payload={},
+            run_id="run_1",
+        )
+    )
+    log.append(
+        Event(
+            id="dec_1",
+            agent_id="A",
+            logical_seq=2,
+            event_type="decision",
+            payload={},
+            causal_parent_ids=["src_local"],
+            run_id="run_1",
+        )
+    )
+    # Foreign event reachable from dec_1 via a cross-run causal edge
+    log.append(
+        Event(
+            id="src_foreign",
+            agent_id="X",
+            logical_seq=1,
+            event_type="init",
+            payload={},
+            run_id="run_2",
+        )
+    )
+    log.append(
+        Event(
+            id="leaking_merge",
+            agent_id="A",
+            logical_seq=3,
+            event_type="merge",
+            payload={},
+            causal_parent_ids=["dec_1", "src_foreign"],
+            run_id="run_1",
+        )
+    )
+    validator = GraphValidator(log)
+
+    contract = create_decision_contract(
+        decision_id="dec_leak",
+        run_id="run_1",
+        agent_id="A",
+        decision_event_id="leaking_merge",
+        ports=[
+            DecisionPort(
+                port_id="leaked_input",
+                source_event_id="src_foreign",
+                field_path="payload.value",
+                recorded_value="x",
+                baseline_value=None,
+            )
+        ],
+        decision_type="merge",
+    )
+
+    violations, _ = validator.check_decision_ports(contract)
+    assert len(violations) == 1
+    assert "belongs to foreign run 'run_2'" in violations[0]
+
+
 # --- 6. Privacy: PayloadRedactor ---
 
 
@@ -475,6 +562,33 @@ def test_make_fail_open_append_swallows_storage_errors(capsys: Any) -> None:
     captured = capsys.readouterr()
     assert "fail_open=True" in captured.err
     assert "disk full" in captured.err
+
+
+def test_fail_open_append_status_is_per_call_not_shared() -> None:
+    class SelectiveFailLog(InMemoryEventLog):
+        def append(self, event: Event) -> Event:
+            if event.payload.get("should_fail"):
+                raise RuntimeError("injected failure")
+            return super().append(event)
+
+    fail_open_log = make_fail_open_append(SelectiveFailLog())
+    clock = AgentClock()
+    num_calls = 100
+
+    def worker(i: int) -> bool:
+        _, stored = record_event(
+            agent_id="A",
+            clock=clock,
+            log=fail_open_log,
+            event_type="test",
+            payload={"i": i, "should_fail": i % 2 == 0},
+        )
+        return stored
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(worker, range(num_calls)))
+
+    assert results == [i % 2 == 1 for i in range(num_calls)]
 
 
 # --- 8. capture_tool registry wiring ---
@@ -544,3 +658,53 @@ def test_capture_tool_reader_auto_injects_tool_result_as_causal_parent() -> None
 
     d_read = next(e for e in log.events() if e.event_type == "memory_read" and e.agent_id == "D")
     assert tool_result_id in d_read.causal_parent_ids
+
+
+def test_capture_tool_retry_restores_registry_entry_after_restart() -> None:
+    log = InMemoryEventLog()
+    registry = ResourceRegistry()
+    clock = AgentClock()
+
+    @capture_tool
+    def generate_report() -> str:
+        return "report_v1"
+
+    invocation_id = "inv_fixed_1"
+    generate_report(
+        agent_id="C",
+        clock=clock,
+        log=log,
+        registry=registry,
+        resource_uri="mem://shared/report",
+        invocation_id=invocation_id,
+    )
+    tool_result_id = next(e for e in log.events() if e.event_type == "tool_result").id
+
+    # Simulate process restart: fresh registry, same stored events
+    new_registry = ResourceRegistry()
+    output = generate_report(
+        agent_id="C",
+        clock=clock,
+        log=log,
+        registry=new_registry,
+        resource_uri="mem://shared/report",
+        invocation_id=invocation_id,
+    )
+    assert output == "report_v1"
+
+    entry = new_registry.get_latest("mem://shared/report")
+    assert entry is not None
+    assert entry.last_writer_event_id == tool_result_id
+
+    # Repeated idempotent retries must not inflate the version
+    generate_report(
+        agent_id="C",
+        clock=clock,
+        log=log,
+        registry=new_registry,
+        resource_uri="mem://shared/report",
+        invocation_id=invocation_id,
+    )
+    entry = new_registry.get_latest("mem://shared/report")
+    assert entry is not None
+    assert entry.version == 1

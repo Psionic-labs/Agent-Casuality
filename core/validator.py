@@ -175,6 +175,12 @@ class GraphValidator:
             )
             return violations, warnings
 
+        if decision_ev.run_id != decision.run_id:
+            violations.append(
+                f"Decision event '{decision_ev.id}' belongs to run "
+                f"'{decision_ev.run_id}', not contract run '{decision.run_id}'."
+            )
+
         ancestor_ids = self.get_ancestors(decision.decision_event_id)
 
         for port in decision.ports:
@@ -183,6 +189,11 @@ class GraphValidator:
                 violations.append(
                     f"Decision port '{port.port_id}' references non-existent "
                     f"source_event_id '{port.source_event_id}'."
+                )
+            elif source_ev.run_id != decision.run_id:
+                violations.append(
+                    f"Decision port '{port.port_id}' source event "
+                    f"'{source_ev.id}' belongs to foreign run '{source_ev.run_id}'."
                 )
             elif port.source_event_id not in ancestor_ids:
                 violations.append(

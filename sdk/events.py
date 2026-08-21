@@ -86,15 +86,18 @@ def next_seq(agent_state: AgentClock, causal_parents: Iterable[int]) -> int:
 
 def _append(log: Any, event: Event) -> tuple[Event, bool]:
     """Append event to log and return (event, was_stored).
-    
-    Returns True if the append succeeded, False if fail-open mode swallowed an error.
-    Checks for _last_append_failed attribute set by make_fail_open_append wrapper.
+
+    was_stored is False only when a fail-open wrapper reports that this exact
+    append failed via ``append_with_status``; plain logs are assumed to have
+    stored the event. The status is per-call, so concurrent appends on a
+    shared fail-open log cannot observe each other's results.
     """
+    status_fn = getattr(log, "append_with_status", None)
+    if callable(status_fn):
+        result, was_stored = status_fn(event)
+        return (result if isinstance(result, Event) else event), was_stored
     result = log.append(event)
-    # Check if this is a fail-open wrapper that tracks append failures
-    append_failed = getattr(log, "_last_append_failed", False)
-    was_stored = not append_failed
-    return (result if isinstance(result, Event) else event, was_stored)
+    return (result if isinstance(result, Event) else event), True
 
 
 def record_event(

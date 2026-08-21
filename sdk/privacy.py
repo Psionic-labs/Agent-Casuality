@@ -114,8 +114,9 @@ def make_fail_open_append(log: Any) -> Any:
 
     Returns:
         A proxy object with the same interface as *log* but with a
-        fail-safe ``.append()`` method. Also provides ``_last_append_failed()``
-        to check if the most recent append failed.
+        fail-safe ``.append()`` method. Also provides ``append_with_status()``,
+        which returns ``(event, stored)`` for that exact call, and
+        ``_last_append_failed()`` to check if the most recent append failed.
     """
     import sys
 
@@ -126,17 +127,27 @@ def make_fail_open_append(log: Any) -> Any:
             self._wrapped = wrapped
             self._last_append_failed = False
 
-        def append(self, event: Any) -> Any:
+        def append_with_status(self, event: Any) -> tuple[Any, bool]:
+            """Append *event* and return ``(event, stored)`` for this exact call.
+
+            The status travels with the call, so concurrent appends on the
+            same proxy cannot observe each other's results.
+            """
             try:
+                result = self._wrapped.append(event)
                 self._last_append_failed = False
-                return self._wrapped.append(event)
+                return result, True
             except Exception as exc:  # noqa: BLE001
                 print(
                     f"[agent-casuality] WARN: event log append failed (fail_open=True): {exc}",
                     file=sys.stderr,
                 )
                 self._last_append_failed = True
-                return event
+                return event, False
+
+        def append(self, event: Any) -> Any:
+            result, _ = self.append_with_status(event)
+            return result
 
         def __getattr__(self, name: str) -> Any:
             return getattr(self._wrapped, name)
