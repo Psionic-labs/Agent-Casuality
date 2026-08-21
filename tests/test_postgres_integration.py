@@ -160,14 +160,15 @@ def test_postgres_allocates_agent_sequences_across_connections() -> None:
 
         def write_event(store: PostgresEventStore, clock: AgentClock) -> int:
             start_barrier.wait()
-            return record_event(
+            event, _ = record_event(
                 agent_id=agent_id,
                 clock=clock,
                 log=store,
                 event_type="context_update",
                 payload={"source": "concurrent"},
                 run_id=run_id,
-            ).logical_seq
+            )
+            return event.logical_seq
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             sequences = list(
@@ -201,7 +202,7 @@ def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
         connection.commit()
 
         with pytest.raises(psycopg.Error):
-            record_event(
+            _, _ = record_event(
                 agent_id=agent_id,
                 clock=AgentClock(),
                 log=store,
@@ -210,7 +211,7 @@ def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
                 run_id=run_id,
             )
 
-        event = record_event(
+        event, _ = record_event(
             agent_id=agent_id,
             clock=AgentClock(),
             log=store,
@@ -231,7 +232,7 @@ def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
                 idempotency_key="sequence-retry",
             )
         )
-        retry = record_event(
+        retry, _ = record_event(
             agent_id=agent_id,
             clock=AgentClock(),
             log=store,
@@ -278,7 +279,7 @@ def test_postgres_graph_rejects_and_isolates_cross_run_parents() -> None:
             )
         connection.commit()
 
-        parent = record_event(
+        parent, _ = record_event(
             agent_id=agent_a,
             clock=AgentClock(),
             log=store,

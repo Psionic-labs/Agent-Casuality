@@ -14,13 +14,12 @@ from uuid import uuid4
 class AgentClock:
     """A thread-safe Lamport clock owned by one agent.
 
-    The lock covers both reading the current counter and allocating the next
-    value.  Allocation is deliberately a separate operation from persistence:
-    callers receive the sequence number before they hand an event to a log or
-    buffer.
+    The lock covers reading the current counter, allocating the next
+    value, and tracking the last recorded event ID for intra-agent timeline continuity.
     """
 
     counter: int = 0
+    last_event_id: str | None = None
     _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
 
     def allocate(self, causal_parent_seqs: Iterable[int] = ()) -> int:
@@ -37,6 +36,14 @@ class AgentClock:
     def observe(self, logical_seq: int) -> None:
         with self._lock:
             self.counter = max(self.counter, logical_seq)
+
+    def set_last_event_id(self, event_id: str) -> None:
+        with self._lock:
+            self.last_event_id = event_id
+
+    def get_last_event_id(self) -> str | None:
+        with self._lock:
+            return self.last_event_id
 
 
 @dataclass(frozen=True)
@@ -69,6 +76,15 @@ class Event:
 
 
 class EventLog(Protocol):
+    """Storage contract for event capture.
+
+    ``append`` must be fail-closed: it either returns the stored Event or
+    raises. Backends that swallow storage errors must instead implement
+    ``append_with_status(event) -> tuple[Event, bool]`` so capture code can
+    distinguish stored from dropped events; returning without an Event
+    (e.g. returning None) is treated as not stored.
+    """
+
     def append(self, event: Event) -> Event: ...
 
 
@@ -77,9 +93,24 @@ def next_seq(agent_state: AgentClock, causal_parents: Iterable[int]) -> int:
     return agent_state.allocate(causal_parents)
 
 
-def _append(log: Any, event: Event) -> Event:
+def _append(log: Any, event: Event) -> tuple[Event, bool]:
+    """Append event to log and return (event, was_stored).
+
+    was_stored is False when a fail-open wrapper reports that this exact
+    append failed via ``append_with_status``, or when a plain ``append``
+    returns without an Event (a silent-swallow backend). Conforming
+    fail-closed logs raise on failure, so a normal Event return means
+    stored. The status is per-call, so concurrent appends on a shared
+    fail-open log cannot observe each other's results.
+    """
+    status_fn = getattr(log, "append_with_status", None)
+    if callable(status_fn):
+        result, was_stored = status_fn(event)
+        return (result if isinstance(result, Event) else event), was_stored
     result = log.append(event)
-    return result if isinstance(result, Event) else event
+    if not isinstance(result, Event):
+        return event, False
+    return result, True
 
 
 def record_event(
@@ -93,15 +124,33 @@ def record_event(
     causal_parent_seqs: Iterable[int] = (),
     idempotency_key: str | None = None,
     run_id: str | None = None,
-) -> Event:
-    """Allocate and append an event while preserving its causal metadata."""
+    auto_chain: bool = False,
+    redactor: Any = None,
+) -> tuple[Event, bool]:
+    """Allocate and append an event while preserving its causal metadata.
+    
+    Args:
+        redactor: Optional PayloadRedactor to redact sensitive keys before storage.
+                  If provided, redactor.redact(payload) is applied.
+    
+    Returns:
+        Tuple of (event, was_stored) where was_stored indicates if persistence succeeded.
+    """
     parent_ids = list(causal_parent_ids)
     if idempotency_key is not None:
         getter = getattr(log, "get_by_idempotency_key", None)
         if getter is not None:
             existing = getter(agent_id, idempotency_key)
             if isinstance(existing, Event):
-                return existing
+                # Only advance the continuity pointer; a stale retry must not
+                # move it backwards past newer events.
+                if existing.logical_seq >= clock.current():
+                    clock.set_last_event_id(existing.id)
+                return existing, True
+    if auto_chain and not parent_ids:
+        prev_id = clock.get_last_event_id()
+        if prev_id is not None:
+            parent_ids = [prev_id]
     if len(parent_ids) != len(set(parent_ids)):
         raise ValueError("causal parent IDs must be unique")
     allocator = getattr(log, "allocate_logical_seq", None)
@@ -109,18 +158,28 @@ def record_event(
         sequence = next_seq(clock, causal_parent_seqs)
     else:
         sequence = allocator(agent_id, clock, causal_parent_seqs)
-    return _append(
+    
+    # Apply redaction if redactor is provided
+    safe_payload = payload
+    if redactor is not None:
+        safe_payload = redactor.redact(payload)
+    
+    event, was_stored = _append(
         log,
         Event(
             agent_id=agent_id,
             logical_seq=sequence,
             event_type=event_type,
-            payload=payload,
+            payload=safe_payload,
             causal_parent_ids=parent_ids,
             idempotency_key=idempotency_key,
             run_id=run_id,
         ),
     )
+    # Only update clock if the event was actually stored
+    if was_stored:
+        clock.set_last_event_id(event.id)
+    return event, was_stored
 
 
 class InMemoryEventLog:

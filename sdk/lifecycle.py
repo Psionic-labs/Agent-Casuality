@@ -98,7 +98,7 @@ def spawn_agent(
         if existing_agent is not None:
             raise ValueError(f"child agent {child_id} already exists with another spawn request")
 
-    event = record_event(
+    event, _ = record_event(
         agent_id=parent_agent_id,
         clock=parent_clock,
         log=log,

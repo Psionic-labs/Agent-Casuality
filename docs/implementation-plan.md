@@ -163,6 +163,7 @@ import time
 import anthropic
 from .events import Event, next_seq
 
+
 class CapturedClient:
     def __init__(self, api_key: str, agent_id: str, clock, log):
         self._client = anthropic.Anthropic(api_key=api_key)
@@ -174,17 +175,19 @@ class CapturedClient:
         start = time.monotonic()
         response = self._client.messages.create(**kwargs)
         latency_ms = int((time.monotonic() - start) * 1000)
-        self.log.append(Event(
-            agent_id=self.agent_id,
-            logical_seq=next_seq(self.clock, causal_parents=[]),
-            event_type="model_call",
-            payload={
-                "model": kwargs.get("model"),
-                "input": kwargs.get("messages"),
-                "output": response.model_dump(),
-                "latency_ms": latency_ms,
-            },
-        ))
+        self.log.append(
+            Event(
+                agent_id=self.agent_id,
+                logical_seq=next_seq(self.clock, causal_parents=[]),
+                event_type="model_call",
+                payload={
+                    "model": kwargs.get("model"),
+                    "input": kwargs.get("messages"),
+                    "output": response.model_dump(),
+                    "latency_ms": latency_ms,
+                },
+            )
+        )
         return response
 ```
 
@@ -194,31 +197,43 @@ import functools
 from uuid import uuid4
 from .events import Event, next_seq
 
+
 def capture_tool(fn):
     @functools.wraps(fn)
     def wrapper(*args, agent_id, clock, log, **kwargs):
         invocation_id = str(uuid4())
         invoke_seq = next_seq(clock, causal_parents=[])
-        log.append(Event(
-            agent_id=agent_id, logical_seq=invoke_seq, event_type="tool_call",
-            payload={"name": fn.__name__, "args": kwargs, "invocation_id": invocation_id},
-            idempotency_key=invocation_id,
-        ))
+        log.append(
+            Event(
+                agent_id=agent_id,
+                logical_seq=invoke_seq,
+                event_type="tool_call",
+                payload={"name": fn.__name__, "args": kwargs, "invocation_id": invocation_id},
+                idempotency_key=invocation_id,
+            )
+        )
         try:
             result = fn(*args, **kwargs)
-            log.append(Event(
-                agent_id=agent_id, logical_seq=next_seq(clock, causal_parents=[invoke_seq]),
-                event_type="tool_result",
-                payload={"invocation_id": invocation_id, "output": result},
-            ))
+            log.append(
+                Event(
+                    agent_id=agent_id,
+                    logical_seq=next_seq(clock, causal_parents=[invoke_seq]),
+                    event_type="tool_result",
+                    payload={"invocation_id": invocation_id, "output": result},
+                )
+            )
             return result
         except Exception as exc:
-            log.append(Event(
-                agent_id=agent_id, logical_seq=next_seq(clock, causal_parents=[invoke_seq]),
-                event_type="agent_error",
-                payload={"invocation_id": invocation_id, "error": str(exc)},
-            ))
+            log.append(
+                Event(
+                    agent_id=agent_id,
+                    logical_seq=next_seq(clock, causal_parents=[invoke_seq]),
+                    event_type="agent_error",
+                    payload={"invocation_id": invocation_id, "error": str(exc)},
+                )
+            )
             raise
+
     return wrapper
 ```
 
@@ -345,6 +360,7 @@ persisted in PostgreSQL.
        recorded_value: Any
        baseline_value: Any  # SENTINEL, CANONICAL, or HISTORICAL_PRIOR
 
+
    @dataclass
    class DecisionContract:
        decision_id: str
@@ -435,10 +451,12 @@ replay, and the decision/merge contract defined.
 import pytest
 from core.reducer import reconstruct
 
+
 def test_replaying_a_prefix_twice_is_stable(seeded_run):
     state_1 = reconstruct(agent_id="B", target_seq=10)
     state_2 = reconstruct(agent_id="B", target_seq=10)
     assert state_1 == state_2
+
 
 def test_unrelated_event_does_not_change_another_agents_state(seeded_run):
     before = reconstruct(agent_id="C", target_seq=5)
@@ -446,9 +464,11 @@ def test_unrelated_event_does_not_change_another_agents_state(seeded_run):
     after = reconstruct(agent_id="C", target_seq=5)
     assert before == after
 
+
 def test_causal_parent_must_exist_before_being_referenced(seeded_run):
     with pytest.raises(IntegrityError):
         write_event(agent_id="A", causal_parent_ids=["does_not_exist"])
+
 
 def test_snapshot_hash_matches_reconstruction(seeded_run):
     snapshot = create_snapshot(agent_id="B", logical_seq=25)
@@ -740,6 +760,7 @@ If a provenance link is marked coarse, say so explicitly and do not
 present it with the same confidence as an exact link. State plainly when
 the evidence is insufficient to explain something, rather than filling
 the gap with a plausible sounding guess."""
+
 
 def explain(evidence_package: dict, api_key: str) -> str:
     client = anthropic.Anthropic(api_key=api_key)

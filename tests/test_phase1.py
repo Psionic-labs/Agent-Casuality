@@ -34,7 +34,7 @@ def test_record_event_allocates_before_sink_and_preserves_parents() -> None:
             return event
 
     log = InspectingLog()
-    event = record_event(
+    event, _ = record_event(
         agent_id="a",
         clock=AgentClock(),
         log=log,
@@ -48,7 +48,7 @@ def test_record_event_allocates_before_sink_and_preserves_parents() -> None:
 def test_record_event_idempotent_retry_does_not_allocate_again() -> None:
     log = InMemoryEventLog()
     clock = AgentClock()
-    first = record_event(
+    first, _ = record_event(
         agent_id="a",
         clock=clock,
         log=log,
@@ -57,7 +57,7 @@ def test_record_event_idempotent_retry_does_not_allocate_again() -> None:
         idempotency_key="same-event",
     )
 
-    retry = record_event(
+    retry, _ = record_event(
         agent_id="a",
         clock=clock,
         log=log,
@@ -431,7 +431,7 @@ def test_spawn_persists_spawn_event_and_seeds_child_clock() -> None:
     assert child.spawned_at_event_id == event.id
     assert child_clock.counter == event.logical_seq == 1
     assert agents.get_by_spawn_event(event.id) == child
-    child_event = record_event(
+    child_event, _ = record_event(
         agent_id=child.id,
         clock=child_clock,
         log=log,

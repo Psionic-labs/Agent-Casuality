@@ -1320,6 +1320,7 @@ def reduce(state: AgentState, event: Event) -> AgentState:
             state.status = "completed"
     return state
 
+
 def reconstruct(agent_id, target_seq):
     snap = latest_snapshot_before(agent_id, target_seq)
     state = snap.state if snap else AgentState.empty()
@@ -1384,7 +1385,7 @@ def ddmin(candidate_events: list[str], test_fn) -> list[str]:
     current = candidate_events
     while len(current) >= 2:
         chunk_size = max(1, len(current) // n)
-        chunks = [current[i:i + chunk_size] for i in range(0, len(current), chunk_size)]
+        chunks = [current[i : i + chunk_size] for i in range(0, len(current), chunk_size)]
         reduced = False
         for chunk in chunks:
             complement = [e for e in current if e not in chunk]
@@ -1425,7 +1426,10 @@ class DecisionPort:
     recorded_value: Any
     baseline_value: Any  # SENTINEL, CANONICAL, or HISTORICAL_PRIOR
 
-def compute_shapley_interaction(decision_id: str, ports: list[DecisionPort], evaluate_fn, samples_per_cell: int = 5) -> dict[str, Any]:
+
+def compute_shapley_interaction(
+    decision_id: str, ports: list[DecisionPort], evaluate_fn, samples_per_cell: int = 5
+) -> dict[str, Any]:
     """Compute individual Shapley values and pairwise Shapley-Owen Interaction Indices
     over Monte Carlo counterfactual replay evaluations."""
     port_ids = [p.port_id for p in ports]
@@ -1444,14 +1448,18 @@ def compute_shapley_interaction(decision_id: str, ports: list[DecisionPort], eva
     # Pairwise Interaction Index for (a, b)
     results = {}
     for i, a in enumerate(port_ids):
-        for b in port_ids[i+1:]:
+        for b in port_ids[i + 1 :]:
             rest = [p for p in port_ids if p not in (a, b)]
             interaction_sum = 0.0
             # Iterate over subsets of remaining ports
             for r in range(len(rest) + 1):
                 for subset in itertools.combinations(rest, r):
                     s = frozenset(subset)
-                    weight = math.factorial(len(s)) * math.factorial(n - len(s) - 2) / (math.factorial(n) - 1)
+                    weight = (
+                        math.factorial(len(s))
+                        * math.factorial(n - len(s) - 2)
+                        / (math.factorial(n) - 1)
+                    )
                     delta2 = v(s | {a, b}) - v(s | {a}) - v(s | {b}) + v(s)
                     interaction_sum += weight * delta2
             results[f"{a}_x_{b}"] = interaction_sum
@@ -1473,7 +1481,9 @@ class PortIntervention:
     port_id: str
     substitute_value: Any
 
+
 SIDE_EFFECTING = {"database_write", "email_send", "payment", "external_api_mutation"}
+
 
 def counterfactual_replay(
     run_id: str,
