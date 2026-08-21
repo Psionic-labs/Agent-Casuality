@@ -41,7 +41,7 @@ class GraphValidator:
             raw = []
 
         if run_id is not None:
-            return [e for e in raw if e.run_id is None or e.run_id == run_id]
+            return [e for e in raw if e.run_id == run_id]
         return raw
 
     def get_event(self, event_id: str) -> Event | None:
@@ -86,8 +86,9 @@ class GraphValidator:
             for parent_id in event.causal_parent_ids:
                 if self.get_event(parent_id) is None:
                     violations.append(
-                        f"Dangling causal parent: Event {event.id} (agent {event.agent_id}, seq {event.logical_seq}) "
-                        f"declares parent '{parent_id}' which does not exist in storage."
+                        f"Dangling causal parent: Event {event.id} (agent {event.agent_id}, "
+                        f"seq {event.logical_seq}) declares parent '{parent_id}' which does not "
+                        f"exist in storage."
                     )
         return violations
 
@@ -98,14 +99,21 @@ class GraphValidator:
             if event.run_id is not None:
                 for parent_id in event.causal_parent_ids:
                     parent_ev = self.get_event(parent_id)
-                    if parent_ev is not None and parent_ev.run_id is not None and parent_ev.run_id != event.run_id:
+                    if (
+                        parent_ev is not None
+                        and parent_ev.run_id is not None
+                        and parent_ev.run_id != event.run_id
+                    ):
                         violations.append(
                             f"Cross-run edge violation: Event {event.id} (run '{event.run_id}') "
-                            f"references parent {parent_ev.id} from foreign run '{parent_ev.run_id}'."
+                            f"references parent {parent_ev.id} from foreign run "
+                            f"'{parent_ev.run_id}'."
                         )
         return violations
 
-    def check_intra_agent_continuity(self, run_id: str | None = None) -> tuple[list[str], list[str]]:
+    def check_intra_agent_continuity(
+        self, run_id: str | None = None
+    ) -> tuple[list[str], list[str]]:
         """Verify sequence monotonicity, uniqueness, and progression within each agent."""
         violations: list[str] = []
         warnings: list[str] = []
@@ -134,29 +142,31 @@ class GraphValidator:
                     parent_ev = self.get_event(parent_id)
                     if parent_ev is not None and parent_ev.logical_seq >= event.logical_seq:
                         violations.append(
-                            f"Lamport progression violated: Event {event.id} (seq {event.logical_seq}) "
-                            f"has parent {parent_ev.id} with greater or equal seq {parent_ev.logical_seq}."
+                            f"Lamport progression violated: Event {event.id} "
+                            f"(seq {event.logical_seq}) has parent {parent_ev.id} with "
+                            f"greater or equal seq {parent_ev.logical_seq}."
                         )
 
                 # 3. Soft Warning: Intermediate event on an agent with zero parents
                 if i > 0 and not event.causal_parent_ids:
                     warnings.append(
-                        f"Timeline gap on agent {agent_id}: Event {event.id} (seq {event.logical_seq}) "
-                        f"has no causal parents and does not link to previous event {agent_events[i-1].id}."
+                        f"Timeline gap on agent {agent_id}: Event {event.id} "
+                        f"(seq {event.logical_seq}) has no causal parents and does not link to "
+                        f"previous event {agent_events[i - 1].id}."
                     )
 
         return violations, warnings
 
     def check_decision_ports(self, decision: DecisionContract) -> tuple[list[str], list[str]]:
-        """Verify that all decision ports exist and resolve to valid ancestors of the decision event."""
+        """Verify decision ports exist and resolve to valid ancestors of decision event."""
         violations: list[str] = []
         warnings: list[str] = []
 
         decision_ev = self.get_event(decision.decision_event_id)
         if decision_ev is None:
             violations.append(
-                f"Decision event '{decision.decision_event_id}' for decision '{decision.decision_id}' "
-                f"does not exist in storage."
+                f"Decision event '{decision.decision_event_id}' for decision "
+                f"'{decision.decision_id}' does not exist in storage."
             )
             return violations, warnings
 
@@ -166,7 +176,8 @@ class GraphValidator:
             source_ev = self.get_event(port.source_event_id)
             if source_ev is None:
                 violations.append(
-                    f"Decision port '{port.port_id}' references non-existent source_event_id '{port.source_event_id}'."
+                    f"Decision port '{port.port_id}' references non-existent "
+                    f"source_event_id '{port.source_event_id}'."
                 )
             elif port.source_event_id not in ancestor_ids:
                 violations.append(
@@ -176,7 +187,8 @@ class GraphValidator:
 
             if port.baseline_value is None and not port.description:
                 warnings.append(
-                    f"Decision port '{port.port_id}' has a null baseline_value without descriptive documentation."
+                    f"Decision port '{port.port_id}' has a null baseline_value without "
+                    f"descriptive documentation."
                 )
 
         return violations, warnings

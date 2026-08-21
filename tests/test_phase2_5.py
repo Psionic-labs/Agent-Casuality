@@ -1,4 +1,4 @@
-"""Tests for Phase 2.5: Decision SCM Contract, Resource Invariants, and Graph Completeness Validator."""
+"""Tests for Phase 2.5: Decision SCM Contract, Resource Invariants, and Validator."""
 
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -454,12 +454,10 @@ def test_make_fail_open_append_swallows_storage_errors(capsys: Any) -> None:
     log = InMemoryEventLog()
 
     # Patch append to always raise
-    original_append = log.append
-
     def _bad_append(event: Any) -> Any:
         raise RuntimeError("disk full")
 
-    log.append = _bad_append  # type: ignore[method-assign]
+    log.append = _bad_append  # type: ignore
 
     fail_open_log = make_fail_open_append(log)
     clock = AgentClock()

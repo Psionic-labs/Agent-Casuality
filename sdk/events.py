@@ -84,9 +84,17 @@ def next_seq(agent_state: AgentClock, causal_parents: Iterable[int]) -> int:
     return agent_state.allocate(causal_parents)
 
 
-def _append(log: Any, event: Event) -> Event:
+def _append(log: Any, event: Event) -> tuple[Event, bool]:
+    """Append event to log and return (event, was_stored).
+    
+    Returns True if the append succeeded, False if fail-open mode swallowed an error.
+    Checks for _last_append_failed attribute set by make_fail_open_append wrapper.
+    """
     result = log.append(event)
-    return result if isinstance(result, Event) else event
+    # Check if this is a fail-open wrapper that tracks append failures
+    append_failed = getattr(log, "_last_append_failed", False)
+    was_stored = not append_failed
+    return (result if isinstance(result, Event) else event, was_stored)
 
 
 def record_event(
@@ -101,8 +109,14 @@ def record_event(
     idempotency_key: str | None = None,
     run_id: str | None = None,
     auto_chain: bool = False,
+    redactor: Any = None,
 ) -> Event:
-    """Allocate and append an event while preserving its causal metadata."""
+    """Allocate and append an event while preserving its causal metadata.
+    
+    Args:
+        redactor: Optional PayloadRedactor to redact sensitive keys before storage.
+                  If provided, redactor.redact(payload) is applied.
+    """
     parent_ids = list(causal_parent_ids)
     if idempotency_key is not None:
         getter = getattr(log, "get_by_idempotency_key", None)
@@ -122,19 +136,27 @@ def record_event(
         sequence = next_seq(clock, causal_parent_seqs)
     else:
         sequence = allocator(agent_id, clock, causal_parent_seqs)
-    event = _append(
+    
+    # Apply redaction if redactor is provided
+    safe_payload = payload
+    if redactor is not None:
+        safe_payload = redactor.redact(payload)
+    
+    event, was_stored = _append(
         log,
         Event(
             agent_id=agent_id,
             logical_seq=sequence,
             event_type=event_type,
-            payload=payload,
+            payload=safe_payload,
             causal_parent_ids=parent_ids,
             idempotency_key=idempotency_key,
             run_id=run_id,
         ),
     )
-    clock.set_last_event_id(event.id)
+    # Only update clock if the event was actually stored
+    if was_stored:
+        clock.set_last_event_id(event.id)
     return event
 
 

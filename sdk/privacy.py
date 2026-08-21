@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 # Keys that are always redacted, regardless of caller configuration.
 _BUILTIN_SENSITIVE_KEYS: frozenset[str] = frozenset(
     {
@@ -102,10 +101,10 @@ IDENTITY_REDACTOR: PayloadRedactor = _IdentityRedactor()
 def make_fail_open_append(log: Any) -> Any:
     """Wrap *log* so that storage failures are swallowed rather than raised.
 
-    Returns a thin proxy that delegates every attribute to *log* but replaces
-    ``.append()`` with a version that catches all exceptions, emits a stderr
-    warning (so failures are still visible in logs), and returns the original
-    event unchanged so the agent run continues uninterrupted.
+    Returns a thin proxy that delegates every attribute and method to *log*
+    but replaces ``.append()`` with a version that catches all exceptions,
+    emits a stderr warning (so failures are still visible in logs), and
+    returns the original event unchanged so the agent run continues uninterrupted.
 
     **Fail-closed** callers simply do not use this wrapper; they allow
     exceptions from ``.append()`` to propagate naturally.
@@ -115,24 +114,31 @@ def make_fail_open_append(log: Any) -> Any:
 
     Returns:
         A proxy object with the same interface as *log* but with a
-        fail-safe ``.append()`` method.
+        fail-safe ``.append()`` method. Also provides ``_last_append_failed()``
+        to check if the most recent append failed.
     """
     import sys
-    import types
 
-    original_append = log.append
+    class FailOpenLog:
+        """Proxy that wraps an EventLog and swallows append failures."""
 
-    def _safe_append(event: Any) -> Any:
-        try:
-            return original_append(event)
-        except Exception as exc:  # noqa: BLE001
-            print(
-                f"[agent-casuality] WARN: event log append failed (fail_open=True): {exc}",
-                file=sys.stderr,
-            )
-            return event
+        def __init__(self, wrapped: Any) -> None:
+            self._wrapped = wrapped
+            self._last_append_failed = False
 
-    attrs = {k: getattr(log, k) for k in dir(log) if not k.startswith("__")}
-    proxy = types.SimpleNamespace(**attrs)
-    proxy.append = _safe_append  # type: ignore[attr-defined]
-    return proxy
+        def append(self, event: Any) -> Any:
+            try:
+                self._last_append_failed = False
+                return self._wrapped.append(event)
+            except Exception as exc:  # noqa: BLE001
+                print(
+                    f"[agent-casuality] WARN: event log append failed (fail_open=True): {exc}",
+                    file=sys.stderr,
+                )
+                self._last_append_failed = True
+                return event
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._wrapped, name)
+
+    return FailOpenLog(log)

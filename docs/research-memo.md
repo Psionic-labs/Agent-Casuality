@@ -220,6 +220,7 @@ class DecisionPort:
     baseline_value: Any  # Well-defined counterfactual replacement
     required: bool = True
 
+
 @dataclass
 class DecisionContract:
     decision_id: str
@@ -369,6 +370,7 @@ Phase 2 (Completed) ──► Phase 2.5 (Concrete Plan Below) ──► Phase 3 
       recorded_value: Any
       baseline_value: Any
       description: str
+
 
   @dataclass
   class DecisionRecord:

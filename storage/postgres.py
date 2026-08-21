@@ -129,8 +129,7 @@ class PostgresEventStore:
                     raise ValueError("causal parent IDs must be unique")
                 if parent_ids:
                     cursor.execute(
-                        "SELECT id FROM events "
-                        "WHERE id = ANY(%s) AND run_id = %s",
+                        "SELECT id FROM events WHERE id = ANY(%s) AND run_id = %s",
                         (parent_ids, run_id),
                     )
                     owned_parent_ids = {row[0] for row in cursor.fetchall()}

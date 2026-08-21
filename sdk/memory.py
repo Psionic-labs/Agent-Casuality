@@ -23,6 +23,7 @@ class ResourceVersionTuple:
     last_writer_agent_id: str
     logical_seq: int
     wall_time: datetime = field(default_factory=lambda: datetime.now(UTC))
+    run_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -32,14 +33,18 @@ class ResourceVersionTuple:
             "last_writer_agent_id": self.last_writer_agent_id,
             "logical_seq": self.logical_seq,
             "wall_time": self.wall_time.isoformat(),
+            "run_id": self.run_id,
         }
 
 
 class ResourceRegistry:
-    """Thread-safe registry mapping resource URIs to their monotonic version and last writer event."""
+    """Thread-safe registry mapping resource URIs to their monotonic version and last writer event.
+    
+    Entries are scoped by (run_id, resource_uri) to prevent cross-run causal edges.
+    """
 
     def __init__(self) -> None:
-        self._resources: dict[str, ResourceVersionTuple] = {}
+        self._resources: dict[tuple[str | None, str], ResourceVersionTuple] = {}
         self._lock = RLock()
 
     def register_write(
@@ -49,9 +54,11 @@ class ResourceRegistry:
         writer_agent_id: str,
         logical_seq: int,
         wall_time: datetime | None = None,
+        run_id: str | None = None,
     ) -> ResourceVersionTuple:
         with self._lock:
-            current = self._resources.get(resource_uri)
+            key = (run_id, resource_uri)
+            current = self._resources.get(key)
             next_version = 1 if current is None else current.version + 1
             entry = ResourceVersionTuple(
                 resource_uri=resource_uri,
@@ -60,13 +67,17 @@ class ResourceRegistry:
                 last_writer_agent_id=writer_agent_id,
                 logical_seq=logical_seq,
                 wall_time=wall_time or datetime.now(UTC),
+                run_id=run_id,
             )
-            self._resources[resource_uri] = entry
+            self._resources[key] = entry
             return entry
 
-    def get_latest(self, resource_uri: str) -> ResourceVersionTuple | None:
+    def get_latest(
+        self, resource_uri: str, run_id: str | None = None
+    ) -> ResourceVersionTuple | None:
         with self._lock:
-            return self._resources.get(resource_uri)
+            key = (run_id, resource_uri)
+            return self._resources.get(key)
 
     def hydrate_from_events(self, events: Iterable[Event]) -> None:
         """Replay events to rebuild resource-version mappings from historical records."""
@@ -86,6 +97,7 @@ class ResourceRegistry:
                                 writer_agent_id=event.agent_id,
                                 logical_seq=event.logical_seq,
                                 wall_time=event.wall_time,
+                                run_id=event.run_id,
                             )
                 elif event.event_type == "tool_result":
                     custom_uri = event.payload.get("resource_uri")
@@ -96,9 +108,10 @@ class ResourceRegistry:
                             writer_agent_id=event.agent_id,
                             logical_seq=event.logical_seq,
                             wall_time=event.wall_time,
+                            run_id=event.run_id,
                         )
 
-    def all_resources(self) -> dict[str, ResourceVersionTuple]:
+    def all_resources(self) -> dict[tuple[str | None, str], ResourceVersionTuple]:
         with self._lock:
             return dict(self._resources)
 
@@ -162,7 +175,7 @@ class CapturedMemory:
                     lookup_uris.append(resource_uri)
                 lookup_uris.extend([f"mem://{self.agent_id}/{key}", f"mem://shared/{key}"])
                 for uri in lookup_uris:
-                    latest = self.registry.get_latest(uri)
+                    latest = self.registry.get_latest(uri, run_id=self.run_id)
                     if latest is not None and latest.last_writer_event_id:
                         parents = [latest.last_writer_event_id]
                         break
@@ -214,6 +227,7 @@ class CapturedMemory:
                         writer_agent_id=self.agent_id,
                         logical_seq=event.logical_seq,
                         wall_time=event.wall_time,
+                        run_id=self.run_id,
                     )
 
     def delete(
@@ -249,5 +263,6 @@ class CapturedMemory:
                         writer_agent_id=self.agent_id,
                         logical_seq=event.logical_seq,
                         wall_time=event.wall_time,
+                        run_id=self.run_id,
                     )
             return before is not _MISSING

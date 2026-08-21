@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
 import json
+from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 from sdk.events import Event
 
 
-class AblationStrategy(str, Enum):
+class AblationStrategy(StrEnum):
     """Strategy used to substitute baseline values during counterfactual ablation."""
 
     DEFAULT_SENTINEL = "default_sentinel"  # Typed neutral sentinel (e.g. 0.0, None, "UNSPECIFIED")
-    CANONICAL_BASELINE = "canonical_baseline"  # Golden domain reference value (e.g., "ineligible", risk 0.8)
+    CANONICAL_BASELINE = (
+        "canonical_baseline"  # Golden domain reference value (e.g., "ineligible", risk 0.8)
+    )
     HISTORICAL_PRIOR = "historical_prior"  # Value sampled from a known passing run
 
 
@@ -38,14 +40,20 @@ class DecisionPort:
             "field_path": self.field_path,
             "recorded_value": self.recorded_value,
             "baseline_value": self.baseline_value,
-            "strategy": self.strategy.value if isinstance(self.strategy, AblationStrategy) else str(self.strategy),
+            "strategy": self.strategy.value
+            if isinstance(self.strategy, AblationStrategy)
+            else str(self.strategy),
             "description": self.description,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DecisionPort:
         strategy_raw = data.get("strategy", AblationStrategy.DEFAULT_SENTINEL)
-        strategy = AblationStrategy(strategy_raw) if isinstance(strategy_raw, str) else AblationStrategy.DEFAULT_SENTINEL
+        strategy = (
+            AblationStrategy(strategy_raw)
+            if isinstance(strategy_raw, str)
+            else AblationStrategy.DEFAULT_SENTINEL
+        )
         return cls(
             port_id=data["port_id"],
             source_event_id=data["source_event_id"],
@@ -106,7 +114,7 @@ class DecisionContract:
         )
 
     def to_event_payload(self, base_payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Embed this decision contract into an event payload for backward-compatible persistence."""
+        """Embed decision contract into event payload for backward-compatible persistence."""
         payload = dict(base_payload) if base_payload is not None else {}
         payload["decision_contract"] = self.to_dict()
         return payload

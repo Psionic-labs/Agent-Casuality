@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable
-from datetime import UTC, datetime
 from threading import Lock
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import uuid4
@@ -118,6 +117,7 @@ def _run_captured_tool(
             writer_agent_id=agent_id,
             logical_seq=result_event.logical_seq,
             wall_time=result_event.wall_time,
+            run_id=run_id,
         )
     return result
 
