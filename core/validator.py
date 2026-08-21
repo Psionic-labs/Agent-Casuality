@@ -57,16 +57,20 @@ class GraphValidator:
         return None
 
     def get_ancestors(self, event_id: str) -> set[str]:
-        """Return the starting event and all reachable ancestor event IDs."""
+        """Return only the parent ancestors of the given event (excluding the event itself)."""
         ancestors_fn = getattr(self.log, "ancestors", None)
         if callable(ancestors_fn):
             try:
-                return set(ancestors_fn(event_id))
+                # Filter out the event itself from the result
+                result = set(ancestors_fn(event_id))
+                result.discard(event_id)
+                return result
             except Exception:
                 pass  # fallback to in-memory traversal
 
-        visited: set[str] = set()
+        ancestors: set[str] = set()
         queue: list[str] = [event_id]
+        visited: set[str] = set()
         while queue:
             curr_id = queue.pop(0)
             if curr_id in visited:
@@ -76,8 +80,9 @@ class GraphValidator:
             if curr_ev is not None:
                 for p_id in curr_ev.causal_parent_ids:
                     if p_id not in visited:
+                        ancestors.add(p_id)
                         queue.append(p_id)
-        return visited
+        return ancestors
 
     def check_dangling_parents(self, run_id: str | None = None) -> list[str]:
         """Verify that every declared causal parent ID exists in storage (Hard Violation)."""

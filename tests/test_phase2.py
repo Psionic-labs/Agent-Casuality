@@ -337,7 +337,7 @@ def test_phase2_schema_and_real_three_agent_graph() -> None:
         }
         assert researcher_branch.isdisjoint(coder_branch)
 
-        root = record_event(
+        root, _ = record_event(
             agent_id=planner_id,
             clock=planner_clock,
             log=store,

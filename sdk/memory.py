@@ -80,8 +80,14 @@ class ResourceRegistry:
             return self._resources.get(key)
 
     def hydrate_from_events(self, events: Iterable[Event]) -> None:
-        """Replay events to rebuild resource-version mappings from historical records."""
+        """Replay events to rebuild resource-version mappings from historical records.
+        
+        Events are processed sorted by logical_seq per (run_id, resource_uri) to ensure
+        the latest writer is identified correctly regardless of input order.
+        """
         with self._lock:
+            # Group events by (run_id, resource_uri) and sort by logical_seq
+            event_groups: dict[tuple[str | None, str], list[Event]] = {}
             for event in events:
                 if event.event_type == "memory_write":
                     key = event.payload.get("key")
@@ -91,25 +97,30 @@ class ResourceRegistry:
                         if custom_uri:
                             uris.append(custom_uri)
                         for uri in uris:
-                            self.register_write(
-                                resource_uri=uri,
-                                writer_event_id=event.id,
-                                writer_agent_id=event.agent_id,
-                                logical_seq=event.logical_seq,
-                                wall_time=event.wall_time,
-                                run_id=event.run_id,
-                            )
+                            group_key = (event.run_id, uri)
+                            if group_key not in event_groups:
+                                event_groups[group_key] = []
+                            event_groups[group_key].append(event)
                 elif event.event_type == "tool_result":
                     custom_uri = event.payload.get("resource_uri")
                     if custom_uri:
-                        self.register_write(
-                            resource_uri=custom_uri,
-                            writer_event_id=event.id,
-                            writer_agent_id=event.agent_id,
-                            logical_seq=event.logical_seq,
-                            wall_time=event.wall_time,
-                            run_id=event.run_id,
-                        )
+                        group_key = (event.run_id, custom_uri)
+                        if group_key not in event_groups:
+                            event_groups[group_key] = []
+                        event_groups[group_key].append(event)
+            
+            # Process each group sorted by logical_seq
+            for (run_id, uri), group_events in event_groups.items():
+                sorted_events = sorted(group_events, key=lambda e: e.logical_seq)
+                for event in sorted_events:
+                    self.register_write(
+                        resource_uri=uri,
+                        writer_event_id=event.id,
+                        writer_agent_id=event.agent_id,
+                        logical_seq=event.logical_seq,
+                        wall_time=event.wall_time,
+                        run_id=run_id,
+                    )
 
     def all_resources(self) -> dict[tuple[str | None, str], ResourceVersionTuple]:
         with self._lock:
@@ -147,7 +158,7 @@ class CapturedMemory:
         event_type: str,
         payload: dict[str, Any],
         causal_parent_ids: Iterable[str],
-    ) -> Event:
+    ) -> tuple[Event, bool]:
         return record_event(
             agent_id=self.agent_id,
             clock=self.clock,
@@ -202,8 +213,8 @@ class CapturedMemory:
     ) -> None:
         with self._lock:
             before = self.store.get(key, _MISSING)
-            self.store[key] = value
-            event = self._event(
+            # Record event first, before mutating store
+            event, was_stored = self._event(
                 "memory_write",
                 {
                     "operation": "set",
@@ -216,19 +227,22 @@ class CapturedMemory:
                 },
                 causal_parent_ids,
             )
-            if self.registry is not None:
-                uris = [f"mem://{self.agent_id}/{key}", f"mem://shared/{key}"]
-                if resource_uri:
-                    uris.append(resource_uri)
-                for uri in uris:
-                    self.registry.register_write(
-                        resource_uri=uri,
-                        writer_event_id=event.id,
-                        writer_agent_id=self.agent_id,
-                        logical_seq=event.logical_seq,
-                        wall_time=event.wall_time,
-                        run_id=self.run_id,
-                    )
+            # Only mutate store and register write if event was persisted
+            if was_stored:
+                self.store[key] = value
+                if self.registry is not None:
+                    uris = [f"mem://{self.agent_id}/{key}", f"mem://shared/{key}"]
+                    if resource_uri:
+                        uris.append(resource_uri)
+                    for uri in uris:
+                        self.registry.register_write(
+                            resource_uri=uri,
+                            writer_event_id=event.id,
+                            writer_agent_id=self.agent_id,
+                            logical_seq=event.logical_seq,
+                            wall_time=event.wall_time,
+                            run_id=self.run_id,
+                        )
 
     def delete(
         self,
@@ -238,8 +252,9 @@ class CapturedMemory:
         resource_uri: str | None = None,
     ) -> bool:
         with self._lock:
-            before = self.store.pop(key, _MISSING)
-            event = self._event(
+            before = self.store.get(key, _MISSING)
+            # Record event first, before mutating store
+            event, was_stored = self._event(
                 "memory_write",
                 {
                     "operation": "delete",
@@ -252,17 +267,20 @@ class CapturedMemory:
                 },
                 causal_parent_ids,
             )
-            if self.registry is not None:
-                uris = [f"mem://{self.agent_id}/{key}", f"mem://shared/{key}"]
-                if resource_uri:
-                    uris.append(resource_uri)
-                for uri in uris:
-                    self.registry.register_write(
-                        resource_uri=uri,
-                        writer_event_id=event.id,
-                        writer_agent_id=self.agent_id,
-                        logical_seq=event.logical_seq,
-                        wall_time=event.wall_time,
-                        run_id=self.run_id,
-                    )
-            return before is not _MISSING
+            # Only mutate store and register write if event was persisted
+            if was_stored:
+                self.store.pop(key, _MISSING)
+                if self.registry is not None:
+                    uris = [f"mem://{self.agent_id}/{key}", f"mem://shared/{key}"]
+                    if resource_uri:
+                        uris.append(resource_uri)
+                    for uri in uris:
+                        self.registry.register_write(
+                            resource_uri=uri,
+                            writer_event_id=event.id,
+                            writer_agent_id=self.agent_id,
+                            logical_seq=event.logical_seq,
+                            wall_time=event.wall_time,
+                            run_id=self.run_id,
+                        )
+            return before is not _MISSING and was_stored

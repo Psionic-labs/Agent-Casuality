@@ -97,7 +97,7 @@ class _CapturedStream:
         if self._finalized:
             return
         self._finalized = True
-        record_event(
+        _, _ = record_event(
             agent_id=self._owner.agent_id,
             clock=self._owner.clock,
             log=self._owner.log,
@@ -118,7 +118,7 @@ class _CapturedStream:
         if self._finalized:
             return
         self._finalized = True
-        record_event(
+        _, _ = record_event(
             agent_id=self._owner.agent_id,
             clock=self._owner.clock,
             log=self._owner.log,
@@ -155,7 +155,7 @@ class _CapturedMessages:
         try:
             response = self._owner._client.messages.create(**kwargs)
         except Exception as exc:
-            record_event(
+            _, _ = record_event(
                 agent_id=self._owner.agent_id,
                 clock=self._owner.clock,
                 log=self._owner.log,
@@ -183,7 +183,7 @@ class _CapturedMessages:
             )
 
         latency_ms = int((time.monotonic() - start) * 1000)
-        record_event(
+        _, _ = record_event(
             agent_id=self._owner.agent_id,
             clock=self._owner.clock,
             log=self._owner.log,

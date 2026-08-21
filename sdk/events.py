@@ -110,12 +110,15 @@ def record_event(
     run_id: str | None = None,
     auto_chain: bool = False,
     redactor: Any = None,
-) -> Event:
+) -> tuple[Event, bool]:
     """Allocate and append an event while preserving its causal metadata.
     
     Args:
         redactor: Optional PayloadRedactor to redact sensitive keys before storage.
                   If provided, redactor.redact(payload) is applied.
+    
+    Returns:
+        Tuple of (event, was_stored) where was_stored indicates if persistence succeeded.
     """
     parent_ids = list(causal_parent_ids)
     if idempotency_key is not None:
@@ -124,7 +127,7 @@ def record_event(
             existing = getter(agent_id, idempotency_key)
             if isinstance(existing, Event):
                 clock.set_last_event_id(existing.id)
-                return existing
+                return existing, True
     if auto_chain and not parent_ids:
         prev_id = clock.get_last_event_id()
         if prev_id is not None:
@@ -157,7 +160,7 @@ def record_event(
     # Only update clock if the event was actually stored
     if was_stored:
         clock.set_last_event_id(event.id)
-    return event
+    return event, was_stored
 
 
 class InMemoryEventLog:

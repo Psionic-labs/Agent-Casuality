@@ -67,7 +67,7 @@ def _run_captured_tool(
     if prior_error is not None:
         raise RuntimeError(prior_error.payload.get("error", "captured tool failed"))
 
-    invoke = record_event(
+    invoke, invoke_stored = record_event(
         agent_id=agent_id,
         clock=clock,
         log=log,
@@ -85,13 +85,13 @@ def _run_captured_tool(
     try:
         result = fn(*args, **kwargs)
     except Exception as exc:
-        record_event(
+        error_event, _ = record_event(
             agent_id=agent_id,
             clock=clock,
             log=log,
             event_type="agent_error",
             payload={"invocation_id": invocation_id, "error": str(exc)},
-            causal_parent_ids=[invoke.id],
+            causal_parent_ids=[invoke.id] if invoke_stored else [],
             idempotency_key=f"{invocation_id}:result",
             run_id=run_id,
         )
@@ -99,18 +99,18 @@ def _run_captured_tool(
     result_payload: dict[str, Any] = {"invocation_id": invocation_id, "output": result}
     if resource_uri is not None:
         result_payload["resource_uri"] = resource_uri
-    result_event = record_event(
+    result_event, result_stored = record_event(
         agent_id=agent_id,
         clock=clock,
         log=log,
         event_type="tool_result",
         payload=result_payload,
-        causal_parent_ids=[invoke.id],
+        causal_parent_ids=[invoke.id] if invoke_stored else [],
         idempotency_key=f"{invocation_id}:result",
         run_id=run_id,
     )
-    # Register file/resource writes so readers can auto-inject causal edges
-    if registry is not None and resource_uri is not None:
+    # Register file/resource writes only if event was persisted
+    if result_stored and registry is not None and resource_uri is not None:
         registry.register_write(
             resource_uri=resource_uri,
             writer_event_id=result_event.id,

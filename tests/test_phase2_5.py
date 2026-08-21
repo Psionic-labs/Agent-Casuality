@@ -174,10 +174,10 @@ def test_agent_clock_tracks_last_event_id_and_auto_chains() -> None:
     clock = AgentClock()
     log = InMemoryEventLog()
 
-    e1 = record_event(agent_id="A", clock=clock, log=log, event_type="step1", payload={})
+    e1, _ = record_event(agent_id="A", clock=clock, log=log, event_type="step1", payload={})
     assert clock.get_last_event_id() == e1.id
 
-    e2 = record_event(
+    e2, _ = record_event(
         agent_id="A", clock=clock, log=log, event_type="step2", payload={}, auto_chain=True
     )
     assert clock.get_last_event_id() == e2.id
@@ -463,7 +463,7 @@ def test_make_fail_open_append_swallows_storage_errors(capsys: Any) -> None:
     clock = AgentClock()
 
     # Should NOT raise even though the underlying append explodes
-    event = record_event(
+    event, _ = record_event(
         agent_id="A",
         clock=clock,
         log=fail_open_log,
