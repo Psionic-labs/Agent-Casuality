@@ -2,6 +2,7 @@
 
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -104,6 +105,41 @@ def test_resource_registry_hydrates_from_event_stream() -> None:
     assert file_entry is not None
     assert file_entry.version == 1
     assert file_entry.last_writer_event_id == "ev_2"
+
+
+def test_hydrate_is_deterministic_when_agents_share_logical_seq() -> None:
+    """Equal Lamport seqs from different agents must not depend on input order."""
+    t0 = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def make_events() -> list[Event]:
+        return [
+            Event(
+                id="ev_b",
+                agent_id="B",
+                logical_seq=1,
+                event_type="memory_write",
+                payload={"key": "k", "after": "from_B"},
+                wall_time=t0,
+            ),
+            Event(
+                id="ev_c",
+                agent_id="C",
+                logical_seq=1,
+                event_type="memory_write",
+                payload={"key": "k", "after": "from_C"},
+                wall_time=t0 + timedelta(seconds=1),
+            ),
+        ]
+
+    forward = ResourceRegistry()
+    forward.hydrate_from_events(make_events())
+    backward = ResourceRegistry()
+    backward.hydrate_from_events(list(reversed(make_events())))
+
+    assert forward.get_latest("mem://shared/k") == backward.get_latest("mem://shared/k")
+    latest = forward.get_latest("mem://shared/k")
+    assert latest is not None
+    assert latest.last_writer_event_id == "ev_c"
 
 
 # --- 2. CapturedMemory Implicit Causal Edge Auto-Injection ---
@@ -589,6 +625,29 @@ def test_fail_open_append_status_is_per_call_not_shared() -> None:
         results = list(executor.map(worker, range(num_calls)))
 
     assert results == [i % 2 == 1 for i in range(num_calls)]
+
+
+def test_silent_swallow_log_is_treated_as_not_stored() -> None:
+    """A plain log that returns without an Event must not advance store/registry."""
+
+    class SilentLog:
+        def append(self, event: Event) -> Event | None:
+            return None  # swallows the failure
+
+    clock = AgentClock()
+    registry = ResourceRegistry()
+    mem = CapturedMemory(agent_id="A", clock=clock, log=SilentLog(), registry=registry)
+
+    event, stored = record_event(
+        agent_id="A", clock=clock, log=SilentLog(), event_type="t", payload={}
+    )
+    assert stored is False
+    assert clock.get_last_event_id() is None
+
+    mem.set("k", "v")
+    assert "k" not in mem.store
+    assert registry.get_latest("mem://A/k") is None
+    assert mem.delete("k") is False
 
 
 # --- 8. capture_tool registry wiring ---

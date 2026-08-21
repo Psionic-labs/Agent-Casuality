@@ -81,9 +81,12 @@ class ResourceRegistry:
 
     def hydrate_from_events(self, events: Iterable[Event]) -> None:
         """Replay events to rebuild resource-version mappings from historical records.
-        
-        Events are processed sorted by logical_seq per (run_id, resource_uri) to ensure
-        the latest writer is identified correctly regardless of input order.
+
+        Events are processed sorted by (logical_seq, wall_time, event id) per
+        (run_id, resource_uri). logical_seq alone is an agent-local Lamport
+        counter and can collide across agents writing the same resource, so
+        wall_time and the unique event id break ties deterministically
+        regardless of input order.
         """
         with self._lock:
             # Group events by (run_id, resource_uri) and sort by logical_seq
@@ -109,9 +112,11 @@ class ResourceRegistry:
                             event_groups[group_key] = []
                         event_groups[group_key].append(event)
             
-            # Process each group sorted by logical_seq
+            # Process each group in deterministic total order
             for (run_id, uri), group_events in event_groups.items():
-                sorted_events = sorted(group_events, key=lambda e: e.logical_seq)
+                sorted_events = sorted(
+                    group_events, key=lambda e: (e.logical_seq, e.wall_time, e.id)
+                )
                 for event in sorted_events:
                     self.register_write(
                         resource_uri=uri,

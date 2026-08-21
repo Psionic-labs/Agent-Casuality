@@ -76,6 +76,15 @@ class Event:
 
 
 class EventLog(Protocol):
+    """Storage contract for event capture.
+
+    ``append`` must be fail-closed: it either returns the stored Event or
+    raises. Backends that swallow storage errors must instead implement
+    ``append_with_status(event) -> tuple[Event, bool]`` so capture code can
+    distinguish stored from dropped events; returning without an Event
+    (e.g. returning None) is treated as not stored.
+    """
+
     def append(self, event: Event) -> Event: ...
 
 
@@ -87,17 +96,21 @@ def next_seq(agent_state: AgentClock, causal_parents: Iterable[int]) -> int:
 def _append(log: Any, event: Event) -> tuple[Event, bool]:
     """Append event to log and return (event, was_stored).
 
-    was_stored is False only when a fail-open wrapper reports that this exact
-    append failed via ``append_with_status``; plain logs are assumed to have
-    stored the event. The status is per-call, so concurrent appends on a
-    shared fail-open log cannot observe each other's results.
+    was_stored is False when a fail-open wrapper reports that this exact
+    append failed via ``append_with_status``, or when a plain ``append``
+    returns without an Event (a silent-swallow backend). Conforming
+    fail-closed logs raise on failure, so a normal Event return means
+    stored. The status is per-call, so concurrent appends on a shared
+    fail-open log cannot observe each other's results.
     """
     status_fn = getattr(log, "append_with_status", None)
     if callable(status_fn):
         result, was_stored = status_fn(event)
         return (result if isinstance(result, Event) else event), was_stored
     result = log.append(event)
-    return (result if isinstance(result, Event) else event), True
+    if not isinstance(result, Event):
+        return event, False
+    return result, True
 
 
 def record_event(
