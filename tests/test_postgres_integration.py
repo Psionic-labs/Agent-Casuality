@@ -9,6 +9,9 @@ from uuid import uuid4
 import pytest
 
 from core.graph import record_causal_event
+from core.reducer import canonical_json, reconstruct
+from core.slicing import structural_slice
+from core.snapshots import SnapshotManager
 from sdk.client import CapturedClient
 from sdk.events import AgentClock, Event, record_event
 from sdk.lifecycle import spawn_agent
@@ -345,3 +348,96 @@ def _event_ids(connection: Any, agent_id: str) -> list[str]:
             "SELECT id FROM events WHERE agent_id = %s ORDER BY logical_seq", (agent_id,)
         )
         return [str(row[0]) for row in cursor.fetchall()]
+
+
+@pytest.mark.integration
+def test_phase3_reconstruction_snapshots_and_sql_slice_against_postgres() -> None:
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        pytest.skip("set DATABASE_URL to run the real Postgres integration test")
+    psycopg = pytest.importorskip("psycopg")
+    run_id = str(uuid4())
+    worker_id = str(uuid4())
+    outsider_id = str(uuid4())
+    with psycopg.connect(database_url) as connection:
+        store = PostgresEventStore(connection, lock_dsn=database_url)
+        store.create_schema()
+        with connection.cursor() as cursor:
+            cursor.execute("INSERT INTO runs (id, name) VALUES (%s, %s)", (run_id, "phase-3"))
+            for agent_id in (worker_id, outsider_id):
+                cursor.execute(
+                    "INSERT INTO agents (id, run_id, role) VALUES (%s, %s, %s)",
+                    (agent_id, run_id, "worker" if agent_id == worker_id else "outsider"),
+                )
+        connection.commit()
+
+        clock = AgentClock()
+        stored: list[Event] = []
+        for i in range(33):
+            event, was_stored = record_event(
+                agent_id=worker_id,
+                clock=clock,
+                log=store,
+                event_type="memory_write",
+                payload={
+                    "operation": "set",
+                    "key": f"k{i}",
+                    "after": i,
+                    "after_found": True,
+                },
+                idempotency_key=f"phase3-write-{i}",
+                run_id=run_id,
+            )
+            assert was_stored
+            stored.append(event)
+
+        outsider_event = record_event(
+            agent_id=outsider_id,
+            clock=AgentClock(),
+            log=store,
+            event_type="model_call",
+            payload={"action": "unrelated"},
+            run_id=run_id,
+        )[0]
+
+        # Event range fetch: strict bounds and replay ordering.
+        window = store.fetch_events(
+            worker_id, since=stored[29].logical_seq, until=stored[32].logical_seq
+        )
+        assert [event.logical_seq for event in window] == [31, 32, 33]
+
+        # Interval snapshots persist through the same store.
+        manager = SnapshotManager(log=store, store=store, interval=32, run_id=run_id)
+        created = [snapshot for event in stored if (snapshot := manager.observe(event))]
+        assert [snapshot.logical_seq for snapshot in created] == [32]
+        record = created[0]
+        assert record.id is not None
+
+        latest = store.latest_at_or_before(worker_id, 33)
+        assert latest is not None and latest.logical_seq == 32
+        assert store.latest_at_or_before(worker_id, 31) is None
+
+        # Snapshot shortcut must equal a full replay, and verify cleanly.
+        shortcut = reconstruct(worker_id, 33, log=store, snapshots=store)
+        full_replay = reconstruct(worker_id, 33, log=store)
+        assert canonical_json(shortcut) == canonical_json(full_replay)
+        assert shortcut.memory == {f"k{i}": i for i in range(33)}
+
+        verified = reconstruct(worker_id, 32, log=store, snapshots=store, verify=True)
+        assert verified.memory == {f"k{i}": i for i in range(32)}
+
+        # Structural slice prefers the recursive SQL query and stays inside
+        # the causal subgraph; the unrelated outsider event is excluded.
+        merge = record_causal_event(
+            agent_id=worker_id,
+            clock=clock,
+            log=store,
+            event_type="tool_call",
+            payload={"action": "combine_results"},
+            causal_parents=[stored[31].id, stored[32].id],
+            run_id=run_id,
+        )
+        slice_result = structural_slice(merge.id, store)
+        assert slice_result.source == "sql_recursive"
+        assert set(slice_result.event_ids) == {merge.id, stored[31].id, stored[32].id}
+        assert outsider_event.id not in slice_result

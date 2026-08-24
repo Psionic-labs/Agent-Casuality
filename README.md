@@ -5,12 +5,43 @@ Causal Debugging for Branching Multi-Agent Systems
 
 Phase 1 captures model calls, tool calls/results, memory operations, and agent
 spawns. Phase 2 stores the resulting agent/event graph in PostgreSQL, supports
-explicit cross-agent merge parents, and queries event ancestors.
+explicit cross-agent merge parents, and queries event ancestors. Phase 2.5
+adds the decision SCM contract with semantic ports, resource-version
+invariants for shared state, and the graph completeness validator.
 
-The Phase 2 graph uses `causal_parent_ids` as the source of dependency edges.
-`logical_seq` is only the per-agent logical ordering value; it is not inferred
-as a causal relationship. State reconstruction, snapshots, slicing, replay,
-and provenance belong to later phases and are not implemented yet.
+Phase 3 completes the MVP:
+
+- `core/reducer.py` reconstructs any agent's state at any `logical_seq`
+  (`reconstruct`), folding one match arm per event type, with a SHA-256
+  state hash over canonical JSON.
+- `core/snapshots.py` stores interval snapshots (every 32 events per agent)
+  that shorten replay, and verifies recorded hashes against a fresh replay.
+- `core/slicing.py` computes the structural slice of an event (recursive
+  SQL on PostgreSQL, BFS fallback in memory) and answers the structural
+  half of `why` for a decision or merge, including its declared semantic
+  ports.
+
+The Phase 2/3 graphs still use `causal_parent_ids` as the source of
+dependency edges; `logical_seq` only orders events per agent. The structural
+slice is declared-dependency evidence, not proof of influence. Exact/coarse
+provenance, minimal slicing, interaction analysis, and replay belong to
+Phases 4 and 5 and are not implemented yet.
+
+### Querying a run
+
+```powershell
+# Against the fixture, no database needed:
+uv run python -m cli.main --fixture fixture/fixture.json agents
+uv run python -m cli.main --fixture fixture/fixture.json slice A4
+uv run python -m cli.main --fixture fixture/fixture.json why A4
+uv run python -m cli.main --fixture fixture/fixture.json reconstruct B 4
+
+# Against PostgreSQL (DATABASE_URL in .env):
+uv run python -m cli.main slice <event-uuid>
+```
+
+`slice A4` returns exactly the nine events from `fixture.json`'s ground
+truth, excluding the unrelated background agent D.
 
 ## Install and run
 

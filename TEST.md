@@ -1,4 +1,4 @@
-# Verify Phase 1 and Phase 2 in PostgreSQL
+# Verify Phase 1, Phase 2, and Phase 3 in PostgreSQL
 
 Run the checks first so the database contains a fresh real run:
 
@@ -349,15 +349,181 @@ Expected result: no rows.
 Logical sequence numbers are ordering values, not causal edges. Use
 `causal_parent_ids` and the ancestor query for dependency relationships.
 
-## 12. Confirm Phase 2 does not write snapshots yet
+## 12. Confirm snapshots are only written by Phase 3
 
-Purpose: confirms the `snapshots` table exists for the schema contract while
-snapshot creation remains intentionally deferred to Phase 3.
+Purpose: confirms the `snapshots` table stays empty for Phase 1 and Phase 2
+tests. Only the Phase 3 integration test creates snapshot rows.
 
 ```sql
 SELECT COUNT(*) AS snapshots
 FROM snapshots;
 ```
 
-Expected result: usually `0` for this Phase 2 test database. Existing rows are
-not an error; Phase 2 does not create or reconstruct snapshots.
+Expected result: `0` if you have run only the Phase 1 and Phase 2
+integration tests. After running the Phase 3 integration test (section 13),
+expect one snapshot row per captured worker agent; existing rows are not an
+error.
+
+---
+
+# Phase 3 testing
+
+Phase 3 adds state reconstruction (`core/reducer.py`), interval snapshots
+(`core/snapshots.py`), and structural slicing with decision evidence
+(`core/slicing.py`). The sections below cover every testing layer, from the
+one-command script down to manual SQL verification of the snapshot rows.
+
+## 13. Run all Phase 3 checks in one command
+
+Purpose: runs every validation layer in order and fails loudly on the first
+broken layer. This is the fastest way to confirm a checkout is healthy.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_phase3.ps1
+```
+
+Skip the database layer when you do not want to touch PostgreSQL:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_phase3.ps1 -SkipIntegration
+```
+
+Expected result: exit code `0` and `All Phase 3 checks passed.` The script
+runs these layers in order:
+
+| Layer | What runs | Expected |
+|---|---|---|
+| 1 | Phase 3 unit and property tests (sections 14) | 36 passed |
+| 2 | Full unit suite, integration auto-skipped | 90 passed, 6 skipped |
+| 3 | `ruff check .` and `ty check .` | clean |
+| 4 | Fixture acceptance through the real CLI (section 15) | all assertions hold |
+| 5 | Real PostgreSQL integration tests (section 16) | 5 passed |
+
+Layer 5 loads `DATABASE_URL` from `.env` and retries once automatically,
+because hosted Neon endpoints occasionally drop DNS. A red failure there that
+disappears on rerun is connectivity, not code.
+
+## 14. Run the Phase 3 test files individually
+
+Purpose: isolates a failing layer without running the whole script.
+
+```powershell
+uv run pytest tests/test_reducer.py -q      # reducer + snapshot property tests
+uv run pytest tests/test_slicing.py -q     # fixture contract: slice/why/deep_get
+uv run pytest tests/test_cli.py -q         # CLI smoke tests
+uv run pytest tests/test_postgres_integration.py -m integration -q   # real DB
+```
+
+Expected results:
+
+- `test_reducer.py`: 23 passed. Includes the four property tests named in
+  `docs/implementation-plan.md`: replaying a prefix twice is stable, an
+  unrelated event does not change another agent's state, a causal parent must
+  exist before being referenced, and the snapshot hash matches reconstruction.
+- `test_slicing.py`: 10 passed. `structural_slice(A4)` returns exactly the
+  nine fixture events, excludes agent D, prefers the recursive SQL path when
+  the store provides `ancestors`, survives cyclic parents, and resolves
+  decision ports against recorded payloads.
+- `test_cli.py`: 3 passed.
+- Integration file: 5 passed in roughly two minutes against Neon.
+  Requires `DATABASE_URL` in `.env`, otherwise the tests self-skip.
+
+## 15. Try the debugger against the fixture, no database
+
+Purpose: exercises the real CLI end to end using `fixture.json` as the event
+store. These are the same assertions layer 4 of the script makes.
+
+```powershell
+uv run python -m cli.main --fixture fixture/fixture.json agents
+uv run python -m cli.main --fixture fixture/fixture.json slice A4
+uv run python -m cli.main --fixture fixture/fixture.json why A3
+uv run python -m cli.main --fixture fixture/fixture.json reconstruct B 4
+```
+
+Expected results:
+
+- `agents` lists `A planner`, `B researcher`, `C coder`,
+  `D background_monitor`.
+- `slice A4` prints `Structural slice of A4: 9 events (python_bfs)` followed
+  by `A1, B1, C1, B2, C2, B3, C3, A3, A4`. No `D*` event appears, matching
+  the fixture's ground-truth `structural_slice`.
+- `why A3` prints JSON with `contract_present: false` (the plain fixture
+  carries no embedded contract) and `declared_inputs` naming `B3` from agent
+  B and `C3` from agent C, plus the note that this is structural evidence
+  only, not proven influence.
+- `reconstruct B 4` prints `status=active`, a SHA-256 state hash, and JSON
+  where `tool_outputs.B2` equals `{"customer_status":"eligible"}` — proof the
+  recorded tool result folded into reconstructed state.
+
+Against a live run, swap the backend for PostgreSQL:
+
+```powershell
+uv run python -m cli.main slice <event-uuid>
+```
+
+## 16. Confirm the Phase 3 integration test wrote valid snapshots
+
+Purpose: verifies, directly in SQL, what the integration test claims: one
+interval snapshot per worker at `logical_seq = 32` (the first multiple of
+32 reached), a full 64-hex-character hash, and a state blob holding the 32
+memory keys written before that point.
+
+Run the integration tests first so fresh rows exist:
+
+```powershell
+Get-Content .env | ForEach-Object {
+  $p = $_ -split '=', 2
+  if ($p.Length -eq 2) { [Environment]::SetEnvironmentVariable($p[0], $p[1], 'Process') }
+}
+uv run pytest tests/test_postgres_integration.py -m integration -q
+```
+
+Then inspect in the Neon SQL Editor:
+
+```sql
+WITH latest_phase3 AS (
+  SELECT id
+  FROM runs
+  WHERE name = 'phase-3'
+  ORDER BY started_at DESC
+  LIMIT 1
+)
+SELECT
+  a.role,
+  s.logical_seq,
+  s.state_hash ~ '^[0-9a-f]{64}$' AS hash_is_sha256_hex,
+  (SELECT COUNT(*)
+   FROM jsonb_object_keys(s.state->'memory') AS k) AS memory_keys,
+  s.state->>'status' AS status,
+  (SELECT COUNT(*)
+   FROM jsonb_object_keys(s.state->'open_tools') AS t) AS open_tools_count
+FROM snapshots s
+JOIN latest_phase3 r ON r.id = s.run_id
+JOIN agents a ON a.id = s.agent_id
+ORDER BY s.created_at DESC;
+```
+
+Expected result: one row for the `worker` role with `logical_seq = 32`,
+`hash_is_sha256_hex = true`, `memory_keys = 32`, `status = active`, and
+`open_tools_count = 0`. The unrelated `outsider` agent has no snapshot row:
+it never reaches the 32-event interval boundary, exactly as the policy
+prescribes.
+
+## 17. Verify reconstruction agrees with the stored snapshot
+
+Purpose: proves against live PostgreSQL rows that the reducer's integrity
+rule from thesis section 30.3 holds end to end. The maintained integration
+test performs exactly this check, so run it rather than hand-writing SQL:
+
+```powershell
+uv run pytest "tests/test_postgres_integration.py::test_phase3_reconstruction_snapshots_and_sql_slice_against_postgres" -m integration -v
+```
+
+Expected result: `1 passed`. The test verifies three things against real
+rows:
+
+- the snapshot-shortcut replay equals a from-scratch replay byte for byte
+  (`canonical_json` equality);
+- `verify_snapshot` accepts an untampered snapshot at its own sequence;
+- the recursive SQL slice of the merge event contains its two declared
+  parents while excluding the unrelated outsider event.
