@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE TABLE IF NOT EXISTS snapshots (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_id uuid NOT NULL REFERENCES runs(id),
+    run_id uuid REFERENCES runs(id),
     agent_id uuid NOT NULL REFERENCES agents(id),
     logical_seq bigint NOT NULL,
     state jsonb NOT NULL,
@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
 ALTER TABLE agents DROP CONSTRAINT IF EXISTS fk_spawned_at_event;
 ALTER TABLE agents ADD CONSTRAINT fk_spawned_at_event
     FOREIGN KEY (spawned_at_event_id) REFERENCES events(id);
+ALTER TABLE snapshots ALTER COLUMN run_id DROP NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_idempotency
     ON events (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_events_agent_seq ON events (agent_id, logical_seq);
@@ -292,7 +293,11 @@ class PostgresEventStore:
     def save(self, record: SnapshotRecord) -> SnapshotRecord:
         """Persist a snapshot row and return it with its database identity."""
         agent_id = self._uuid(record.agent_id, "SnapshotRecord.agent_id")
-        run_id = self._uuid(record.run_id, "SnapshotRecord.run_id")
+        run_id = (
+            None
+            if record.run_id is None
+            else self._uuid(record.run_id, "SnapshotRecord.run_id")
+        )
         try:
             from psycopg.types.json import Jsonb
         except ImportError as exc:  # pragma: no cover - dependency is declared by the project

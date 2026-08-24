@@ -94,7 +94,7 @@ Invoke-Phase3Step "Phase 3 unit and property tests (reducer, slicing, CLI)" {
 # Layer 2 -------------------------------------------------------------------
 
 Invoke-Phase3Step "Full unit suite (integration tests auto-skip here)" {
-    $out = uv run pytest -q 2>&1 | Out-String
+    $out = uv run pytest -m "not integration" -q 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) { Write-Host $out; return $false }
     Show-OutputTail $out
     return $true
