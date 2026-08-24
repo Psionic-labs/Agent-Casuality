@@ -1,7 +1,8 @@
-"""Minimal psycopg 3 storage adapter for Phase 1 and Phase 2.
+"""Minimal psycopg 3 storage adapter for Phase 1 through Phase 3.
 
-The adapter owns the Phase 1 event/agent writes and the Phase 2 graph query.
-State reconstruction, slicing, and provenance remain later phases.
+The adapter owns the Phase 1 event/agent writes, the Phase 2 graph query,
+and the Phase 3 event range fetch plus snapshot persistence. Provenance
+and replay remain later phases.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from core.snapshots import SnapshotRecord
 from sdk.events import AgentClock, Event
 from sdk.lifecycle import AgentRecord
 
@@ -57,7 +59,7 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE TABLE IF NOT EXISTS snapshots (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_id uuid NOT NULL REFERENCES runs(id),
+    run_id uuid REFERENCES runs(id),
     agent_id uuid NOT NULL REFERENCES agents(id),
     logical_seq bigint NOT NULL,
     state jsonb NOT NULL,
@@ -67,6 +69,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
 ALTER TABLE agents DROP CONSTRAINT IF EXISTS fk_spawned_at_event;
 ALTER TABLE agents ADD CONSTRAINT fk_spawned_at_event
     FOREIGN KEY (spawned_at_event_id) REFERENCES events(id);
+ALTER TABLE snapshots ALTER COLUMN run_id DROP NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_idempotency
     ON events (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_events_agent_seq ON events (agent_id, logical_seq);
@@ -258,6 +261,113 @@ class PostgresEventStore:
         if not rows:
             raise ValueError(f"event {event_id} does not exist")
         return [str(row[0]) for row in rows]
+
+    def fetch_events(
+        self,
+        agent_id: str,
+        *,
+        since: int = 0,
+        until: int | None = None,
+    ) -> list[Event]:
+        """Return one agent's events with ``since < logical_seq <= until``.
+
+        Ordered by ``logical_seq`` ascending, which is the replay order the
+        reducer requires (thesis section 30.3).
+        """
+        agent_uuid = self._uuid(agent_id, "agent_id")
+        sql = (
+            "SELECT id, run_id, agent_id, logical_seq, wall_time, event_type, "
+            "causal_parent_ids, payload, idempotency_key FROM events "
+            "WHERE agent_id = %s AND logical_seq > %s"
+        )
+        params: list[Any] = [agent_uuid, since]
+        if until is not None:
+            sql += " AND logical_seq <= %s"
+            params.append(until)
+        sql += " ORDER BY logical_seq ASC"
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall()
+        return [self._row_to_event(row) for row in rows]
+
+    def save(self, record: SnapshotRecord) -> SnapshotRecord:
+        """Persist a snapshot row and return it with its database identity."""
+        agent_id = self._uuid(record.agent_id, "SnapshotRecord.agent_id")
+        run_id = (
+            None
+            if record.run_id is None
+            else self._uuid(record.run_id, "SnapshotRecord.run_id")
+        )
+        try:
+            from psycopg.types.json import Jsonb
+        except ImportError as exc:  # pragma: no cover - dependency is declared by the project
+            raise RuntimeError("psycopg is required for PostgresEventStore") from exc
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO snapshots (run_id, agent_id, logical_seq, state, state_hash)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id, created_at
+                    """,
+                    (
+                        run_id,
+                        agent_id,
+                        record.logical_seq,
+                        Jsonb(record.state),
+                        record.state_hash,
+                    ),
+                )
+                row = cursor.fetchone()
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        if row is None:
+            raise RuntimeError("snapshot insert did not return a row")
+        created_at = row[1]
+        if not isinstance(created_at, datetime):
+            raise TypeError("Postgres returned a non-datetime snapshot created_at")
+        return SnapshotRecord(
+            agent_id=record.agent_id,
+            logical_seq=record.logical_seq,
+            state=dict(record.state),
+            state_hash=record.state_hash,
+            run_id=record.run_id,
+            id=str(row[0]),
+            created_at=created_at,
+        )
+
+    def latest_at_or_before(self, agent_id: str, logical_seq: int) -> SnapshotRecord | None:
+        """Return the nearest snapshot at or before ``logical_seq``, or None."""
+        agent_uuid = self._uuid(agent_id, "agent_id")
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, run_id::text, agent_id::text, logical_seq, state,
+                       state_hash, created_at
+                FROM snapshots
+                WHERE agent_id = %s AND logical_seq <= %s
+                ORDER BY logical_seq DESC
+                LIMIT 1
+                """,
+                (agent_uuid, logical_seq),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return None
+        created_at = row[6]
+        if not isinstance(created_at, datetime):
+            raise TypeError("Postgres returned a non-datetime snapshot created_at")
+        return SnapshotRecord(
+            id=str(row[0]),
+            run_id=None if row[1] is None else str(row[1]),
+            agent_id=str(row[2]),
+            logical_seq=row[3],
+            state=dict(row[4]),
+            state_hash=str(row[5]),
+            created_at=created_at,
+        )
 
     @contextmanager
     def tool_invocation_lock(self, agent_id: str, invocation_id: str) -> Iterator[None]:
