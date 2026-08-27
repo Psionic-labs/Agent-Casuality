@@ -58,6 +58,8 @@ def _run_captured_tool(
     invocation_id: str,
     registry: ResourceRegistry | None = None,
     resource_uri: str | None = None,
+    field_sources: dict[str, str] | Callable[[Any], dict[str, str]] | None = None,
+    transform: str | None = "tool_call",
 ) -> Any:
     prior = _find_events(log, agent_id, invocation_id)
     prior_result = next((event for event in prior if event.event_type == "tool_result"), None)
@@ -135,7 +137,27 @@ def _run_captured_tool(
             wall_time=result_event.wall_time,
             run_id=run_id,
         )
+    # Record exact field-level provenance if configured.
+    # Guard by result_stored so we never emit a provenance edge whose
+    # source_event_id does not exist in the backing store (prevents FK violations
+    # and dangling in-memory edges on idempotent replays).
+    if field_sources is not None and result_stored:
+        if isinstance(field_sources, dict):
+            sources = field_sources
+        else:
+            sources = field_sources(result)
+        if sources:
+            from core.provenance import record_tool_result_provenance
+
+            record_tool_result_provenance(
+                result_event,
+                sources,
+                store=log,
+                transform=transform or "tool_call",
+            )
     return result
+
+
 
 
 def _decorate(
@@ -146,6 +168,8 @@ def _decorate(
     configured_run_id: str | None,
     configured_registry: ResourceRegistry | None = None,
     configured_resource_uri: str | None = None,
+    configured_field_sources: dict[str, str] | Callable[[Any], dict[str, str]] | None = None,
+    configured_transform: str | None = "tool_call",
 ) -> Any:
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -162,6 +186,8 @@ def _decorate(
             invocation_id = kwargs.pop("_capture_invocation_id", None) or str(uuid4())
             registry = kwargs.pop("_capture_registry", configured_registry)
             resource_uri = kwargs.pop("_capture_resource_uri", configured_resource_uri)
+            field_sources = kwargs.pop("_capture_field_sources", configured_field_sources)
+            transform = kwargs.pop("_capture_transform", configured_transform)
         else:
             agent_id = kwargs.pop("agent_id", None)
             clock = kwargs.pop("clock", None)
@@ -171,6 +197,8 @@ def _decorate(
             invocation_id = kwargs.pop("invocation_id", None) or str(uuid4())
             registry = kwargs.pop("registry", configured_registry)
             resource_uri = kwargs.pop("resource_uri", configured_resource_uri)
+            field_sources = kwargs.pop("field_sources", configured_field_sources)
+            transform = kwargs.pop("transform", configured_transform)
         if agent_id is None or clock is None or log is None:
             raise TypeError("captured tools require agent_id, clock, and log")
 
@@ -187,6 +215,8 @@ def _decorate(
                 invocation_id=invocation_id,
                 registry=registry,
                 resource_uri=resource_uri,
+                field_sources=field_sources,
+                transform=transform,
             )
 
     return cast(F, wrapper)
@@ -201,22 +231,36 @@ def capture_tool(
     run_id: str | None = None,
     registry: ResourceRegistry | None = None,
     resource_uri: str | None = None,
+    field_sources: dict[str, str] | Callable[[Any], dict[str, str]] | None = None,
+    transform: str | None = "tool_call",
 ) -> Any:
     """Decorate a tool with trace context supplied at decoration or call time.
 
     The documented call-time form reserves ``agent_id``, ``clock``, ``log``,
-    ``run_id``, ``causal_parent_ids``, ``invocation_id``, ``registry``, and
-    ``resource_uri``.  When context is configured on the decorator, those names
-    remain available to the wrapped function; private ``_capture_*`` keywords
-    can override the configured capture context for a particular invocation.
-
-    Supplying ``registry`` and ``resource_uri`` enables the Resource-Version
-    Invariant: the ``tool_result`` event is automatically registered as the
-    latest writer for the given URI, so downstream reads auto-inject the causal
-    edge without manual wiring.
+    ``run_id``, ``causal_parent_ids``, ``invocation_id``, ``registry``,
+    ``resource_uri``, ``field_sources``, and ``transform``.
     """
     if fn is None:
         return lambda wrapped: _decorate(
-            wrapped, agent_id, clock, log, run_id, registry, resource_uri
+            wrapped,
+            agent_id,
+            clock,
+            log,
+            run_id,
+            registry,
+            resource_uri,
+            field_sources,
+            transform,
         )
-    return _decorate(fn, agent_id, clock, log, run_id, registry, resource_uri)
+    return _decorate(
+        fn,
+        agent_id,
+        clock,
+        log,
+        run_id,
+        registry,
+        resource_uri,
+        field_sources,
+        transform,
+    )
+

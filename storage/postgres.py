@@ -1,8 +1,8 @@
-"""Minimal psycopg 3 storage adapter for Phase 1 through Phase 3.
+"""Minimal psycopg 3 storage adapter for Phase 1 through Phase 4.
 
 The adapter owns the Phase 1 event/agent writes, the Phase 2 graph query,
-and the Phase 3 event range fetch plus snapshot persistence. Provenance
-and replay remain later phases.
+the Phase 3 event range fetch plus snapshot persistence, and the Phase 4
+field-level provenance persistence and queries.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from core.provenance import ProvenanceEdge, ProvenanceGrade
 from core.snapshots import SnapshotRecord
 from sdk.events import AgentClock, Event
 from sdk.lifecycle import AgentRecord
@@ -66,6 +67,20 @@ CREATE TABLE IF NOT EXISTS snapshots (
     state_hash text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );
+DO $$ BEGIN
+    CREATE TYPE provenance_grade AS ENUM ('exact', 'coarse');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+CREATE TABLE IF NOT EXISTS provenance_edges (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id uuid NOT NULL REFERENCES runs(id),
+    field_path text NOT NULL,
+    source_event_id uuid NOT NULL REFERENCES events(id),
+    source_path text,
+    grade provenance_grade NOT NULL,
+    transform text,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
 ALTER TABLE agents DROP CONSTRAINT IF EXISTS fk_spawned_at_event;
 ALTER TABLE agents ADD CONSTRAINT fk_spawned_at_event
     FOREIGN KEY (spawned_at_event_id) REFERENCES events(id);
@@ -76,7 +91,12 @@ CREATE INDEX IF NOT EXISTS idx_events_agent_seq ON events (agent_id, logical_seq
 CREATE INDEX IF NOT EXISTS idx_events_run_seq ON events (run_id, logical_seq);
 CREATE INDEX IF NOT EXISTS idx_snapshots_agent_seq
     ON snapshots (agent_id, logical_seq DESC);
+CREATE INDEX IF NOT EXISTS idx_provenance_field
+    ON provenance_edges (run_id, field_path);
+CREATE INDEX IF NOT EXISTS idx_provenance_source
+    ON provenance_edges (source_event_id);
 """
+
 
 
 class PostgresEventStore:
@@ -508,3 +528,120 @@ class PostgresEventStore:
             payload=dict(row[7]),
             idempotency_key=row[8],
         )
+
+    def record_provenance_edge(self, edge: ProvenanceEdge) -> ProvenanceEdge:
+        edge_id = self._uuid(edge.id, "ProvenanceEdge.id")
+        run_id = self._uuid(edge.run_id, "ProvenanceEdge.run_id")
+        source_event_id = self._uuid(edge.source_event_id, "ProvenanceEdge.source_event_id")
+        sql = """
+            INSERT INTO provenance_edges (
+                id, run_id, field_path, source_event_id, source_path, grade, transform, created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+            RETURNING id, run_id, field_path, source_event_id, source_path,
+                      grade, transform, created_at
+        """
+
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                sql,
+                (
+                    edge_id,
+                    run_id,
+                    edge.field_path,
+                    source_event_id,
+                    edge.source_path,
+                    edge.grade,
+                    edge.transform,
+                    edge.created_at,
+                ),
+            )
+            row = cursor.fetchone()
+        self.connection.commit()
+        if row is None:
+            return edge
+        return self._row_to_provenance_edge(row)
+
+    def get_provenance_edges_for_field(
+        self, field_path: str, run_id: str | None = None
+    ) -> list[ProvenanceEdge]:
+        with self.connection.cursor() as cursor:
+            if run_id is None:
+                cursor.execute(
+                    "SELECT id, run_id, field_path, source_event_id, source_path, grade, "
+                    "transform, created_at FROM provenance_edges "
+                    "WHERE field_path = %s ORDER BY created_at ASC",
+                    (field_path,),
+                )
+            else:
+                run_uuid = self._uuid(run_id, "run_id")
+                cursor.execute(
+                    "SELECT id, run_id, field_path, source_event_id, source_path, grade, "
+                    "transform, created_at FROM provenance_edges "
+                    "WHERE field_path = %s AND run_id = %s ORDER BY created_at ASC",
+                    (field_path, run_uuid),
+                )
+            rows = cursor.fetchall()
+        return [self._row_to_provenance_edge(row) for row in rows]
+
+    def get_provenance_edges_by_source_event(
+        self, source_event_id: str
+    ) -> list[ProvenanceEdge]:
+        event_uuid = self._uuid(source_event_id, "source_event_id")
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, run_id, field_path, source_event_id, source_path, grade, "
+                "transform, created_at FROM provenance_edges "
+                "WHERE source_event_id = %s ORDER BY created_at ASC",
+                (event_uuid,),
+            )
+            rows = cursor.fetchall()
+        return [self._row_to_provenance_edge(row) for row in rows]
+
+    def query_provenance_chain(
+        self, field_path: str, run_id: str | None = None
+    ) -> list[ProvenanceEdge]:
+        run_uuid = self._uuid(run_id, "run_id") if run_id is not None else None
+        sql = """
+            WITH RECURSIVE prov_cte AS (
+                SELECT id, run_id, field_path, source_event_id, source_path, grade,
+                       transform, created_at, 1 as depth
+                FROM provenance_edges
+                WHERE field_path = %s AND (%s::uuid IS NULL OR run_id = %s::uuid)
+                UNION ALL
+                SELECT p.id, p.run_id, p.field_path, p.source_event_id, p.source_path,
+                       p.grade, p.transform, p.created_at, c.depth + 1
+                FROM provenance_edges p
+                INNER JOIN prov_cte c
+                    ON p.field_path = c.source_path
+                   AND p.run_id = c.run_id
+                WHERE c.grade = 'exact' AND c.source_path IS NOT NULL AND c.depth < 50
+            )
+            SELECT DISTINCT ON (id) id, run_id, field_path, source_event_id, source_path,
+                   grade, transform, created_at
+            FROM prov_cte
+            ORDER BY id, depth
+        """
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql, (field_path, run_uuid, run_uuid))
+            rows = cursor.fetchall()
+        return [self._row_to_provenance_edge(row) for row in rows]
+
+    @staticmethod
+    def _row_to_provenance_edge(row: tuple[Any, ...]) -> ProvenanceEdge:
+        created_at = row[7]
+        if not isinstance(created_at, datetime):
+            raise TypeError("Postgres returned a non-datetime created_at")
+        grade: ProvenanceGrade = "coarse" if str(row[5]) == "coarse" else "exact"
+        return ProvenanceEdge(
+            id=str(row[0]),
+            run_id=str(row[1]),
+            field_path=str(row[2]),
+            source_event_id=str(row[3]),
+            source_path=None if row[4] is None else str(row[4]),
+            grade=grade,
+            transform=None if row[6] is None else str(row[6]),
+            created_at=created_at,
+        )
+
