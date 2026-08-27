@@ -527,3 +527,282 @@ rows:
 - `verify_snapshot` accepts an untampered snapshot at its own sequence;
 - the recursive SQL slice of the merge event contains its two declared
   parents while excluding the unrelated outsider event.
+
+---
+
+# Phase 4 testing
+
+Phase 4 adds field-level provenance (`core/provenance.py`), grade-attributed
+traversal (`exact` vs `coarse`), automatic capture via `@capture_tool`, and
+PostgreSQL-backed recursive CTE queries. Sections below cover the unit tests,
+CLI exercises, and SQL verification.
+
+## 18. Run the Phase 4 test file
+
+Purpose: runs the full provenance test suite in isolation.
+
+```powershell
+uv run pytest tests/test_provenance.py -v
+```
+
+Expected result: 12 passed, 1 skipped. The skipped test is the PostgreSQL
+integration test which self-skips unless `DATABASE_URL` is set.
+
+The 12 passing tests cover:
+
+| Test | What it verifies |
+|---|---|
+| `test_provenance_decision_input_returns_exact_fixture_edges` | `provenance("A3.output.approve")` returns exactly 4 exact edges tracing back to tool invocations; 0 coarse edges. |
+| `test_provenance_llm_boundary_halts_at_coarse_grade` | `provenance("B2.args.query")` returns 1 coarse edge and halts; traversal does not cross the LLM boundary. |
+| `test_provenance_full_chain_from_final_answer` | Full multi-hop exact chain from `A4.final_answer` resolves without duplicates. |
+| `test_coarse_edge_cannot_have_source_path` | `ProvenanceEdge(grade="coarse", source_path="x")` raises `ValueError` enforcing the grade invariant. |
+| `test_provenance_cycle_detection` | Circular exact edges terminate cleanly; no infinite loop. |
+| `test_provenance_diamond_graph_deduplication` | A diamond (A → B, A → C, B → D, C → D) visits D exactly once. |
+| `test_record_tool_result_provenance_helper` | Helper emits exact edges tagged `tool_call` per `field_sources` mapping. |
+| `test_record_model_call_provenance_helper` | Helper emits coarse edges with `source_path=None` for each downstream field. |
+| `test_record_memory_write_provenance_helper` | Helper emits an exact edge for a memory write with `source_path` set. |
+| `test_capture_tool_with_field_sources_decorator` | `@capture_tool(field_sources=…)` automatically persists provenance on tool completion. |
+| `test_verify_chunk_sensitivity` | `verify_chunk_sensitivity` returns `True` when perturbing a chunk changes the model call output. |
+| `test_cli_provenance_command_renders_grades` | CLI `provenance` command output contains `[exact]` and `[coarse]` strings. |
+
+## 19. Run the full suite and confirm no regressions
+
+Purpose: confirms Phase 4 does not break Phases 1–3.
+
+```powershell
+uv run pytest -q
+```
+
+Expected result: **102 passed, 7 skipped**. The 7 skipped tests are all
+PostgreSQL integration tests that self-skip without `DATABASE_URL`.
+
+Static analysis must also be clean:
+
+```powershell
+uv run ruff check .
+uv run ty check .
+```
+
+Expected result: `All checks passed!` for both.
+
+## 20. Try the provenance CLI against the fixture, no database
+
+Purpose: exercises the `provenance` subcommand end to end against the bundled
+`fixture.json`. No database is required.
+
+```powershell
+# Trace an exact multi-hop chain
+uv run python -m cli.main --fixture fixture/fixture.json provenance A3.output.approve
+
+# Trace an LLM-boundary coarse link
+uv run python -m cli.main --fixture fixture/fixture.json provenance B2.args.query
+```
+
+Expected results:
+
+- `provenance A3.output.approve` prints a chain of the form:
+
+  ```text
+  Provenance chain for A3.output.approve:
+    A3.output.approve <- output.customer_status [exact] via policy_check_v2 (from event B3)
+    A3.output.approve <- output.risk_score [exact] via policy_check_v2 (from event C3)
+    B3.output.customer_status <- ... [exact] via tool_call (from event B2)
+    C3.output.risk_score <- ... [exact] via tool_call (from event C2)
+  ```
+
+  All edges are `[exact]`; no coarse boundary appears. Four edges total.
+
+- `provenance B2.args.query` prints a single coarse edge:
+
+  ```text
+  Provenance chain for B2.args.query:
+    B2.args.query <- event:B1 [coarse] (LLM boundary, halts)
+  ```
+
+  Traversal halts at the LLM boundary and does not recurse further.
+
+## 20a. Try the provenance CLI against a live PostgreSQL database
+
+Purpose: same assertions as §20 but against real persisted provenance edges in
+the database. Run the integration test first so provenance rows exist, then
+query the CLI using `DATABASE_URL` from `.env`.
+
+**Step 1 — seed the database:**
+
+```powershell
+Get-Content .env | ForEach-Object {
+  $p = $_ -split '=', 2
+  if ($p.Length -eq 2) { [Environment]::SetEnvironmentVariable($p[0], $p[1], 'Process') }
+}
+uv run pytest tests/test_provenance.py::test_postgres_provenance_storage_and_recursive_query -v
+```
+
+Expected: `1 passed`. This seeds `provenance_edges` rows with
+`field_path = "agent.decision.output"` and `field_path = "agent.tool.result"`.
+
+**Step 2 — query the CLI against the database:**
+
+```powershell
+# Trace the chain rooted at agent.decision.output (uses DATABASE_URL automatically)
+uv run python -m cli.main provenance agent.decision.output
+```
+
+Expected result: a chain of the form:
+
+```text
+Provenance chain for agent.decision.output:
+  agent.decision.output <- agent.tool.result [exact] via tool_call (from event <uuid>)
+```
+
+The `[exact]` grade confirms the edge was persisted with `grade = 'exact'`
+and `source_path` pointing back to the tool result field.
+
+**Step 3 — confirm traversal stays in one run:**
+
+```powershell
+uv run python -m cli.main provenance agent.decision.output
+```
+
+If the integration test has been run multiple times, each run's edges share
+the same `field_path`. Only edges from a single run should appear in the
+chain. Verify by checking the `(from event <uuid>)` references all resolve
+to events inside the same run in the database.
+
+> [!NOTE]
+> The database backend resolves `DATABASE_URL` from the environment. If you
+> have not set it, the CLI will exit with:
+> `Set DATABASE_URL, or pass --fixture PATH to run without a database.`
+
+
+
+## 21. Confirm the Phase 4 schema exists
+
+Purpose: verifies that `provenance_edges` table and the `provenance_grade`
+enum were created.
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'provenance_edges';
+```
+
+Expected result: one row, `provenance_edges`.
+
+```sql
+SELECT typname, enumlabel
+FROM pg_enum e
+JOIN pg_type t ON t.oid = e.enumtypid
+WHERE t.typname = 'provenance_grade'
+ORDER BY e.enumsortorder;
+```
+
+Expected result: two rows — `exact` and `coarse`.
+
+## 22. Confirm Phase 4 indexes and foreign keys
+
+Purpose: verifies that the provenance performance indexes and the FK to
+`events(id)` were created.
+
+```sql
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE schemaname = 'public'
+  AND indexname IN (
+    'idx_provenance_field',
+    'idx_provenance_source'
+  )
+ORDER BY indexname;
+```
+
+Expected result: two rows — `idx_provenance_field` and `idx_provenance_source`.
+
+```sql
+SELECT
+  kcu.table_name,
+  kcu.column_name,
+  ccu.table_name AS referenced_table,
+  ccu.column_name AS referenced_column
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.constraint_column_usage ccu
+  ON tc.constraint_name = ccu.constraint_name
+WHERE tc.table_schema = 'public'
+  AND tc.constraint_type = 'FOREIGN KEY'
+  AND kcu.table_name = 'provenance_edges'
+ORDER BY kcu.column_name;
+```
+
+Expected result includes:
+
+- `provenance_edges.run_id → runs.id`
+- `provenance_edges.source_event_id → events.id`
+
+## 23. Inspect stored provenance edges after a real run
+
+Purpose: confirms that the integration test wrote valid provenance rows.
+
+Run the integration test first:
+
+```powershell
+Get-Content .env | ForEach-Object {
+  $p = $_ -split '=', 2
+  if ($p.Length -eq 2) { [Environment]::SetEnvironmentVariable($p[0], $p[1], 'Process') }
+}
+uv run pytest tests/test_provenance.py::test_postgres_provenance_storage_and_recursive_query -v
+```
+
+Then inspect in the Neon SQL Editor:
+
+```sql
+SELECT
+  field_path,
+  source_event_id,
+  source_path,
+  grade,
+  transform
+FROM provenance_edges
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+Expected result: rows where:
+
+- `grade` is `exact` for tool result and memory write edges;
+- `grade` is `coarse` for model call output edges, with `source_path = NULL`;
+- `transform` reflects the capture context (`tool_call`, `memory_write`,
+  or `model_call`).
+
+## 24. Verify run isolation in the recursive provenance query
+
+Purpose: confirms that `query_provenance_chain` does not leak edges across
+runs when two runs contain the same `field_path`.
+
+```sql
+-- Count how many distinct run_ids appear in a provenance chain query.
+-- Any run_id other than the target run indicates a cross-run leak.
+WITH RECURSIVE prov_cte AS (
+  SELECT pe.id, pe.run_id, pe.field_path, pe.source_event_id, pe.source_path,
+         pe.grade, 1 AS depth
+  FROM provenance_edges pe
+  WHERE pe.field_path = 'agent.decision.output'
+  ORDER BY pe.created_at DESC
+  LIMIT 1
+  UNION ALL
+  SELECT p.id, p.run_id, p.field_path, p.source_event_id, p.source_path,
+         p.grade, c.depth + 1
+  FROM provenance_edges p
+  INNER JOIN prov_cte c
+      ON p.field_path = c.source_path
+     AND p.run_id = c.run_id
+  WHERE c.grade = 'exact' AND c.source_path IS NOT NULL AND c.depth < 50
+)
+SELECT COUNT(DISTINCT run_id) AS distinct_runs
+FROM prov_cte;
+```
+
+Expected result: `distinct_runs = 1`. Any value greater than 1 means a
+cross-run boundary was crossed and the `AND p.run_id = c.run_id` join
+condition is missing or broken.
+

@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from threading import Lock
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -148,6 +149,7 @@ class InMemoryProvenanceStore:
 
     def __init__(self, edges: Iterable[ProvenanceEdge | dict[str, Any]] | None = None) -> None:
         self._edges: list[ProvenanceEdge] = []
+        self._lock = Lock()
         if edges:
             for item in edges:
                 if isinstance(item, ProvenanceEdge):
@@ -156,30 +158,35 @@ class InMemoryProvenanceStore:
                     self._edges.append(ProvenanceEdge.from_dict(item))
 
     def append(self, edge: ProvenanceEdge) -> ProvenanceEdge:
-        self._edges.append(edge)
+        with self._lock:
+            self._edges.append(edge)
         return edge
 
     def extend(self, edges: Iterable[ProvenanceEdge]) -> list[ProvenanceEdge]:
         new_edges = list(edges)
-        self._edges.extend(new_edges)
+        with self._lock:
+            self._edges.extend(new_edges)
         return new_edges
 
     def get_by_field_path(
         self, field_path: str, run_id: str | None = None
     ) -> list[ProvenanceEdge]:
-        return [
-            e
-            for e in self._edges
-            if e.field_path == field_path and (run_id is None or e.run_id == run_id)
-        ]
+        with self._lock:
+            return [
+                e
+                for e in self._edges
+                if e.field_path == field_path and (run_id is None or e.run_id == run_id)
+            ]
 
     def get_by_source_event_id(self, source_event_id: str) -> list[ProvenanceEdge]:
-        return [e for e in self._edges if e.source_event_id == source_event_id]
+        with self._lock:
+            return [e for e in self._edges if e.source_event_id == source_event_id]
 
     def all(self, run_id: str | None = None) -> list[ProvenanceEdge]:
-        if run_id is None:
-            return list(self._edges)
-        return [e for e in self._edges if e.run_id == run_id]
+        with self._lock:
+            if run_id is None:
+                return list(self._edges)
+            return [e for e in self._edges if e.run_id == run_id]
 
 
 def _extract_edges_from_source(

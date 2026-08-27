@@ -137,8 +137,11 @@ def _run_captured_tool(
             wall_time=result_event.wall_time,
             run_id=run_id,
         )
-    # Record exact field-level provenance if configured
-    if field_sources is not None:
+    # Record exact field-level provenance if configured.
+    # Guard by result_stored so we never emit a provenance edge whose
+    # source_event_id does not exist in the backing store (prevents FK violations
+    # and dangling in-memory edges on idempotent replays).
+    if field_sources is not None and result_stored:
         if isinstance(field_sources, dict):
             sources = field_sources
         else:
@@ -153,6 +156,7 @@ def _run_captured_tool(
                 transform=transform or "tool_call",
             )
     return result
+
 
 
 

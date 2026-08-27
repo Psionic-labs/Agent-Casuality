@@ -613,7 +613,9 @@ class PostgresEventStore:
                 SELECT p.id, p.run_id, p.field_path, p.source_event_id, p.source_path,
                        p.grade, p.transform, p.created_at, c.depth + 1
                 FROM provenance_edges p
-                INNER JOIN prov_cte c ON p.field_path = c.source_path
+                INNER JOIN prov_cte c
+                    ON p.field_path = c.source_path
+                   AND p.run_id = c.run_id
                 WHERE c.grade = 'exact' AND c.source_path IS NOT NULL AND c.depth < 50
             )
             SELECT DISTINCT ON (id) id, run_id, field_path, source_event_id, source_path,
