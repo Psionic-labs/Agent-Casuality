@@ -190,6 +190,7 @@ class InMemoryEventLog:
         self._by_id: dict[str, Event] = {}
         self._by_idempotency: dict[tuple[str, str], Event] = {}
         self._tool_locks: dict[tuple[str, str], Lock] = {}
+        self._provenance_edges: list[Any] = []
         self._lock = Lock()
 
     def append(self, event: Event) -> Event:
@@ -217,6 +218,35 @@ class InMemoryEventLog:
         with self._lock:
             return self._tool_locks.setdefault((agent_id, invocation_id), Lock())
 
+    def record_provenance_edge(self, edge: Any) -> Any:
+        with self._lock:
+            self._provenance_edges.append(edge)
+            return edge
+
+    @property
+    def provenance_edges(self) -> list[Any]:
+        with self._lock:
+            return list(self._provenance_edges)
+
+    @provenance_edges.setter
+    def provenance_edges(self, edges: list[Any]) -> None:
+        with self._lock:
+            self._provenance_edges = list(edges)
+
+    def get_provenance_edges_for_field(
+        self, field_path: str, run_id: str | None = None
+    ) -> list[Any]:
+        with self._lock:
+            results: list[Any] = []
+            for e in self._provenance_edges:
+                e_field = (
+                    e.get("field_path") if isinstance(e, dict) else getattr(e, "field_path", None)
+                )
+                e_run = e.get("run_id") if isinstance(e, dict) else getattr(e, "run_id", None)
+                if e_field == field_path and (run_id is None or not e_run or e_run == run_id):
+                    results.append(e)
+            return results
+
     def events(self) -> list[Event]:
         with self._lock:
             return list(self._events)
@@ -227,3 +257,4 @@ class InMemoryEventLog:
     def __len__(self) -> int:
         with self._lock:
             return len(self._events)
+

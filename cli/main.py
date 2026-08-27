@@ -1,4 +1,4 @@
-"""Causal debugger CLI for Phase 3: slice, why, reconstruct.
+"""Causal debugger CLI for Phase 3 and Phase 4: slice, why, reconstruct, provenance.
 
 Backends:
     --fixture PATH   run against a fixture.json file (no database needed)
@@ -8,6 +8,7 @@ Examples:
     uv run python -m cli.main --fixture fixture/fixture.json agents
     uv run python -m cli.main --fixture fixture/fixture.json slice A4
     uv run python -m cli.main --fixture fixture/fixture.json why A4
+    uv run python -m cli.main --fixture fixture/fixture.json provenance A3.output.approve
     uv run python -m cli.main reconstruct <agent-uuid> 6
 """
 
@@ -20,6 +21,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from core.provenance import provenance
 from core.reducer import canonical_json, hash_state, reconstruct
 from core.slicing import structural_slice, why
 from sdk.events import Event, InMemoryEventLog
@@ -33,6 +35,7 @@ class FixtureEventLog(InMemoryEventLog):
         self.data = data
         self.agents = {agent["id"]: agent for agent in data["agents"]}
         self.run_info = data["run"]
+        self.provenance_edges = list(data.get("provenance_edges", []))
         for record in data["events"]:
             self.append(
                 Event(
@@ -80,6 +83,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_recon.add_argument("agent_id")
     p_recon.add_argument("target_seq", type=int)
 
+    p_prov = sub.add_parser("provenance", help="trace field-level provenance chain")
+    p_prov.add_argument("field_path", help="field path to trace (e.g. A3.output.approve)")
+
     return parser
 
 
@@ -109,6 +115,11 @@ def cmd_reconstruct(log: Any, agent_id: str, target_seq: int) -> None:
     print(canonical_json(state))
 
 
+def cmd_provenance(log: Any, field_path: str) -> None:
+    chain = provenance(field_path, log)
+    print(chain.render())
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     log: Any = (
@@ -124,7 +135,10 @@ def main(argv: list[str] | None = None) -> None:
         cmd_why(log, args.event_id)
     elif args.command == "reconstruct":
         cmd_reconstruct(log, args.agent_id, args.target_seq)
+    elif args.command == "provenance":
+        cmd_provenance(log, args.field_path)
 
 
 if __name__ == "__main__":
     main()
+
