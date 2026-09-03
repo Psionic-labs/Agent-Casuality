@@ -21,11 +21,17 @@ Phase 3 completes the MVP:
   half of `why` for a decision or merge, including its declared semantic
   ports.
 
-The Phase 2/3 graphs still use `causal_parent_ids` as the source of
-dependency edges; `logical_seq` only orders events per agent. The structural
-slice is declared-dependency evidence, not proof of influence. Exact/coarse
-provenance, minimal slicing, interaction analysis, and replay belong to
-Phases 4 and 5 and are not implemented yet.
+Phase 4 implements field-level provenance (`core/provenance.py`), tracing exact data
+flows through deterministic tools and dead-ending coarse links at unverified LLM boundaries.
+
+Phase 5 adds counterfactual reasoning (`core/replay.py`):
+- `counterfactual_replay` evaluates decision SCMs under semantic port baseline substitutions
+  (`do(Port_i = baseline)`), refusing execution on side-effecting operations (`ReplayUnsafe`).
+- `compute_shapley_interaction` computes single-port Shapley values and pairwise Shapley-Owen
+  interaction indices with bootstrap confidence intervals ($I_{ij} \pm \sigma$, $p$-value) to isolate
+  multi-branch joint interactions under model noise.
+- `ddmin` minimizes structural slices into 1-minimal causal event subsets with frozenset caching
+  and hard replay budget caps.
 
 ### Querying a run
 
@@ -35,13 +41,17 @@ uv run python -m cli.main --fixture fixture/fixture.json agents
 uv run python -m cli.main --fixture fixture/fixture.json slice A4
 uv run python -m cli.main --fixture fixture/fixture.json why A4
 uv run python -m cli.main --fixture fixture/fixture.json reconstruct B 4
+uv run python -m cli.main --fixture fixture/fixture.json provenance A3.output.approve
+uv run python -m cli.main --fixture fixture/fixture.json interaction dec_customer_approval_A3
+uv run python -m cli.main --fixture fixture/fixture.json minimize A4
+uv run python -m cli.main --fixture fixture/fixture.json replay dec_customer_approval_A3 customer_status=ineligible
 
 # Against PostgreSQL (DATABASE_URL in .env):
 uv run python -m cli.main slice <event-uuid>
 ```
 
 `slice A4` returns exactly the nine events from `fixture.json`'s ground
-truth, excluding the unrelated background agent D.
+truth, and `minimize A4` reduces it to the four-event minimal slice (`B3`, `C3`, `A3`, `A4`).
 
 ## Install and run
 

@@ -21,8 +21,16 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from core.decision import DecisionContract, create_fixture_decision
 from core.provenance import provenance
 from core.reducer import canonical_json, hash_state, reconstruct
+from core.replay import (
+    PortIntervention,
+    compute_shapley_interaction,
+    counterfactual_replay,
+    ddmin,
+    test_fn_from,
+)
 from core.slicing import structural_slice, why
 from sdk.events import Event, InMemoryEventLog
 
@@ -86,7 +94,47 @@ def build_parser() -> argparse.ArgumentParser:
     p_prov = sub.add_parser("provenance", help="trace field-level provenance chain")
     p_prov.add_argument("field_path", help="field path to trace (e.g. A3.output.approve)")
 
+    p_replay = sub.add_parser("replay", help="counterfactual replay under port interventions")
+    p_replay.add_argument("decision_id", help="decision contract id or event id")
+    p_replay.add_argument(
+        "interventions",
+        nargs="*",
+        help="port interventions in port_id=value format (e.g. customer_status=ineligible)",
+    )
+
+    p_inter = sub.add_parser("interaction", help="Shapley-Owen interaction analysis for a decision")
+    p_inter.add_argument("decision_id", help="decision contract id or event id")
+    p_inter.add_argument(
+        "--samples", type=int, default=5, help="Monte Carlo samples per cell (default: 5)"
+    )
+
+    p_min = sub.add_parser("minimize", help="minimal slice via ddmin")
+    p_min.add_argument("event_id", help="target event id to minimize slice for (e.g. A4)")
+    p_min.add_argument(
+        "--budget", type=int, default=200, help="maximum replay evaluations budget (default: 200)"
+    )
+
     return parser
+
+
+def resolve_decision_contract(decision_or_event_id: str, log: Any) -> DecisionContract:
+    """Find a DecisionContract for a given decision_id or event_id."""
+    fixture_data = getattr(log, "data", None)
+    if decision_or_event_id == "dec_customer_approval_A3" or decision_or_event_id in ("A3", "A4"):
+        return create_fixture_decision(fixture_data)
+
+    getter = getattr(log, "get", None)
+    if callable(getter):
+        ev = getter(decision_or_event_id)
+        if ev is not None:
+            contract = DecisionContract.from_event(ev)
+            if contract is not None:
+                return contract
+
+    if fixture_data is not None:
+        return create_fixture_decision(fixture_data)
+
+    raise ValueError(f"Decision contract '{decision_or_event_id}' not found")
 
 
 def cmd_agents(log: Any) -> None:
@@ -120,6 +168,43 @@ def cmd_provenance(log: Any, field_path: str) -> None:
     print(chain.render())
 
 
+def cmd_replay(log: Any, decision_id: str, intervention_args: list[str]) -> None:
+    contract = resolve_decision_contract(decision_id, log)
+    interventions: list[PortIntervention] = []
+    for item in intervention_args:
+        if "=" not in item:
+            sys.exit(
+                f"Intervention '{item}' must be in port_id=value format "
+                "(e.g. customer_status=ineligible)"
+            )
+        port_id, raw_val = item.split("=", 1)
+        try:
+            val = json.loads(raw_val)
+        except Exception:
+            val = raw_val
+        interventions.append(PortIntervention(port_id=port_id, substitute_value=val))
+
+    cf_outcome = counterfactual_replay(contract, interventions, mode="recorded_output", log=log)
+    print(f"Decision: {contract.decision_id}")
+    print(f"Original outcome: {contract.outcome}")
+    print(f"Counterfactual outcome: {cf_outcome}")
+
+
+def cmd_interaction(log: Any, decision_id: str, samples: int) -> None:
+    contract = resolve_decision_contract(decision_id, log)
+    interaction = compute_shapley_interaction(contract, samples_per_cell=samples)
+    print(json.dumps(interaction, indent=2, default=str))
+
+
+def cmd_minimize(log: Any, event_id: str, budget: int) -> None:
+    slice_result = structural_slice(event_id, log)
+    contract = resolve_decision_contract(event_id, log)
+    test_fn = test_fn_from(contract, failure_event_id=event_id)
+    minimal_events = ddmin(slice_result.event_ids, test_fn, budget=budget)
+    print(f"Minimal slice of {event_id}: {len(minimal_events)} events (ddmin)")
+    print(", ".join(minimal_events))
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     log: Any = (
@@ -137,8 +222,15 @@ def main(argv: list[str] | None = None) -> None:
         cmd_reconstruct(log, args.agent_id, args.target_seq)
     elif args.command == "provenance":
         cmd_provenance(log, args.field_path)
+    elif args.command == "replay":
+        cmd_replay(log, args.decision_id, args.interventions)
+    elif args.command == "interaction":
+        cmd_interaction(log, args.decision_id, args.samples)
+    elif args.command == "minimize":
+        cmd_minimize(log, args.event_id, args.budget)
 
 
 if __name__ == "__main__":
     main()
+
 
