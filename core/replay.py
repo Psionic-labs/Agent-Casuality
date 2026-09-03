@@ -81,7 +81,7 @@ def counterfactual_replay(
             f"Decision '{contract.decision_id}' is marked side-effecting and cannot be replayed."
         )
 
-    tool_category = contract.metadata.get("tool_category")
+    tool_category = (contract.metadata or {}).get("tool_category")
     if tool_category in SIDE_EFFECTING_TOOLS:
         raise ReplayUnsafe(
             f"Decision '{contract.decision_id}' tool_category '{tool_category}' is side-effecting."
@@ -90,7 +90,13 @@ def counterfactual_replay(
     # 2. Build input dictionary from recorded port values + interventions
     eval_inputs: dict[str, Any] = {port.port_id: port.recorded_value for port in contract.ports}
     if interventions:
+        valid_port_ids = {port.port_id for port in contract.ports}
         for intervention in interventions:
+            if intervention.port_id not in valid_port_ids:
+                raise ValueError(
+                    f"Intervention references unknown port '{intervention.port_id}'. "
+                    f"Valid port IDs: {sorted(valid_port_ids)}"
+                )
             eval_inputs[intervention.port_id] = intervention.substitute_value
 
     # 3. Locate registered decision evaluator
@@ -148,7 +154,22 @@ def compute_shapley_interaction(
             "Approximated permutation sampling for k > 4 is deferred."
         )
 
+    if samples_per_cell <= 0:
+        raise ValueError(
+            f"samples_per_cell must be >= 1; got {samples_per_cell}."
+        )
+
     rng = random.Random(seed) if seed is not None else random.Random()
+
+    seen_ids: set[str] = set()
+    for p in ports:
+        if p.port_id in seen_ids:
+            raise ValueError(
+                f"Duplicate port_id '{p.port_id}' in contract '{contract.decision_id}'. "
+                "Port IDs must be unique for correct Shapley attribution."
+            )
+        seen_ids.add(p.port_id)
+
     port_map = {p.port_id: p for p in ports}
     port_ids = [p.port_id for p in ports]
     n = len(port_ids)

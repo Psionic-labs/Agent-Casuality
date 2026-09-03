@@ -118,7 +118,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def resolve_decision_contract(decision_or_event_id: str, log: Any) -> DecisionContract:
-    """Find a DecisionContract for a given decision_id or event_id."""
+    """Find a DecisionContract for a given decision_id or event_id.
+
+    Raises ValueError for unknown IDs rather than falling back silently to the
+    fixture contract, which would make misspelled commands appear successful.
+    """
     fixture_data = getattr(log, "data", None)
     if decision_or_event_id == "dec_customer_approval_A3" or decision_or_event_id in ("A3", "A4"):
         return create_fixture_decision(fixture_data)
@@ -130,9 +134,6 @@ def resolve_decision_contract(decision_or_event_id: str, log: Any) -> DecisionCo
             contract = DecisionContract.from_event(ev)
             if contract is not None:
                 return contract
-
-    if fixture_data is not None:
-        return create_fixture_decision(fixture_data)
 
     raise ValueError(f"Decision contract '{decision_or_event_id}' not found")
 
