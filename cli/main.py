@@ -120,13 +120,12 @@ def build_parser() -> argparse.ArgumentParser:
 def resolve_decision_contract(decision_or_event_id: str, log: Any) -> DecisionContract:
     """Find a DecisionContract for a given decision_id or event_id.
 
+    Resolves the contract from the log backend (fixture or PostgreSQL).
     Raises ValueError for unknown IDs rather than falling back silently to the
-    fixture contract, which would make misspelled commands appear successful.
+    bundled fixture, which would make misspelled commands appear successful and
+    silently use incorrect data for PostgreSQL backends.
     """
-    fixture_data = getattr(log, "data", None)
-    if decision_or_event_id == "dec_customer_approval_A3" or decision_or_event_id in ("A3", "A4"):
-        return create_fixture_decision(fixture_data)
-
+    # Try to resolve from the log backend first (fixture or PostgreSQL)
     getter = getattr(log, "get", None)
     if callable(getter):
         ev = getter(decision_or_event_id)
@@ -134,6 +133,16 @@ def resolve_decision_contract(decision_or_event_id: str, log: Any) -> DecisionCo
             contract = DecisionContract.from_event(ev)
             if contract is not None:
                 return contract
+
+    # For fixture-only special IDs, only use bundled fixture if explicitly using fixture backend
+    fixture_data = getattr(log, "data", None)
+    if fixture_data is not None and decision_or_event_id in ("dec_customer_approval_A3", "A3", "A4"):
+        # Event was not found in log, but fixture backend is available
+        # For A4 (downstream event), resolve A3 and return it
+        if decision_or_event_id == "A4":
+            return create_fixture_decision(fixture_data)
+        if decision_or_event_id in ("A3", "dec_customer_approval_A3"):
+            return create_fixture_decision(fixture_data)
 
     raise ValueError(f"Decision contract '{decision_or_event_id}' not found")
 

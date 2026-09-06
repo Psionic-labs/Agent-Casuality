@@ -41,6 +41,52 @@ SIDE_EFFECTING_TOOLS = {
     "external_api_mutation",
 }
 
+# Keywords/patterns in payloads that suggest side-effecting operations
+SIDE_EFFECT_PAYLOAD_PATTERNS = {
+    "email",
+    "send_email",
+    "send_message",
+    "payment",
+    "charge",
+    "transaction",
+    "write",
+    "update",
+    "delete",
+    "mutation",
+    "api_call",
+    "external_",
+}
+
+
+def _check_payload_for_side_effects(payload: dict[str, Any] | None) -> bool:
+    """Scan a payload dict for side-effect indicator keywords.
+    
+    Returns True if any side-effect pattern is found in keys or string values.
+    This is a heuristic check; absence of patterns does not guarantee safety.
+    """
+    if not payload or not isinstance(payload, dict):
+        return False
+    
+    # Check keys
+    for key in payload.keys():
+        if any(pattern in key.lower() for pattern in SIDE_EFFECT_PAYLOAD_PATTERNS):
+            return True
+    
+    # Check values (string content)
+    for val in payload.values():
+        if isinstance(val, str):
+            if any(pattern in val.lower() for pattern in SIDE_EFFECT_PAYLOAD_PATTERNS):
+                return True
+        elif isinstance(val, dict):
+            if _check_payload_for_side_effects(val):
+                return True
+        elif isinstance(val, list):
+            for item in val:
+                if isinstance(item, dict) and _check_payload_for_side_effects(item):
+                    return True
+    
+    return False
+
 
 class ReplayUnsafe(Exception):
     """Raised when a replay is attempted on an un-sandboxed side-effecting decision."""
@@ -63,17 +109,20 @@ def counterfactual_replay(
 ) -> Any:
     """Evaluate a DecisionContract under counterfactual semantic port substitutions.
 
-    Refuses execution immediately if the decision is side-effecting (contract.is_side_effecting
-    or explicit structured contract.metadata['tool_category'] in SIDE_EFFECTING_TOOLS).
-    Does not perform substring or free-form guessing on tool names.
+    Refuses execution immediately if the decision is side-effecting. Checks both
+    explicit contract metadata (contract.is_side_effecting, tool_category) and performs
+    heuristic payload inspection for unmetadata'd side-effect indicators. Fails closed
+    on unknown side-effect status to avoid silent execution of potentially unsafe operations.
+    Does not perform substring or free-form guessing on tool names, only structured metadata.
 
     Modes:
     - 'recorded_output' (default): Freezes recorded port outputs, substitutes specified
       interventions, and evaluates the registered decision function.
       Note: Multi-trial confidence reporting for stochastic LLMs (thesis §17) is deferred
       for deterministic merge contracts.
-    - 'downstream_replay': Evaluates the contract with port substitutions and validates
-      downstream events against recorded log states if log is provided.
+    - 'downstream_replay': Reserved for future implementation to validate counterfactual
+      downstream outcomes against recorded log states. Currently raises NotImplementedError
+      to prevent silent acceptance of unvalidated results.
     """
     # 1. Explicit side-effect refusal check
     if contract.is_side_effecting:
@@ -86,6 +135,25 @@ def counterfactual_replay(
         raise ReplayUnsafe(
             f"Decision '{contract.decision_id}' tool_category '{tool_category}' is side-effecting."
         )
+
+    # 1b. Heuristic scan for side-effect indicators in contract metadata and ports
+    # This catches cases where metadata wasn't properly annotated.
+    if contract.metadata:
+        for key, val in contract.metadata.items():
+            if isinstance(val, str) and any(pattern in val.lower() for pattern in SIDE_EFFECT_PAYLOAD_PATTERNS):
+                raise ReplayUnsafe(
+                    f"Decision '{contract.decision_id}' metadata contains potential side-effect indicator "
+                    f"(key='{key}', value contains '{val}'). Refusing replay on unknown side-effect status."
+                )
+    
+    # Check port payloads for side-effect indicators
+    for port in contract.ports:
+        # Check recorded value for side-effect patterns
+        if isinstance(port.recorded_value, dict) and _check_payload_for_side_effects(port.recorded_value):
+            raise ReplayUnsafe(
+                f"Decision '{contract.decision_id}' port '{port.port_id}' recorded value contains "
+                f"potential side-effect indicators. Refusing replay on unknown side-effect status."
+            )
 
     # 2. Build input dictionary from recorded port values + interventions
     eval_inputs: dict[str, Any] = {port.port_id: port.recorded_value for port in contract.ports}
@@ -115,17 +183,16 @@ def counterfactual_replay(
         return evaluator(eval_inputs)
 
     if mode == "downstream_replay":
-        decision_outcome = evaluator(eval_inputs)
-        if log is not None:
-            # Validate or reconstruct downstream agent state if event is present
-            downstream_event_id = contract.metadata.get("downstream_failure_event")
-            if downstream_event_id:
-                getter = getattr(log, "get", None)
-                if callable(getter):
-                    downstream_ev = getter(downstream_event_id)
-                    if downstream_ev is not None:
-                        reconstruct(downstream_ev.agent_id, downstream_ev.logical_seq, log=log)
-        return decision_outcome
+        # Downstream replay mode: evaluate decision and validate against recorded downstream events
+        # NOTE: Full downstream validation is not yet implemented (thesis §30.7 future work).
+        # Currently only reconstructs downstream state but does not compare counterfactual
+        # downstream outcome with recorded outcome. Raising NotImplementedError rather than
+        # silently accepting unvalidated results.
+        raise NotImplementedError(
+            "downstream_replay mode validation is not yet fully implemented. "
+            "Comparison between counterfactual and recorded downstream outcomes is deferred. "
+            "Use mode='recorded_output' for now."
+        )
 
     raise ValueError(f"Unknown replay mode '{mode}'.")
 
@@ -140,8 +207,15 @@ def compute_shapley_interaction(
     """Compute individual Shapley values and pairwise Shapley-Owen Interaction Indices.
 
     Uses Monte Carlo counterfactual replays over active port subsets and computes
-    bootstrap confidence bounds (std_err, p_value) to isolate true interactions
-    from stochastic model temperature variance.
+    bootstrap confidence bounds (std_err, bootstrap_sign_proportion) to isolate joint
+    interactions from stochastic model variance.
+
+    Bootstrap confidence bounds:
+    - std_err: Standard deviation of bootstrap resamples around point estimate
+    - bootstrap_sign_proportion: Fraction of bootstrap samples where I_ab <= 0
+      (i.e., interaction estimate is non-positive). This is NOT a p-value and should
+      not be used for significance testing; it is included for descriptive purposes.
+      See thesis §17 for hypothesis testing approach with appropriate null distribution.
 
     For small port counts (k <= 4), uses exact subset enumeration (2^k <= 16).
     For k > 4, raises a clear ValueError as approximated permutation sampling is deferred.
@@ -298,18 +372,16 @@ def compute_shapley_interaction(
         mean_val = val
         variance = sum((x - mean_val) ** 2 for x in vals) / max(1, len(vals) - 1)
         std_err = math.sqrt(variance)
-        # Approximate p-value testing H0: I_ab <= 0 (interaction is non-positive or noise)
-        if std_err == 0.0:
-            p_val = 0.0 if mean_val > 0 else 1.0
-        else:
-            non_pos = sum(1 for x in vals if x <= 0.0)
-            p_val = non_pos / len(vals)
+        # Bootstrap sign proportion: fraction of bootstrap samples where I_ab <= 0
+        # NOT a p-value; included for descriptive purposes only. Do not use for
+        # significance testing. See compute_shapley_interaction docstring.
+        non_pos = sum(1 for x in vals if x <= 0.0)
+        bootstrap_sign_proportion = non_pos / len(vals) if vals else 0.0
 
         entry = {
             "value": round(mean_val, 6),
             "std_err": round(std_err, 6),
-            "p_value": round(p_val, 6),
-            "significant": p_val < 0.05,
+            "bootstrap_sign_proportion": round(bootstrap_sign_proportion, 6),
             "ports": [a, b],
             "source_event_ids": [port_a.source_event_id, port_b.source_event_id],
         }
