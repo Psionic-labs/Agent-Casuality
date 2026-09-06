@@ -3,12 +3,31 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from sdk.events import Event
+
+DecisionEvaluator = Callable[[dict[str, Any]], Any]  # port_id -> value, returns outcome
+
+_REGISTRY_LOCK = Lock()
+_EVALUATOR_REGISTRY: dict[str, DecisionEvaluator] = {}
+
+
+def register_decision_evaluator(decision_type: str, fn: DecisionEvaluator) -> None:
+    """Register a decision evaluator function for a given decision type."""
+    with _REGISTRY_LOCK:
+        _EVALUATOR_REGISTRY[decision_type] = fn
+
+
+def get_decision_evaluator(decision_type: str) -> DecisionEvaluator | None:
+    """Retrieve the decision evaluator registered for a given decision type."""
+    with _REGISTRY_LOCK:
+        return _EVALUATOR_REGISTRY.get(decision_type)
 
 
 class AblationStrategy(StrEnum):
@@ -78,6 +97,7 @@ class DecisionContract:
     policy_version: str | None = None
     outcome: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    is_side_effecting: bool = False
 
     def get_port(self, port_id: str) -> DecisionPort | None:
         """Find a port by its port_id."""
@@ -95,6 +115,7 @@ class DecisionContract:
             "policy_version": self.policy_version,
             "outcome": self.outcome,
             "metadata": dict(self.metadata),
+            "is_side_effecting": self.is_side_effecting,
         }
 
     @classmethod
@@ -111,6 +132,7 @@ class DecisionContract:
             policy_version=data.get("policy_version"),
             outcome=data.get("outcome"),
             metadata=data.get("metadata", {}),
+            is_side_effecting=bool(data.get("is_side_effecting", False)),
         )
 
     def to_event_payload(self, base_payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -139,6 +161,7 @@ def create_decision_contract(
     policy_version: str | None = None,
     outcome: str | None = None,
     metadata: dict[str, Any] | None = None,
+    is_side_effecting: bool = False,
 ) -> DecisionContract:
     """Helper constructor for creating a validated DecisionContract."""
     return DecisionContract(
@@ -151,7 +174,25 @@ def create_decision_contract(
         policy_version=policy_version,
         outcome=outcome,
         metadata=dict(metadata) if metadata is not None else {},
+        is_side_effecting=is_side_effecting,
     )
+
+
+def _evaluate_fixture_policy(inputs: dict[str, Any]) -> str:
+    """Deterministic policy check matching fixture.json event A3 (policy_check_v2).
+
+    Approves iff customer_status == 'eligible' and risk_score < 0.5.
+    Returns 'failure' if approved (customer incorrectly approved per ground truth),
+    or 'success' if rejected.
+    """
+    status = inputs.get("customer_status")
+    risk = inputs.get("risk_score")
+    approved = (status == "eligible") and (risk is not None and risk < 0.5)
+    return "failure" if approved else "success"
+
+
+register_decision_evaluator("policy_merge", _evaluate_fixture_policy)
+register_decision_evaluator("policy_check_v2", _evaluate_fixture_policy)
 
 
 def create_fixture_decision(fixture_data: dict[str, Any] | None = None) -> DecisionContract:

@@ -1,5 +1,12 @@
-"""Core engine: graph queries, state reconstruction/slicing, and provenance."""
-
+from .decision import (
+    DecisionContract,
+    DecisionEvaluator,
+    DecisionPort,
+    create_decision_contract,
+    create_fixture_decision,
+    get_decision_evaluator,
+    register_decision_evaluator,
+)
 from .graph import ancestors, assign_causal_parents, record_causal_event
 from .provenance import (
     InMemoryProvenanceStore,
@@ -14,6 +21,15 @@ from .provenance import (
     verify_chunk_sensitivity,
 )
 from .reducer import AgentState, ReplayIntegrityError, hash_state, reconstruct, verify_snapshot
+from .replay import (
+    SIDE_EFFECTING_TOOLS,
+    PortIntervention,
+    ReplayUnsafe,
+    compute_shapley_interaction,
+    counterfactual_replay,
+    ddmin,
+    test_fn_from,
+)
 from .slicing import DecisionEvidence, StructuralSlice, structural_slice, why
 from .snapshots import (
     SnapshotManager,
@@ -25,19 +41,31 @@ from .snapshots import (
 
 __all__ = [
     "AgentState",
+    "DecisionContract",
+    "DecisionEvaluator",
     "DecisionEvidence",
+    "DecisionPort",
     "InMemoryProvenanceStore",
+    "PortIntervention",
     "ProvenanceChain",
     "ProvenanceEdge",
     "ProvenanceGrade",
+    "ReplayUnsafe",
     "ReplayIntegrityError",
+    "SIDE_EFFECTING_TOOLS",
     "SnapshotManager",
     "SnapshotRecord",
     "SnapshotStore",
     "StructuralSlice",
     "ancestors",
     "assign_causal_parents",
+    "compute_shapley_interaction",
+    "counterfactual_replay",
+    "create_decision_contract",
+    "create_fixture_decision",
     "create_snapshot",
+    "ddmin",
+    "get_decision_evaluator",
     "hash_state",
     "provenance",
     "record_causal_event",
@@ -46,10 +74,13 @@ __all__ = [
     "record_provenance_edge",
     "record_tool_result_provenance",
     "reconstruct",
+    "register_decision_evaluator",
     "should_snapshot",
     "structural_slice",
+    "test_fn_from",
     "verify_chunk_sensitivity",
     "verify_snapshot",
     "why",
 ]
+
 
