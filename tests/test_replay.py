@@ -242,7 +242,8 @@ def test_shapley_rejects_more_than_four_ports():
 def test_downstream_replay_mode(fixture_log: FixtureEventLog):
     """Downstream replay mode is not yet implemented; raises NotImplementedError."""
     contract = create_fixture_decision()
-    with pytest.raises(NotImplementedError, match="downstream_replay mode validation is not yet fully implemented"):
+    error_msg = "downstream_replay mode validation is not yet fully implemented"
+    with pytest.raises(NotImplementedError, match=error_msg):
         counterfactual_replay(
             contract,
             [PortIntervention("customer_status", "ineligible")],

@@ -134,9 +134,11 @@ def resolve_decision_contract(decision_or_event_id: str, log: Any) -> DecisionCo
             if contract is not None:
                 return contract
 
-    # For fixture-only special IDs, only use bundled fixture if explicitly using fixture backend
+    # For fixture-only special IDs, only use bundled fixture if explicitly using
+    # fixture backend
     fixture_data = getattr(log, "data", None)
-    if fixture_data is not None and decision_or_event_id in ("dec_customer_approval_A3", "A3", "A4"):
+    fixture_ids = ("dec_customer_approval_A3", "A3", "A4")
+    if fixture_data is not None and decision_or_event_id in fixture_ids:
         # Event was not found in log, but fixture backend is available
         # For A4 (downstream event), resolve A3 and return it
         if decision_or_event_id == "A4":

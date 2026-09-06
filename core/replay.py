@@ -21,7 +21,6 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from core.decision import DecisionContract, get_decision_evaluator
-from core.reducer import reconstruct
 
 __all__ = [
     "SIDE_EFFECTING_TOOLS",
@@ -140,19 +139,26 @@ def counterfactual_replay(
     # This catches cases where metadata wasn't properly annotated.
     if contract.metadata:
         for key, val in contract.metadata.items():
-            if isinstance(val, str) and any(pattern in val.lower() for pattern in SIDE_EFFECT_PAYLOAD_PATTERNS):
+            if isinstance(val, str) and any(
+                pattern in val.lower() for pattern in SIDE_EFFECT_PAYLOAD_PATTERNS
+            ):
                 raise ReplayUnsafe(
-                    f"Decision '{contract.decision_id}' metadata contains potential side-effect indicator "
-                    f"(key='{key}', value contains '{val}'). Refusing replay on unknown side-effect status."
+                    f"Decision '{contract.decision_id}' metadata contains "
+                    f"potential side-effect indicator (key='{key}', value contains "
+                    f"'{val}'). Refusing replay on unknown side-effect status."
                 )
     
     # Check port payloads for side-effect indicators
     for port in contract.ports:
         # Check recorded value for side-effect patterns
-        if isinstance(port.recorded_value, dict) and _check_payload_for_side_effects(port.recorded_value):
+        if (
+            isinstance(port.recorded_value, dict)
+            and _check_payload_for_side_effects(port.recorded_value)
+        ):
             raise ReplayUnsafe(
-                f"Decision '{contract.decision_id}' port '{port.port_id}' recorded value contains "
-                f"potential side-effect indicators. Refusing replay on unknown side-effect status."
+                f"Decision '{contract.decision_id}' port '{port.port_id}' "
+                f"recorded value contains potential side-effect indicators. "
+                f"Refusing replay on unknown side-effect status."
             )
 
     # 2. Build input dictionary from recorded port values + interventions
