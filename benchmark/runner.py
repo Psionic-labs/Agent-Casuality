@@ -9,6 +9,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -44,6 +49,19 @@ def _timestamp() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _repository_head() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return result.stdout.strip()
+
+
 def _alias_pairs(scenario: GeneratedScenario, pairs: list[list[str]]) -> list[list[str]]:
     return [[scenario.alias(item) for item in pair] for pair in pairs]
 
@@ -55,100 +73,39 @@ def _require_event(log: InMemoryEventLog, event_id: str) -> Event:
     return event
 
 
-def _response_to_bool(response: str | None, *, scenario_name: str) -> bool:
-    if not response:
-        return False
-    text = response.lower()
+def _provider_branch_values(response: str) -> tuple[str, str]:
+    """Extract independently generated branch values from a provider response."""
     try:
         parsed = json.loads(response)
-    except (TypeError, ValueError):
-        parsed = None
+    except json.JSONDecodeError as exc:
+        raise ValueError("provider response must be JSON with left and right fields") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("provider response must be a JSON object with left and right fields")
 
-    if isinstance(parsed, dict):
-        stack: list[Any] = [parsed]
-        while stack:
-            current = stack.pop()
-            if isinstance(current, dict):
-                for key, value in current.items():
-                    if key.lower() in {
-                        "label",
-                        "intent",
-                        "decision",
-                        "outcome",
-                        "status",
-                        "result",
-                    }:
-                        if isinstance(value, str):
-                            text = value.lower()
-                        if isinstance(value, dict):
-                            stack.append(value)
-                    else:
-                        stack.append(value)
-            elif isinstance(current, list):
-                stack.extend(current)
+    def normalize(value: Any, field: str) -> str:
+        normalized = str(value).strip().lower()
+        if normalized not in {"bad", "good"}:
+            raise ValueError(f"provider field {field!r} must be 'bad' or 'good'")
+        return normalized
 
-    positive = {
-        "interaction",
-        "joint",
-        "combined",
-        "together",
-        "causal",
-        "multi",
-        "both",
-        "book",
-        "risk",
-        "signal",
-        "triggered",
-    }
-    negative = {
-        "independent",
-        "separate",
-        "single",
-        "none",
-        "isolated",
-        "unrelated",
-        "safe",
-        "good",
-        "no interaction",
-        "no_signal",
-    }
-    score = sum(1 for word in positive if word in text) - sum(
-        1 for word in negative if word in text
-    )
-    if score == 0:
-        return scenario_name == "interaction"
-    return score > 0
+    if "left" not in parsed or "right" not in parsed:
+        raise ValueError("provider response must contain independent left and right fields")
+    return normalize(parsed["left"], "left"), normalize(parsed["right"], "right")
 
 
 def _provider_contract_for_scenario(
     *,
     scenario_name: str,
-    response: str | None,
+    left_value: str,
+    right_value: str,
     run_id: str,
 ) -> Any:
-    predicted = _response_to_bool(response, scenario_name=scenario_name)
     if scenario_name == "interaction":
-        left_value = "bad" if predicted else "good"
-        right_value = "bad" if predicted else "good"
-
         def evaluator(values: dict[str, Any]) -> str:
             return "failure" if values["left"] == "bad" and values["right"] == "bad" else "success"
-
-        ports = [
-            ("left", "left", left_value, "good"),
-            ("right", "right", right_value, "good"),
-        ]
     else:
-        left_value = "bad" if predicted else "good"
-        right_value = "bad" if predicted else "good"
-
         def evaluator(values: dict[str, Any]) -> str:
             return "failure" if "bad" in values.values() else "success"
-
-        ports = [
-            ("left", "left", left_value, "good"),
-            ("right", "right", right_value, "good"),
-        ]
 
     decision_type = f"benchmark.{scenario_name}_provider"
     register_decision_evaluator(decision_type, evaluator)
@@ -163,18 +120,50 @@ def _provider_contract_for_scenario(
         outcome="failure",
         ports=[
             DecisionPort(
-                port_id=p,
-                source_event_id=f"{scenario_name}-{source}",
-                field_path="output",
-                recorded_value=value,
-                baseline_value=baseline,
+                port_id="left",
+                source_event_id=f"{scenario_name}-left",
+                field_path="output.left",
+                recorded_value=left_value,
+                baseline_value="good",
                 strategy=AblationStrategy.CANONICAL_BASELINE,
-            )
-            for p, source, value, baseline in ports
+            ),
+            DecisionPort(
+                port_id="right",
+                source_event_id=f"{scenario_name}-right",
+                field_path="output.right",
+                recorded_value=right_value,
+                baseline_value="good",
+                strategy=AblationStrategy.CANONICAL_BASELINE,
+            ),
         ],
-        metadata={"provider_model_response": response or ""},
+        metadata={"benchmark_provider_decision": True},
     )
     return contract
+
+
+def _counterfactual_cells(contract: Any) -> dict[str, bool]:
+    """Evaluate all four B/C cells once and return failure indicators."""
+    left, right = contract.ports
+    cells: dict[str, bool] = {}
+    for left_active, left_value in ((False, left.baseline_value), (True, left.recorded_value)):
+        for right_active, right_value in (
+            (False, right.baseline_value),
+            (True, right.recorded_value),
+        ):
+            outcome = counterfactual_replay(
+                contract,
+                [
+                    PortIntervention("left", left_value),
+                    PortIntervention("right", right_value),
+                ],
+            )
+            cells[f"{int(left_active)}{int(right_active)}"] = outcome == contract.outcome
+    return cells
+
+
+def _naive_2x2_score(cells: dict[str, bool]) -> float:
+    """Direct four-cell interaction contrast, independent of Shapley implementation."""
+    return float(cells["11"]) - float(cells["10"]) - float(cells["01"]) + float(cells["00"])
 
 
 def run_scenario(
@@ -332,12 +321,25 @@ def run_experiment1(
             ("interaction", True),
             ("multiple_parents", False),
         ):
-            detected, scores, raw = 0, [], []
+            agent_detected = 0
+            naive_detected = 0
+            agent_scores: list[float] = []
+            naive_scores: list[float] = []
+            raw: list[str | None] = []
+            cell_results: list[dict[str, bool]] = []
             for repeat in range(repetitions):
                 prompt = [
-                    {"role": "user", "content": f"benchmark interaction probe {scenario_name}"}
+                    {
+                        "role": "user",
+                        "content": (
+                            "Return JSON only with independent fields left and right. "
+                            "Each field must be exactly 'bad' or 'good'. "
+                            f"Scenario: {scenario_name}."
+                        ),
+                    }
                 ]
                 response = None
+                contract: Any
                 if provider is not None:
                     key = {
                         "provider": provider.name,
@@ -363,58 +365,132 @@ def run_experiment1(
                         if cache:
                             cache.put(key, response)
                     raw.append(response)
-
-                    contract = _provider_contract_for_scenario(
-                        scenario_name=scenario_name,
-                        response=response,
-                        run_id=f"experiment1-{scenario_name}-{temperature}-{repeat}",
-                    )
-                    result = compute_shapley_interaction(
-                        contract, samples_per_cell=1, seed=seed + repeat, num_bootstrap=20
-                    )
-                    score = next(iter(result["interactions"].values()))["value"]
+                    if response is None:
+                        contract = SCENARIOS[scenario_name]().contract
+                    else:
+                        left_value, right_value = _provider_branch_values(response)
+                        contract = _provider_contract_for_scenario(
+                            scenario_name=scenario_name,
+                            left_value=left_value,
+                            right_value=right_value,
+                            run_id=f"experiment1-{scenario_name}-{temperature}-{repeat}",
+                        )
                 else:
-                    scenario = SCENARIOS[scenario_name]()
-                    result = compute_shapley_interaction(
-                        scenario.contract, samples_per_cell=1, seed=seed + repeat, num_bootstrap=20
-                    )
-                    score = next(iter(result["interactions"].values()))["value"]
+                    contract = SCENARIOS[scenario_name]().contract
 
-                scores.append(score)
-                predicted_interaction = score > 0.0
-                detected += int(predicted_interaction)
+                cells = _counterfactual_cells(contract)
+                result = compute_shapley_interaction(
+                    contract, samples_per_cell=1, seed=seed + repeat, num_bootstrap=20
+                )
+                interaction_entry = next(
+                    entry
+                    for entry in result["interactions"].values()
+                    if entry["ports"] == ["left", "right"]
+                )
+                agent_score = float(interaction_entry["value"])
+                naive_score = _naive_2x2_score(cells)
+                agent_is_interaction = agent_score > 0.0
+                naive_is_interaction = cells["11"] and not cells["10"] and not cells["01"]
+                agent_detected += int(agent_is_interaction)
+                naive_detected += int(naive_is_interaction)
+                agent_scores.append(agent_score)
+                naive_scores.append(naive_score)
+                cell_results.append(cells)
             rows.append(
                 {
+                    "run_id": f"experiment1-{scenario_name}-{temperature}-{seed + repeat}",
+                    "provider": provider.name if provider else "offline",
+                    "model": provider.model if provider else None,
+                    "seed": seed + repeat,
                     "temperature": temperature,
                     "scenario": scenario_name,
                     "expected_interaction": expected_interaction,
+                    "ground_truth": {
+                        "interaction": expected_interaction,
+                        "decision_outcome": "failure",
+                    },
+                    "input": prompt,
                     "number_of_runs": repetitions,
-                    "interaction_detections": detected,
-                    "false_interaction_detections": detected if not expected_interaction else 0,
-                    "missed_interactions": repetitions - detected if expected_interaction else 0,
-                    "interaction_score_distribution": scores,
+                    "agent_casuality": {
+                        "true_positive": agent_detected if expected_interaction else 0,
+                        "false_negative": (
+                            repetitions - agent_detected if expected_interaction else 0
+                        ),
+                        "true_negative": (
+                            repetitions - agent_detected if not expected_interaction else 0
+                        ),
+                        "false_positive": agent_detected if not expected_interaction else 0,
+                        "score_distribution": agent_scores,
+                    },
+                    "naive_2x2": {
+                        "true_positive": naive_detected if expected_interaction else 0,
+                        "false_negative": (
+                            repetitions - naive_detected if expected_interaction else 0
+                        ),
+                        "true_negative": (
+                            repetitions - naive_detected if not expected_interaction else 0
+                        ),
+                        "false_positive": naive_detected if not expected_interaction else 0,
+                        "score_distribution": naive_scores,
+                    },
+                    "counterfactual_cells": cell_results,
                     "raw_model_responses": raw,
                 }
             )
-    false_positive = sum(row["false_interaction_detections"] for row in rows)
+    interaction_rows = [row for row in rows if row["expected_interaction"]]
+    independent_rows = [row for row in rows if not row["expected_interaction"]]
+    interaction_runs = sum(row["number_of_runs"] for row in interaction_rows)
     independent = sum(row["number_of_runs"] for row in rows if not row["expected_interaction"])
+    agent_false_positive = sum(row["agent_casuality"]["false_positive"] for row in independent_rows)
+    agent_true_positive = sum(row["agent_casuality"]["true_positive"] for row in interaction_rows)
+    naive_false_positive = sum(row["naive_2x2"]["false_positive"] for row in independent_rows)
+    naive_true_positive = sum(row["naive_2x2"]["true_positive"] for row in interaction_rows)
     return {
         "kind": "experiment1",
         "provider": provider.name if provider else "offline",
+        "temperatures": [0.0, 0.3, 0.7, 1.0],
+        "repetitions": repetitions,
+        "configuration": {
+            "samples_per_cell": 1,
+            "num_bootstrap": 20,
+            "seed": seed,
+            "max_tokens": max_tokens,
+            "max_requests": max_requests,
+        },
         "rows": rows,
         "aggregate": {
-            "false_interaction_rate": false_positive / max(1, independent),
+            "agent_casuality": {
+                "true_positive": agent_true_positive,
+                "false_negative": interaction_runs - agent_true_positive,
+                "true_negative": independent - agent_false_positive,
+                "false_positive": agent_false_positive,
+                "false_positive_rate": agent_false_positive / max(1, independent),
+                "true_positive_rate": agent_true_positive / max(1, interaction_runs),
+            },
+            "naive_2x2": {
+                "true_positive": naive_true_positive,
+                "false_negative": interaction_runs - naive_true_positive,
+                "true_negative": independent - naive_false_positive,
+                "false_positive": naive_false_positive,
+                "false_positive_rate": naive_false_positive / max(1, independent),
+                "true_positive_rate": naive_true_positive / max(1, interaction_runs),
+            },
             "requests": requests,
         },
         "targets": {
             "agent_casuality_false_positive_under_1_percent": {
                 "threshold": 0.01,
-                "measured": false_positive / max(1, independent),
-                "met": false_positive / max(1, independent) < 0.01,
+                "measured": agent_false_positive / max(1, independent),
+                "status": "TARGET MET"
+                if agent_false_positive / max(1, independent) < 0.01
+                else "TARGET NOT MET",
             },
             "naive_comparison_over_15_percent": {
-                "status": "not_evaluated",
-                "reason": "no vendor adapter or named naive baseline is included",
+                "threshold": 0.15,
+                "measured": naive_false_positive / max(1, independent),
+                "status": "TARGET MET"
+                if naive_false_positive / max(1, independent) > 0.15
+                else "TARGET NOT MET",
             },
         },
     }
@@ -470,86 +546,222 @@ def run_experiment2(*, dependencies: int = 100) -> dict[str, Any]:
     }
 
 
+def _prompt_cases() -> list[dict[str, str]]:
+    return [
+        {"format": "json", "template": '{"customer_status": "{value}", "risk": 0.2}'},
+        {"format": "json", "template": '{"decision": {"status": "{value}", "risk": 0.2}}'},
+        {"format": "json", "template": '{"items": [{"status": "{value}", "risk": 0.2}]}'},
+        {
+            "format": "xml",
+            "template": "<decision><status>{value}</status><risk>0.2</risk></decision>",
+        },
+        {"format": "xml", "template": '<report><result><status>{value}</status></result></report>'},
+        {"format": "key_value", "template": 'customer_status={value}; risk=0.2'},
+        {"format": "key_value", "template": 'status={value}\nrisk=0.2'},
+        {"format": "prose", "template": 'The customer status is {value}; the risk is 0.2.'},
+        {"format": "prose", "template": 'Status: "{value}". Risk score: 0.2.'},
+        {"format": "markdown", "template": '| status | risk |\n| {value} | 0.2 |'},
+        {"format": "yaml", "template": 'customer:\n  status: {value}\n  risk: 0.2'},
+        {"format": "yaml", "template": '---\nstatus: {value}\nrisk: 0.2\n---'},
+        {
+            "format": "tool_call",
+            "template": '{"tool": "approve", "arguments": {"status": "{value}", "risk": 0.2}}',
+        },
+        {
+            "format": "tool_call",
+            "template": '{"name": "review", "input": {"customer_status": "{value}"}}',
+        },
+        {
+            "format": "multiline",
+            "template": "BEGIN REVIEW\nSTATUS = {value}\nRISK = 0.2\nEND REVIEW",
+        },
+        {"format": "quoted", "template": 'Evidence says status="{value}" and risk="0.2".'},
+        {
+            "format": "json_block",
+            "template": 'Context:\n```json\n{"status": "{value}", "risk": 0.2}\n```',
+        },
+        {
+            "format": "xml",
+            "template": "<root><metadata/><status>{value}</status><risk>0.8</risk></root>",
+        },
+        {"format": "key_value", "template": 'status: {value} | risk: 0.8 | source: record-19'},
+        {"format": "plain", "template": 'STATUS -> {value}\nRISK -> 0.2'},
+    ]
+
+
+def _find_status(value: Any) -> Any:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key.lower() in {"status", "customer_status"}:
+                return nested
+            found = _find_status(nested)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for nested in value:
+            found = _find_status(nested)
+            if found is not None:
+                return found
+    return None
+
+
+def _execute_prompt(text: str, format_name: str) -> dict[str, Any]:
+    """Parse, validate, and decide on one prompt using the same local runtime path."""
+    try:
+        parsed: Any
+        if format_name in {"json", "tool_call"}:
+            parsed = json.loads(text)
+            status = _find_status(parsed)
+        elif format_name == "json_block":
+            match = re.search(r"\{.*\}", text, re.DOTALL)
+            if match is None:
+                raise ValueError("JSON block not found")
+            parsed = json.loads(match.group(0))
+            status = _find_status(parsed)
+        elif format_name == "xml":
+            root = ET.fromstring(text)
+            node = root.find(".//status")
+            status = None if node is None else node.text
+        elif format_name in {"key_value", "yaml", "markdown", "multiline", "plain"}:
+            match = re.search(
+                r"(?:customer_status|status)\s*(?:=|:|\||->)\s*[\"']?([^;|\n\"']+)",
+                text,
+                re.IGNORECASE,
+            )
+            status = None if match is None else match.group(1).strip()
+        elif format_name == "prose":
+            match = re.search(
+                r"status\s*(?:is|:|=)\s*[\"']?([\w-]+)", text, re.IGNORECASE
+            )
+            status = None if match is None else match.group(1)
+        elif format_name == "quoted":
+            match = re.search(r"status\s*=\s*[\"']([^\"']+)[\"']", text, re.IGNORECASE)
+            status = None if match is None else match.group(1)
+        else:
+            raise ValueError(f"unsupported prompt format {format_name!r}")
+    except (ET.ParseError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return {
+            "parse_result": "failure",
+            "schema_result": "not_evaluated",
+            "decision_result": "not_evaluated",
+            "failure_class": "syntax/parsing",
+            "error": str(exc),
+        }
+
+    if not isinstance(status, str) or not status.strip():
+        return {
+            "parse_result": "success",
+            "schema_result": "failure",
+            "decision_result": "not_evaluated",
+            "failure_class": "schema",
+            "parsed_status": status,
+        }
+
+    normalized_status = status.strip().lower()
+    decision = "failure" if normalized_status == "eligible" else "success"
+    return {
+        "parse_result": "success",
+        "schema_result": "success",
+        "decision_result": decision,
+        "failure_class": "successful",
+        "parsed_status": status.strip(),
+    }
+
+
+def _semantic_prompt_contract(case_id: str, recorded_value: str) -> Any:
+    decision_type = f"benchmark.prompt_case_{case_id}"
+    register_decision_evaluator(decision_type, lambda values: str(values["status"]))
+    return create_decision_contract(
+        decision_id=f"prompt-case-{case_id}",
+        run_id=f"experiment3-{case_id}",
+        agent_id="merge",
+        decision_event_id=f"prompt-event-{case_id}",
+        decision_type=decision_type,
+        outcome="failure",
+        ports=[
+            DecisionPort(
+                port_id="status",
+                source_event_id=f"prompt-source-{case_id}",
+                field_path="output.status",
+                recorded_value=recorded_value,
+                baseline_value="UNKNOWN",
+                strategy=AblationStrategy.DEFAULT_SENTINEL,
+            )
+        ],
+    )
+
+
 def run_experiment3() -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
-    templates = [
-        ("json", '{"customer_status": "{value}", "risk_score": 0.2}'),
-        ("json", '{"customer_status": "{value}", "risk_score": 0.8}'),
-        ("json", '{"decision": {"status": "{value}", "risk": 0.2}}'),
-        ("key_value", 'customer_status={value}; risk_score=0.2'),
-        ("key_value", 'customer_status={value}; risk_score=0.8'),
-        ("key_value", 'status={value} risk=0.2'),
-        ("prose", 'Customer status is {value}. Risk score is 0.2.'),
-        ("prose", 'Customer status is {value}. Risk score is 0.8.'),
-        ("markdown", '## status\n- value: {value}\n- risk: 0.2'),
-        ("markdown", '## summary\nstatus={value}\nrisk=0.8'),
-    ] * 2
-    for index in range(20):
-        format_name, template = templates[index]
-        value = "eligible" if index % 2 == 0 else "ineligible"
-        semantic_prompt = template.replace("{value}", value)
-        raw_prompt = template.replace("{value}", "")
-
-        scenario = SCENARIOS["single_cause"]()
-        semantic_outcome = counterfactual_replay(
-            scenario.contract,
-            [PortIntervention(port_id="signal", substitute_value="good")],
-        )
-        semantic_success = semantic_outcome == "success" and value in semantic_prompt
-
-        if format_name == "json":
-            try:
-                parsed_raw = json.loads(raw_prompt)
-                has_value = value in raw_prompt and isinstance(parsed_raw, dict)
-                raw_outcome = "success" if has_value else "schema_failure"
-                category = "none" if has_value else "schema_failure"
-            except json.JSONDecodeError:
-                raw_outcome = "parsing_failure"
-                category = "parsing_failure"
-        elif format_name == "key_value":
-            has_value = value in raw_prompt and any("=" in part for part in raw_prompt.split(";"))
-            raw_outcome = "success" if has_value else "schema_failure"
-            category = "none" if has_value else "schema_failure"
-        else:
-            raw_outcome = (
-                "success"
-                if "status" in raw_prompt.lower() and value in raw_prompt
-                else "invalid_decision"
+    for index, case in enumerate(_prompt_cases(), start=1):
+        case_id = str(index)
+        recorded_value = "eligible" if index % 2 else "ineligible"
+        original = case["template"].replace("{value}", recorded_value)
+        contract = _semantic_prompt_contract(case_id, recorded_value)
+        semantic_value = str(
+            counterfactual_replay(
+                contract,
+                [PortIntervention("status", contract.ports[0].baseline_value)],
             )
-            category = "none" if raw_outcome == "success" else "invalid_decision"
-
+        )
+        semantic_input = case["template"].replace("{value}", semantic_value)
+        raw_input = case["template"].replace("{value}", "")
+        semantic_result = _execute_prompt(semantic_input, case["format"])
+        raw_result = _execute_prompt(raw_input, case["format"])
         rows.append(
             {
-                "case": index + 1,
-                "format": format_name,
-                "semantic_port": {
-                    "outcome": semantic_outcome,
-                    "successful_execution": semantic_success,
-                    "semantic_correct": semantic_success,
+                "case_id": case_id,
+                "run_id": f"experiment3-{case_id}",
+                "provider": "offline",
+                "model": None,
+                "temperature": 0.0,
+                "seed": index,
+                "format": case["format"],
+                "ground_truth": {
+                    "recorded_status": recorded_value,
+                    "semantic_baseline": "UNKNOWN",
                 },
-                "raw_text_deletion": {
-                    "outcome": raw_outcome,
-                    "failure_category": category,
-                    "successful_execution": raw_outcome == "success",
+                "original_input": original,
+                "semantic_port_intervention": {
+                    "port_id": "status",
+                    "substitute_value": semantic_value,
+                    "input": semantic_input,
+                    **semantic_result,
+                    "semantic_correct": semantic_result["decision_result"] == "success",
+                },
+                "raw_deletion_intervention": {
+                    "removed_text": recorded_value,
+                    "input": raw_input,
+                    **raw_result,
                     "semantic_correct": False,
                 },
             }
         )
-    failures = sum(not row["raw_text_deletion"]["successful_execution"] for row in rows)
+    failures = sum(
+        row["raw_deletion_intervention"]["failure_class"] != "successful" for row in rows
+    )
+    semantic_failures = sum(
+        row["semantic_port_intervention"]["failure_class"] != "successful" for row in rows
+    )
     return {
         "kind": "experiment3",
+        "configuration": {
+            "execution": "deterministic local parser, schema validator, and decision evaluator",
+            "case_count": len(rows),
+            "provider": "offline",
+        },
         "cases": rows,
         "aggregate": {
             "case_count": len(rows),
             "raw_deletion_failure_rate": failures / len(rows),
-            "semantic_port_successes": sum(
-                row["semantic_port"]["successful_execution"] for row in rows
-            ),
+            "semantic_port_failures": semantic_failures,
+            "semantic_port_failure_rate": semantic_failures / len(rows),
+            "semantic_port_successes": len(rows) - semantic_failures,
             "targets": {
                 "raw_deletion_over_35_percent": {
                     "threshold": 0.35,
                     "measured": failures / len(rows),
-                    "met": failures / len(rows) > 0.35,
+                    "status": "TARGET MET" if failures / len(rows) > 0.35 else "TARGET NOT MET",
                 }
             },
         },
@@ -557,36 +769,88 @@ def run_experiment3() -> dict[str, Any]:
 
 
 def run_baseline() -> dict[str, Any]:
-    """Report the named research baseline without inventing unavailable results."""
+    """Report the named historical baseline without inventing unavailable results."""
+    baseline_name = "Phase 2 sdk/memory.py resource dependency capture"
+    unsupported = {
+        "single_cause": ["structural_slice", "minimal_reduction", "interaction"],
+        "multiple_parents": ["structural_slice", "minimal_reduction", "interaction"],
+        "interaction": ["structural_slice", "minimal_reduction", "interaction"],
+        "distractor": ["structural_slice", "minimal_reduction", "interaction"],
+        "memory_contamination": ["structural_slice", "minimal_reduction", "interaction"],
+    }
     return {
         "kind": "baseline",
+        "experiment": "baseline comparison",
         "baseline": {
-            "tool": "Phase 2 sdk/memory.py baseline named in docs/research-memo.md",
-            "version": "historical source not present in this checkout",
+            "tool": baseline_name,
+            "version": "unknown",
+            "commit_or_build": None,
             "input": "the five deterministic benchmark scenarios",
-            "procedure": (
-                "not executed: this repository contains only the current ResourceRegistry "
-                "implementation"
+            "methodology": (
+                "The research memo names the historical Phase 2 memory implementation, "
+                "but no executable or version-pinned checkout is present."
             ),
-            "limitations": (
-                "No historical executable, version-pinned baseline artifact is available."
-            ),
+            "procedure": "not executed",
             "status": "not_evaluated",
+        },
+        "environment": {
+            "platform": platform.platform(),
+            "python": sys.version,
+            "repository_head": _repository_head(),
+        },
+        "reproducibility": {
+            "command": "uv run casuality-benchmark baseline",
+            "required_input": "the five benchmark scenarios under benchmark/ground_truth/",
+            "blocking_requirement": (
+                "provide the historical Phase 2 executable and version identifier"
+            ),
         },
         "scenarios": [
             {
                 "scenario": name,
                 "status": "not_evaluated",
+                "results": {
+                    "relevant_change_or_cause": "unsupported",
+                    "distinguish_distractor": "unsupported",
+                    "multiple_parents": "unsupported",
+                    "interactions": "unsupported",
+                    "shared_state_causality": "unsupported",
+                    "minimal_reduction": "unsupported",
+                },
+                "unsupported_comparisons": unsupported[name],
                 "reason": "no historical executable baseline exists in this checkout",
             }
             for name in SCENARIOS
+        ],
+        "limitations": [
+            "No baseline measurements are claimed.",
+            "The current ResourceRegistry is not substituted for the historical baseline.",
+            "Unsupported capabilities are not scored.",
         ],
     }
 
 
 def _markdown(result: dict[str, Any]) -> str:
+    kind = result.get("kind", "benchmark")
+    methodology = {
+        "experiment1": (
+            "Experiment 1 evaluates the same four counterfactual B/C cells with "
+            "Agent-Casuality Shapley interaction and a direct 2x2 contrast. "
+            "Provider calls are optional; offline mode uses the deterministic scenario evaluators."
+        ),
+        "experiment3": (
+            "Experiment 3 executes semantic-port substitution and raw text deletion through "
+            "the same local parser, schema validator, and decision evaluator."
+        ),
+        "baseline": (
+            "The named historical Phase 2 memory baseline is reported without fabricated scores. "
+            "Every unsupported comparison is explicit and the missing executable/version "
+            "is recorded."
+        ),
+    }.get(kind, "This artifact records an offline benchmark execution.")
     return (
-        "# Benchmark result\n\n```json\n"
+        f"# Benchmark result: {kind}\n\n## Methodology\n{methodology}\n\n"
+        "## Machine-readable result\n\n```json\n"
         + json.dumps(result, indent=2, sort_keys=True, default=str)
         + "\n```\n"
     )
@@ -619,7 +883,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--provider", choices=["offline", "fastino"], default="offline")
     parser.add_argument("--model")
     parser.add_argument("--repetitions", type=int, default=3)
-    parser.add_argument("--max-requests", type=int, default=12)
+    parser.add_argument("--max-requests", type=int, default=24)
     parser.add_argument("--max-tokens", type=int, default=None)
     parser.add_argument("--dependencies", type=int, default=100)
     parser.add_argument("--seed", type=int, default=0)

@@ -1,60 +1,128 @@
-# Benchmark result
+# Benchmark result: baseline
+
+## Methodology
+The named historical Phase 2 memory baseline is reported without fabricated scores. Every unsupported comparison is explicit and the missing executable/version is recorded.
+
+## Machine-readable result
 
 ```json
 {
   "baseline": {
+    "commit_or_build": null,
     "input": "the five deterministic benchmark scenarios",
-    "limitations": "No historical executable, version-pinned baseline artifact is available.",
-    "procedure": "not executed: this repository contains only the current ResourceRegistry implementation",
-    "tool": "Phase 2 sdk/memory.py baseline named in docs/research-memo.md",
-    "version": "historical source not present in this checkout"
+    "methodology": "The research memo names the historical Phase 2 memory implementation, but no executable or version-pinned checkout is present.",
+    "procedure": "not executed",
+    "status": "not_evaluated",
+    "tool": "Phase 2 sdk/memory.py resource dependency capture",
+    "version": "unknown"
   },
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13 (main, Jun 23 2026, 15:23:43) [MSC v.1944 64 bit (AMD64)]",
+    "repository_head": "8af452a189a8708e3923ac65535335555481fa16"
+  },
+  "experiment": "baseline comparison",
   "kind": "baseline",
+  "limitations": [
+    "No baseline measurements are claimed.",
+    "The current ResourceRegistry is not substituted for the historical baseline.",
+    "Unsupported capabilities are not scored."
+  ],
+  "reproducibility": {
+    "blocking_requirement": "provide the historical Phase 2 executable and version identifier",
+    "command": "uv run casuality-benchmark baseline",
+    "required_input": "the five benchmark scenarios under benchmark/ground_truth/"
+  },
   "scenarios": [
     {
-      "distinguish_distractor": "unsupported",
-      "interactions": "unsupported",
-      "minimal_reduction": "unsupported",
-      "multiple_parents": "unsupported",
-      "relevant_change_or_cause": "unsupported",
+      "reason": "no historical executable baseline exists in this checkout",
+      "results": {
+        "distinguish_distractor": "unsupported",
+        "interactions": "unsupported",
+        "minimal_reduction": "unsupported",
+        "multiple_parents": "unsupported",
+        "relevant_change_or_cause": "unsupported",
+        "shared_state_causality": "unsupported"
+      },
       "scenario": "single_cause",
-      "shared_state_causality": "unsupported"
+      "status": "not_evaluated",
+      "unsupported_comparisons": [
+        "structural_slice",
+        "minimal_reduction",
+        "interaction"
+      ]
     },
     {
-      "distinguish_distractor": "unsupported",
-      "interactions": "unsupported",
-      "minimal_reduction": "unsupported",
-      "multiple_parents": "unsupported",
-      "relevant_change_or_cause": "unsupported",
+      "reason": "no historical executable baseline exists in this checkout",
+      "results": {
+        "distinguish_distractor": "unsupported",
+        "interactions": "unsupported",
+        "minimal_reduction": "unsupported",
+        "multiple_parents": "unsupported",
+        "relevant_change_or_cause": "unsupported",
+        "shared_state_causality": "unsupported"
+      },
       "scenario": "multiple_parents",
-      "shared_state_causality": "unsupported"
+      "status": "not_evaluated",
+      "unsupported_comparisons": [
+        "structural_slice",
+        "minimal_reduction",
+        "interaction"
+      ]
     },
     {
-      "distinguish_distractor": "unsupported",
-      "interactions": "unsupported",
-      "minimal_reduction": "unsupported",
-      "multiple_parents": "unsupported",
-      "relevant_change_or_cause": "unsupported",
+      "reason": "no historical executable baseline exists in this checkout",
+      "results": {
+        "distinguish_distractor": "unsupported",
+        "interactions": "unsupported",
+        "minimal_reduction": "unsupported",
+        "multiple_parents": "unsupported",
+        "relevant_change_or_cause": "unsupported",
+        "shared_state_causality": "unsupported"
+      },
       "scenario": "interaction",
-      "shared_state_causality": "unsupported"
+      "status": "not_evaluated",
+      "unsupported_comparisons": [
+        "structural_slice",
+        "minimal_reduction",
+        "interaction"
+      ]
     },
     {
-      "distinguish_distractor": "unsupported",
-      "interactions": "unsupported",
-      "minimal_reduction": "unsupported",
-      "multiple_parents": "unsupported",
-      "relevant_change_or_cause": "unsupported",
+      "reason": "no historical executable baseline exists in this checkout",
+      "results": {
+        "distinguish_distractor": "unsupported",
+        "interactions": "unsupported",
+        "minimal_reduction": "unsupported",
+        "multiple_parents": "unsupported",
+        "relevant_change_or_cause": "unsupported",
+        "shared_state_causality": "unsupported"
+      },
       "scenario": "distractor",
-      "shared_state_causality": "unsupported"
+      "status": "not_evaluated",
+      "unsupported_comparisons": [
+        "structural_slice",
+        "minimal_reduction",
+        "interaction"
+      ]
     },
     {
-      "distinguish_distractor": "unsupported",
-      "interactions": "unsupported",
-      "minimal_reduction": "unsupported",
-      "multiple_parents": "unsupported",
-      "relevant_change_or_cause": "unsupported",
+      "reason": "no historical executable baseline exists in this checkout",
+      "results": {
+        "distinguish_distractor": "unsupported",
+        "interactions": "unsupported",
+        "minimal_reduction": "unsupported",
+        "multiple_parents": "unsupported",
+        "relevant_change_or_cause": "unsupported",
+        "shared_state_causality": "unsupported"
+      },
       "scenario": "memory_contamination",
-      "shared_state_causality": "unsupported"
+      "status": "not_evaluated",
+      "unsupported_comparisons": [
+        "structural_slice",
+        "minimal_reduction",
+        "interaction"
+      ]
     }
   ]
 }

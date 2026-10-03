@@ -168,6 +168,8 @@ venv.bak/
 # Benchmark generated artifacts
 benchmark/benchmark/
 benchmark/results/model-cache.jsonl
+benchmark/results/validation/
+benchmark/results/fastino-validation-*/
 
 # Spyder project settings
 .spyderproject

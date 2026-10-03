@@ -7,6 +7,8 @@ import pytest
 
 from benchmark.providers import FastinoProvider, ResponseCache
 from benchmark.runner import (
+    _counterfactual_cells,
+    _provider_contract_for_scenario,
     run_baseline,
     run_experiment2,
     run_experiment3,
@@ -53,6 +55,24 @@ def test_experiment3_executes_both_ablation_paths() -> None:
     assert result["aggregate"]["case_count"] == 20
     assert result["aggregate"]["semantic_port_successes"] == 20
     assert result["aggregate"]["raw_deletion_failure_rate"] > 0.35
+    first = result["cases"][0]
+    assert first["semantic_port_intervention"]["input"] != first[
+        "raw_deletion_intervention"
+    ]["input"]
+    assert first["semantic_port_intervention"]["parse_result"] == "success"
+    assert first["raw_deletion_intervention"]["schema_result"] == "failure"
+
+
+def test_experiment1_provider_values_remain_independently_controllable() -> None:
+    both_bad = _provider_contract_for_scenario(
+        scenario_name="interaction", left_value="bad", right_value="bad", run_id="both"
+    )
+    left_only = _provider_contract_for_scenario(
+        scenario_name="interaction", left_value="bad", right_value="good", run_id="left"
+    )
+    assert _counterfactual_cells(both_bad) != _counterfactual_cells(left_only)
+    assert _counterfactual_cells(both_bad)["11"]
+    assert not _counterfactual_cells(left_only)["11"]
 
 
 def test_baseline_is_explicitly_not_evaluated_without_history() -> None:
