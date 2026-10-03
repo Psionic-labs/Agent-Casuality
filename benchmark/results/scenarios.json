@@ -1,0 +1,1071 @@
+{
+  "aggregate": {
+    "dimensions": {
+      "interaction": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "minimal_slice": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "provenance": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "structural_slice": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    },
+    "passed": 5,
+    "scenario_count": 5
+  },
+  "kind": "five_scenarios",
+  "runs": [
+    {
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
+      },
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The structural slice contains 3 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
+        {
+          "agent_id": "upstream",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "32e7f4b4-632d-4992-b0e4-78d1f8b5409c",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+        },
+        {
+          "agent_id": "background",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "5b380ae7-6c2a-44af-806b-2021f4b2d006",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad-looking"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+        },
+        {
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "32e7f4b4-632d-4992-b0e4-78d1f8b5409c"
+          ],
+          "event_type": "model_call",
+          "id": "34720c27-ff34-4334-a1a3-58334e1e931d",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "34720c27-ff34-4334-a1a3-58334e1e931d",
+              "decision_id": "f9bbd33d-3d42-421e-a90e-8d7a750125b6",
+              "decision_type": "benchmark.single_cause",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "signal",
+                  "recorded_value": "bad",
+                  "source_event_id": "32e7f4b4-632d-4992-b0e4-78d1f8b5409c",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "34720c27-ff34-4334-a1a3-58334e1e931d"
+          ],
+          "event_type": "agent_finish",
+          "id": "7c9c3a9c-df55-4906-a0b0-27c118428c7d",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+        }
+      ],
+      "ground_truth": {
+        "excluded_events": [
+          "distractor"
+        ],
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "source"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "notes": "One bad upstream port is sufficient.",
+        "required_events": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "scenario": "single_cause",
+        "structural_slice": [
+          "source",
+          "decision",
+          "failure"
+        ]
+      },
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.0,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "source",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "source"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "source",
+        "decision",
+        "failure"
+      ],
+      "provider": "offline",
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "single_cause",
+      "temperature": null,
+      "timestamp": "2026-10-03T00:09:07.757243+00:00"
+    },
+    {
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
+      },
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The reported interaction between left and right is -1.0.\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
+        {
+          "agent_id": "left",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "68f9b87c-2c38-49f4-b27d-002f427cafc6",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+        },
+        {
+          "agent_id": "right",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "4fa26c92-b414-4ef9-83db-0d868db5f475",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+        },
+        {
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "68f9b87c-2c38-49f4-b27d-002f427cafc6",
+            "4fa26c92-b414-4ef9-83db-0d868db5f475"
+          ],
+          "event_type": "model_call",
+          "id": "1c057e46-f1b2-412a-bec0-ffdb2bc24ea4",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "1c057e46-f1b2-412a-bec0-ffdb2bc24ea4",
+              "decision_id": "cca35dfa-c10a-4430-8d4f-a2c697c1c2f7",
+              "decision_type": "benchmark.multiple_parents",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "left",
+                  "recorded_value": "bad",
+                  "source_event_id": "68f9b87c-2c38-49f4-b27d-002f427cafc6",
+                  "strategy": "canonical_baseline"
+                },
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "right",
+                  "recorded_value": "bad",
+                  "source_event_id": "4fa26c92-b414-4ef9-83db-0d868db5f475",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "1c057e46-f1b2-412a-bec0-ffdb2bc24ea4"
+          ],
+          "event_type": "agent_finish",
+          "id": "d3f129c8-c700-4560-bfcd-6ae5c5c4a07f",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+        }
+      ],
+      "ground_truth": {
+        "excluded_events": [],
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "left"
+          ],
+          [
+            "decision.output.decision",
+            "right"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "right",
+          "decision",
+          "failure"
+        ],
+        "notes": "Both recorded parents are independently sufficient; a positive joint interaction is not expected.",
+        "required_events": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ],
+        "scenario": "multiple_parents",
+        "structural_slice": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ]
+      },
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 2,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.25,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "right",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "left"
+        ],
+        [
+          "decision.output.decision",
+          "right"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "left",
+        "right",
+        "decision",
+        "failure"
+      ],
+      "provider": "offline",
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "multiple_parents",
+      "temperature": null,
+      "timestamp": "2026-10-03T00:09:07.775976+00:00"
+    },
+    {
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
+      },
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (4 events).\n- The reported interaction between left and right is 1.0.\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
+        {
+          "agent_id": "left",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "f2a8b51e-36c0-424a-be47-d8b158093166",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+        },
+        {
+          "agent_id": "right",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "cbf91b76-9972-49e6-8d29-664e374d3c14",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+        },
+        {
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "f2a8b51e-36c0-424a-be47-d8b158093166",
+            "cbf91b76-9972-49e6-8d29-664e374d3c14"
+          ],
+          "event_type": "model_call",
+          "id": "4e9ac67f-2d25-4820-9944-47f6141b76bd",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "4e9ac67f-2d25-4820-9944-47f6141b76bd",
+              "decision_id": "27d1d206-d0d7-4d48-8955-db97a957b13f",
+              "decision_type": "benchmark.interaction",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "left",
+                  "recorded_value": "bad",
+                  "source_event_id": "f2a8b51e-36c0-424a-be47-d8b158093166",
+                  "strategy": "canonical_baseline"
+                },
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "right",
+                  "recorded_value": "bad",
+                  "source_event_id": "cbf91b76-9972-49e6-8d29-664e374d3c14",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "4e9ac67f-2d25-4820-9944-47f6141b76bd"
+          ],
+          "event_type": "agent_finish",
+          "id": "f48f724d-b5ab-44d3-b98a-a204ea60e8ea",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+        }
+      ],
+      "ground_truth": {
+        "excluded_events": [],
+        "expected_interactions": [
+          [
+            "left",
+            "right"
+          ]
+        ],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "left"
+          ],
+          [
+            "decision.output.decision",
+            "right"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ],
+        "notes": "Failure needs both active branches, so positive Shapley interaction is expected.",
+        "required_events": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ],
+        "scenario": "interaction",
+        "structural_slice": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ]
+      },
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 2,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.0,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [
+        [
+          "left",
+          "right"
+        ]
+      ],
+      "predicted_minimal_slice": [
+        "left",
+        "right",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "left"
+        ],
+        [
+          "decision.output.decision",
+          "right"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "left",
+        "right",
+        "decision",
+        "failure"
+      ],
+      "provider": "offline",
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "interaction",
+      "temperature": null,
+      "timestamp": "2026-10-03T00:09:07.791875+00:00"
+    },
+    {
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
+      },
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
+        {
+          "agent_id": "upstream",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "76547932-2ce0-42d6-b0cd-1a3d39495e82",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+        },
+        {
+          "agent_id": "background",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "003e3d37-7f40-46f3-b42f-cb20c0740aee",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "plausible"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+        },
+        {
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "76547932-2ce0-42d6-b0cd-1a3d39495e82",
+            "003e3d37-7f40-46f3-b42f-cb20c0740aee"
+          ],
+          "event_type": "model_call",
+          "id": "075cfa01-bd5a-4881-859a-0373d575c867",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "075cfa01-bd5a-4881-859a-0373d575c867",
+              "decision_id": "3eacd5eb-6108-4dd3-b201-d908965b86d0",
+              "decision_type": "benchmark.distractor",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "signal",
+                  "recorded_value": "bad",
+                  "source_event_id": "76547932-2ce0-42d6-b0cd-1a3d39495e82",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "075cfa01-bd5a-4881-859a-0373d575c867"
+          ],
+          "event_type": "agent_finish",
+          "id": "e4cc9915-4fa9-4a35-828e-6c1787e77837",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+        }
+      ],
+      "ground_truth": {
+        "excluded_events": [
+          "distractor"
+        ],
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "source"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "notes": "The distractor is structurally plausible but has no decision port.",
+        "required_events": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "scenario": "distractor",
+        "structural_slice": [
+          "source",
+          "distractor",
+          "decision",
+          "failure"
+        ]
+      },
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.25,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "source",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "source"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "distractor",
+        "source",
+        "decision",
+        "failure"
+      ],
+      "provider": "offline",
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "distractor",
+      "temperature": null,
+      "timestamp": "2026-10-03T00:09:07.795339+00:00"
+    },
+    {
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
+      },
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
+        {
+          "agent_id": "writer",
+          "causal_parent_ids": [],
+          "event_type": "memory_write",
+          "id": "f866e3b2-4356-49dd-8be1-f690ee44997d",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "after": "bad",
+            "after_found": true,
+            "before": null,
+            "before_found": false,
+            "key": "approval",
+            "operation": "set",
+            "resource_uri": "mem://shared/approval"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+        },
+        {
+          "agent_id": "reader",
+          "causal_parent_ids": [
+            "f866e3b2-4356-49dd-8be1-f690ee44997d"
+          ],
+          "event_type": "memory_read",
+          "id": "536412d4-5e06-459e-9711-9af95fab5409",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "found": true,
+            "key": "approval",
+            "resource_uri": "mem://shared/approval",
+            "value": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+        },
+        {
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "536412d4-5e06-459e-9711-9af95fab5409"
+          ],
+          "event_type": "model_call",
+          "id": "7f860a45-a6df-442d-8855-9f7016c7198e",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "7f860a45-a6df-442d-8855-9f7016c7198e",
+              "decision_id": "28589435-35e4-4945-92af-93791fcbd815",
+              "decision_type": "benchmark.memory_contamination",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "approval",
+                  "recorded_value": "bad",
+                  "source_event_id": "536412d4-5e06-459e-9711-9af95fab5409",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "7f860a45-a6df-442d-8855-9f7016c7198e"
+          ],
+          "event_type": "agent_finish",
+          "id": "f700cd49-61bf-4974-9ccf-0b7097a560fc",
+          "idempotency_key": null,
+          "logical_seq": 4,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+        }
+      ],
+      "ground_truth": {
+        "excluded_events": [],
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "read"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "read",
+          "decision",
+          "failure"
+        ],
+        "notes": "The write-to-read edge must be recovered by ResourceRegistry, not supplied manually.",
+        "required_events": [
+          "write",
+          "read",
+          "decision",
+          "failure"
+        ],
+        "scenario": "memory_contamination",
+        "structural_slice": [
+          "write",
+          "read",
+          "decision",
+          "failure"
+        ]
+      },
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.25,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "read",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "read"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "write",
+        "read",
+        "decision",
+        "failure"
+      ],
+      "provider": "offline",
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "memory_contamination",
+      "temperature": null,
+      "timestamp": "2026-10-03T00:09:07.797797+00:00"
+    }
+  ]
+}

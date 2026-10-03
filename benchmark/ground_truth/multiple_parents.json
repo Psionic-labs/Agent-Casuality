@@ -1,0 +1,12 @@
+{
+  "scenario": "multiple_parents",
+  "failure_event": "failure",
+  "structural_slice": ["left", "right", "decision", "failure"],
+  "minimal_slice": ["right", "decision", "failure"],
+  "expected_interactions": [],
+  "expected_provenance": [["decision.output.decision", "left"], ["decision.output.decision", "right"]],
+  "required_events": ["left", "right", "decision", "failure"],
+  "excluded_events": [],
+  "expected_outcome": "failure",
+  "notes": "Both recorded parents are independently sufficient; a positive joint interaction is not expected."
+}

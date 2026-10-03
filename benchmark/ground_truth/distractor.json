@@ -1,0 +1,12 @@
+{
+  "scenario": "distractor",
+  "failure_event": "failure",
+  "structural_slice": ["source", "distractor", "decision", "failure"],
+  "minimal_slice": ["source", "decision", "failure"],
+  "expected_interactions": [],
+  "expected_provenance": [["decision.output.decision", "source"]],
+  "required_events": ["source", "decision", "failure"],
+  "excluded_events": ["distractor"],
+  "expected_outcome": "failure",
+  "notes": "The distractor is structurally plausible but has no decision port."
+}

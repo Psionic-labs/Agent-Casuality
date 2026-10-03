@@ -1,0 +1,30 @@
+{
+  "aggregate": {
+    "count": 3,
+    "passed": 3
+  },
+  "kind": "failure_injections",
+  "runs": [
+    {
+      "case": "corrupt_memory_write",
+      "causal_write_present": true,
+      "pass": true,
+      "resource_dependency_recovered": true,
+      "unrelated_distractor_selected": false
+    },
+    {
+      "case": "incorrect_tool_result",
+      "minimal_has_tool_result": true,
+      "pass": true,
+      "references_event": true,
+      "unrelated_distractor_selected": false
+    },
+    {
+      "case": "missing_merge_dependency",
+      "missing_evidence": true,
+      "pass": true,
+      "proves_other_cause": false,
+      "validation_detected": true
+    }
+  ]
+}

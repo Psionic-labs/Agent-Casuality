@@ -1,0 +1,12 @@
+{
+  "scenario": "interaction",
+  "failure_event": "failure",
+  "structural_slice": ["left", "right", "decision", "failure"],
+  "minimal_slice": ["left", "right", "decision", "failure"],
+  "expected_interactions": [["left", "right"]],
+  "expected_provenance": [["decision.output.decision", "left"], ["decision.output.decision", "right"]],
+  "required_events": ["left", "right", "decision", "failure"],
+  "excluded_events": [],
+  "expected_outcome": "failure",
+  "notes": "Failure needs both active branches, so positive Shapley interaction is expected."
+}

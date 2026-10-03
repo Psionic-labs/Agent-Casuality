@@ -1,0 +1,12 @@
+{
+  "scenario": "memory_contamination",
+  "failure_event": "failure",
+  "structural_slice": ["write", "read", "decision", "failure"],
+  "minimal_slice": ["read", "decision", "failure"],
+  "expected_interactions": [],
+  "expected_provenance": [["decision.output.decision", "read"]],
+  "required_events": ["write", "read", "decision", "failure"],
+  "excluded_events": [],
+  "expected_outcome": "failure",
+  "notes": "The write-to-read edge must be recovered by ResourceRegistry, not supplied manually."
+}

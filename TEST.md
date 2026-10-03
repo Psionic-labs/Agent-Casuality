@@ -11,6 +11,32 @@ uv sync
 .\scripts\check.ps1
 ```
 
+## Benchmark verification
+
+The benchmark phase is deliberately separate from normal unit testing and is
+fully offline unless `--provider fastino` is passed. The fixture control is a
+real SQLite capture/reopen regression, not a fixture graph self-comparison:
+
+```powershell
+uv run pytest tests/integration/test_customer_approval.py -q
+uv run casuality-benchmark failure-injection
+uv run casuality-benchmark scenarios
+uv run casuality-benchmark experiment1 --repetitions 3
+uv run casuality-benchmark experiment2 --dependencies 100
+uv run casuality-benchmark experiment3
+uv run casuality-benchmark baseline
+```
+
+The commands write machine-readable JSON and Markdown to `benchmark/results/`.
+`experiment1.json` contains temperature/repetition interaction detections and
+target evaluation; `experiment2.json` contains automatic memory/file resource
+dependency recovery; `experiment3.json` contains each prompt-format intervention
+failure category. Thresholds in the research memo remain hypotheses until a
+stored result measures them. Fastino is opt-in: set `FASTINO_API_KEY` and
+`FASTINO_MODEL`, optionally `FASTINO_BASE_URL`, then add `--provider fastino`.
+The JSONL response cache prevents an identical provider/model/prompt/config
+request from being regenerated.
+
 Most tests run locally against SQLite or the fixture and need no database.
 PostgreSQL integration tests use the `DATABASE_URL` from `.env` when it is
 set, and are skipped otherwise. They create the schema if needed and leave

@@ -1,0 +1,12 @@
+{
+  "scenario": "single_cause",
+  "failure_event": "failure",
+  "structural_slice": ["source", "decision", "failure"],
+  "minimal_slice": ["source", "decision", "failure"],
+  "expected_interactions": [],
+  "expected_provenance": [["decision.output.decision", "source"]],
+  "required_events": ["source", "decision", "failure"],
+  "excluded_events": ["distractor"],
+  "expected_outcome": "failure",
+  "notes": "One bad upstream port is sufficient."
+}

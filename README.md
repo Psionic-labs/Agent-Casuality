@@ -171,3 +171,44 @@ The PostgreSQL integration command and detailed verification queries are in
 and research context is retained in [docs/thesis.md](docs/thesis.md),
 [docs/implementation-plan.md](docs/implementation-plan.md), and
 [docs/research-memo.md](docs/research-memo.md).
+
+## Benchmarks
+
+The provider-neutral benchmark suite is offline by default and calls the same
+capture, graph, validation, replay, provenance, and explanation APIs as the
+application. It never uses an API key during pytest or ordinary benchmark runs.
+
+```powershell
+# fixture integration control and five synthetic scenarios
+uv run pytest tests/integration/test_customer_approval.py -q
+uv run casuality-benchmark scenarios
+
+# causal-evidence corruptions and the three validation experiments
+uv run casuality-benchmark failure-injection
+uv run casuality-benchmark experiment1 --repetitions 3
+uv run casuality-benchmark experiment2 --dependencies 100
+uv run casuality-benchmark experiment3
+uv run casuality-benchmark baseline
+uv run casuality-benchmark all
+```
+
+Results are JSON plus a readable Markdown rendering in `benchmark/results/`;
+`latest.*` always names the most recent command. Each run records its scenario,
+configuration, generated events, canonical JSON ground truth, predictions, and
+per-dimension precision/recall/exact-match metrics. Slice reduction is the
+fraction removed from a structural slice. Interaction results separately show
+true/false positives and false negatives; provenance reports exact links,
+missing links, and unexpected links.
+
+`experiment1` uses deterministic replay offline. To make explicitly opt-in
+Fastino requests, set `FASTINO_API_KEY`, `FASTINO_MODEL`, and optionally
+`FASTINO_BASE_URL` (default `https://api.pioneer.ai/v1`), then run:
+
+```powershell
+uv run casuality-benchmark experiment1 --provider fastino --repetitions 3 --max-requests 12
+```
+
+Responses are cached in `benchmark/results/model-cache.jsonl` by provider,
+model, prompt, temperature, seed, and token limit. Use `--dry-run` to inspect
+the experiment without uncached requests. Reported acceptance thresholds are
+measured fields in result artifacts, not assertions baked into the test suite.

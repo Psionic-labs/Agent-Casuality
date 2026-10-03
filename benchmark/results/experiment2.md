@@ -1,0 +1,614 @@
+# Benchmark result
+
+```json
+{
+  "automatically_recovered_dependencies": 100,
+  "dependencies": 100,
+  "details": [
+    {
+      "read_event": "c3a73565-5db4-48de-9be4-ace9323f04f5",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-0",
+      "write_event": "bf1ae81d-5979-44d1-8ff0-5fc92ad9a321"
+    },
+    {
+      "read_event": "33e75ab4-e274-4b87-9b7f-9e5165404430",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-1.txt",
+      "write_event": "02502cea-85ab-4cc7-ac7e-99eb57015a37"
+    },
+    {
+      "read_event": "0580ccc4-791b-4110-8c5a-90b9afa0ab1d",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-2",
+      "write_event": "59c4e8e0-2f4f-4f30-9b5b-6cac015ad69c"
+    },
+    {
+      "read_event": "50422406-f704-47e2-8483-cbc7b340ced9",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-3.txt",
+      "write_event": "da325cf2-be85-47f8-807d-02717f6b5776"
+    },
+    {
+      "read_event": "ae07742e-f1ea-456c-8618-7288ee190ab7",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-4",
+      "write_event": "60dde43d-4643-4459-95bf-19e07bfafd7a"
+    },
+    {
+      "read_event": "732c7e76-85f1-4834-82f5-c6a434d2460d",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-5.txt",
+      "write_event": "9f9ab106-8a80-4a7f-882b-6f086e8bb830"
+    },
+    {
+      "read_event": "ff142a15-b026-4145-a4b9-61f9a3f9ffe8",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-6",
+      "write_event": "fe8d8980-7ae6-4cc6-937f-4a758a64dc7e"
+    },
+    {
+      "read_event": "09c7c54d-e1b4-4de7-b5e6-fb1fac8045f4",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-7.txt",
+      "write_event": "74dc0cb1-8e9b-44bf-8b33-3a7cfd078c6b"
+    },
+    {
+      "read_event": "84bb7cb4-3110-4376-a8c1-c035e6f9c497",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-8",
+      "write_event": "693ec02f-dad5-446b-903f-f377f97c0ecd"
+    },
+    {
+      "read_event": "e6d7c207-afd8-4e4a-a3a6-3a32add64d3c",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-9.txt",
+      "write_event": "f57b1e6c-3dbd-4870-9fcd-422687c8d2d9"
+    },
+    {
+      "read_event": "cf3c133d-ff2d-4f0c-bca7-99ca37eecd85",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-10",
+      "write_event": "35e8162f-b1ce-4642-b64d-fdd0a11c8c9c"
+    },
+    {
+      "read_event": "943e0273-6fdd-4070-a536-7d6435098610",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-11.txt",
+      "write_event": "2bbbe6e4-c926-46f3-ae43-69d5d9c65734"
+    },
+    {
+      "read_event": "53ec373c-351b-477f-9087-c5f9063a7d1d",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-12",
+      "write_event": "81d16ea0-1231-443d-b3ec-19574b99358a"
+    },
+    {
+      "read_event": "2f0651f9-cbd3-4f28-8563-7ad94e83a27a",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-13.txt",
+      "write_event": "ec390da2-862a-4495-be29-2e5ed0e764f8"
+    },
+    {
+      "read_event": "e849850e-1bf3-462d-a98b-49a5e32e58cf",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-14",
+      "write_event": "5d49878e-5626-4998-bc3c-d1600efe13a4"
+    },
+    {
+      "read_event": "1836fec6-48bd-4df1-918e-4948a899e500",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-15.txt",
+      "write_event": "b0331a2d-a753-41fc-ae3a-1c19574d8963"
+    },
+    {
+      "read_event": "f6f456cf-24f2-4f97-bca9-f01311256e91",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-16",
+      "write_event": "26abc09b-f0f2-42e6-a3b3-8b85012c8ee5"
+    },
+    {
+      "read_event": "cedc15f6-1ad8-4f8c-8497-b6706f95699a",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-17.txt",
+      "write_event": "6d26a6f3-703f-462b-99ae-922935041460"
+    },
+    {
+      "read_event": "cd843612-9911-459d-92e9-7fa546b7a152",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-18",
+      "write_event": "4abb25a0-a6f4-46a4-8dec-d46fad1ecf89"
+    },
+    {
+      "read_event": "753937b9-7bf2-45d0-82d2-2f265bb5af9d",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-19.txt",
+      "write_event": "48606959-f008-4c38-88db-236bfb5670c8"
+    },
+    {
+      "read_event": "2120f0e1-a165-45c2-95ef-9a9c763a98fe",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-20",
+      "write_event": "3936a9bb-801e-4715-aabd-235685cda8c2"
+    },
+    {
+      "read_event": "c3d365ac-69a1-4172-beca-1df5d90218cd",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-21.txt",
+      "write_event": "2529d155-d4bd-4a80-88f9-b8006ecefabe"
+    },
+    {
+      "read_event": "86728e76-0889-49e9-a20c-46c8b7111215",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-22",
+      "write_event": "2895a5d1-c672-455f-a864-d9d409690501"
+    },
+    {
+      "read_event": "65c150ad-715b-41f9-9119-839242e5084d",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-23.txt",
+      "write_event": "2da0ab46-ed5d-4fe8-a9a7-8d6a2617710c"
+    },
+    {
+      "read_event": "c43a539c-480a-4346-8cef-cd3fb76ce040",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-24",
+      "write_event": "d46c7189-c9e0-417f-9847-bcfd3a033405"
+    },
+    {
+      "read_event": "211221a0-b088-40bc-bb50-def8eb964c3a",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-25.txt",
+      "write_event": "db18f618-f716-4e3e-a01d-19f0343d3b5e"
+    },
+    {
+      "read_event": "6a32f531-2ede-45af-9471-f1392799090a",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-26",
+      "write_event": "e69ac9aa-8248-4cd1-a923-218be1053f71"
+    },
+    {
+      "read_event": "63147871-fe6f-4fa2-b2d1-6d84d514cf94",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-27.txt",
+      "write_event": "5699c7f5-711d-49af-91bb-5f1220028f1e"
+    },
+    {
+      "read_event": "b8533c9e-cb26-4122-a815-583a9ffc2e50",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-28",
+      "write_event": "c8976ff8-f5bb-4f46-8735-76acc4dd6dcf"
+    },
+    {
+      "read_event": "496c52b6-40a1-4390-8486-0c7ddad6eb2e",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-29.txt",
+      "write_event": "c0c460f5-e0ff-4bda-8e0d-d9523e8aaf4e"
+    },
+    {
+      "read_event": "410c5bee-771b-4f2e-b8cc-4e82387142c2",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-30",
+      "write_event": "cf08a567-bdfe-4d9f-9be1-b035c77f6c07"
+    },
+    {
+      "read_event": "9c84ae9f-0262-4605-9d83-7ebee3083626",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-31.txt",
+      "write_event": "7d0cdf75-a073-48ce-9f9b-91fb89ea4f37"
+    },
+    {
+      "read_event": "3c3c6a82-f338-4f74-b043-7ac90b2e7510",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-32",
+      "write_event": "448e4fa2-c279-4215-9e80-516230db216a"
+    },
+    {
+      "read_event": "597e2480-2c64-42e5-b407-5952a457f2a4",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-33.txt",
+      "write_event": "cd17694f-3e04-4116-9066-73dd34066ae2"
+    },
+    {
+      "read_event": "8190ba4b-ccb3-430a-b76d-a10e3809f7cd",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-34",
+      "write_event": "8e489778-e020-4b21-8c1d-75980819f6aa"
+    },
+    {
+      "read_event": "46bb823a-cbcf-43b3-98fe-7dea6d6269df",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-35.txt",
+      "write_event": "e33a8e5b-2c6a-44c1-a59a-c85ba5068e94"
+    },
+    {
+      "read_event": "4ea84190-f971-4506-a070-561227d632ff",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-36",
+      "write_event": "36e6a202-fbe7-481b-a91e-b90ec6ab83ea"
+    },
+    {
+      "read_event": "b95ebbc7-707d-403a-83a7-e022253be63e",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-37.txt",
+      "write_event": "f841b3a6-067b-4bf3-bae6-8648a60bec35"
+    },
+    {
+      "read_event": "ebe5b045-aeb3-457b-9135-5ce26b1ebb51",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-38",
+      "write_event": "6dfd0163-c78e-49bc-8675-f5742fc4a393"
+    },
+    {
+      "read_event": "b5364969-d611-4ee6-8ed5-afffc5844cb6",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-39.txt",
+      "write_event": "43ffb473-1771-4483-bb4c-3aab13b26c3f"
+    },
+    {
+      "read_event": "ebad825b-3750-486c-8d5b-7001af352026",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-40",
+      "write_event": "0a31a0bc-784d-4cb7-b0b3-f7c06bbc6f26"
+    },
+    {
+      "read_event": "60ddc8a1-6e7b-49e1-8694-6f162c01d799",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-41.txt",
+      "write_event": "e1487530-0411-4d25-8fb3-c7ee7cc356ba"
+    },
+    {
+      "read_event": "ff392103-5f55-4435-a9ea-d4b9501ee13b",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-42",
+      "write_event": "bab9d2ea-fd95-4e17-8741-5d69b44378ad"
+    },
+    {
+      "read_event": "02485995-53d9-447a-bc42-45f70e06a808",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-43.txt",
+      "write_event": "a460234a-3dcc-4685-a08f-ff5f32fc8513"
+    },
+    {
+      "read_event": "38f2566c-086c-4e78-8d47-eac23c8141a0",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-44",
+      "write_event": "242e7052-596a-4269-b596-fa5dc80f18e2"
+    },
+    {
+      "read_event": "89f39a41-74bc-4700-a55e-225bbaf835fb",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-45.txt",
+      "write_event": "63c7a2b0-8f65-4fb7-a382-dc6d64d2bf98"
+    },
+    {
+      "read_event": "7daae060-841e-4ea9-a0fe-6580209d4992",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-46",
+      "write_event": "cd4de4f6-ae1d-41c1-a39a-4beed1635f56"
+    },
+    {
+      "read_event": "bbc4e9cb-898c-4779-85c1-9436b8745155",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-47.txt",
+      "write_event": "f3efb3d5-079e-4714-bf7e-aa4ff0e5221c"
+    },
+    {
+      "read_event": "4eccaa6d-ec26-4b1b-bc78-f1c6e5369f9d",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-48",
+      "write_event": "d020e8c4-7cb8-4251-b3ed-6a5af629750e"
+    },
+    {
+      "read_event": "7f423bf3-153d-4c14-b22e-32b3e75c81af",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-49.txt",
+      "write_event": "082583d2-3487-4561-9836-912e57dcd6c7"
+    },
+    {
+      "read_event": "e8cf4eb1-8b0d-4c41-b48d-083a1ea37677",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-50",
+      "write_event": "102b9e63-72fb-48c2-994e-aa6e7e6bf803"
+    },
+    {
+      "read_event": "8f7d642d-3055-43c6-bba8-6e4ff97f136d",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-51.txt",
+      "write_event": "571fc9b2-370a-4a3a-92c9-9accdf7fa7e8"
+    },
+    {
+      "read_event": "014921f8-6e3e-41b4-bd27-832bc4e856e8",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-52",
+      "write_event": "bc798f00-899e-46f0-b293-e93faa68c8a2"
+    },
+    {
+      "read_event": "5a3c873e-d4fa-401d-98a7-1baca16af5ed",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-53.txt",
+      "write_event": "2da59a97-4760-47fb-b255-6f221b8d561c"
+    },
+    {
+      "read_event": "cc8c347a-1845-4b22-9bca-faaffdfc0139",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-54",
+      "write_event": "1b198b70-a624-4178-b06d-6b258261e0c8"
+    },
+    {
+      "read_event": "b65f8df7-66a2-449d-9b0e-9e257fddb2a9",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-55.txt",
+      "write_event": "f0b723fc-922d-4090-bd1d-98f9ac6e8468"
+    },
+    {
+      "read_event": "7b328103-2618-4c8a-9915-73ac292e6624",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-56",
+      "write_event": "94cbcfde-6eed-474e-93f2-f7b1cebdc7c0"
+    },
+    {
+      "read_event": "8d17c294-baab-4b05-aff9-56c760020457",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-57.txt",
+      "write_event": "23bbb761-6035-4260-abc0-b00e3f6319c8"
+    },
+    {
+      "read_event": "795e664d-d32d-4fdc-a5f3-0fb9188d8767",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-58",
+      "write_event": "e8923844-9105-449b-a364-e03cc10f5247"
+    },
+    {
+      "read_event": "76ab4cb3-ab42-454c-bfbf-ddf1fdeceb17",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-59.txt",
+      "write_event": "d67f6a00-de8c-445e-8d3a-4c6a5963c2f4"
+    },
+    {
+      "read_event": "bba6cf7c-7d10-4ccf-aed3-505b0fe082e6",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-60",
+      "write_event": "a3596c78-2692-4240-aebd-4268c2f7429c"
+    },
+    {
+      "read_event": "8bd309d0-90b9-48d7-98c1-f9cdfb7ffc9b",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-61.txt",
+      "write_event": "919ebea8-b08d-4691-9413-93f587e80c44"
+    },
+    {
+      "read_event": "9eb2131f-75c3-4cb8-9d8c-47e6becf991a",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-62",
+      "write_event": "43e26b9d-2806-4da0-92a0-cd495c494aae"
+    },
+    {
+      "read_event": "14f6339f-3bd8-455d-bb86-e485318fef60",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-63.txt",
+      "write_event": "697c1370-4575-45bd-9734-f4d9ce34e633"
+    },
+    {
+      "read_event": "34340a76-8dc8-40b6-af42-91ae9d85af85",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-64",
+      "write_event": "919cfc3e-7afc-4e58-834a-1af65e3ed50f"
+    },
+    {
+      "read_event": "0d675492-60bd-4885-9622-3581d355573e",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-65.txt",
+      "write_event": "7e004f63-d453-49d2-a311-cdd514a89dfb"
+    },
+    {
+      "read_event": "82283011-3b86-43d7-ac36-3f814a84368d",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-66",
+      "write_event": "8817c697-2317-4c51-bf48-5df2c634d779"
+    },
+    {
+      "read_event": "d506333d-5a71-4433-bb59-088d2703ef29",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-67.txt",
+      "write_event": "1fa36537-7325-43e9-8618-9803bfa6ad29"
+    },
+    {
+      "read_event": "a4a8af79-e20e-4b00-b74a-51c4c5a8e473",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-68",
+      "write_event": "7ebae643-8840-44cf-9491-8c3bb6e84deb"
+    },
+    {
+      "read_event": "c148f8ec-847a-4d2c-b0ed-6d948c10ea06",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-69.txt",
+      "write_event": "03614c43-6942-47f5-afe8-fec828faf39c"
+    },
+    {
+      "read_event": "eadce3b3-ac77-48d3-8177-418281735ff1",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-70",
+      "write_event": "791505cd-e2c0-4884-b008-68bdeb2670c6"
+    },
+    {
+      "read_event": "40c6c280-9af5-4a5c-8733-84ed582a15b3",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-71.txt",
+      "write_event": "cf752912-901b-4b60-a94a-7c415b705054"
+    },
+    {
+      "read_event": "bd2915a5-24c1-467a-b03a-9e7c662689c9",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-72",
+      "write_event": "eeb426bf-5653-4643-80a5-573a973644b3"
+    },
+    {
+      "read_event": "841153d2-54f8-46ab-a5c9-6cb8f65e94d6",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-73.txt",
+      "write_event": "468632cd-2ae5-41f0-bd34-2a18b778e61e"
+    },
+    {
+      "read_event": "fda053e4-d0ac-4a42-931e-8b96fc0ef258",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-74",
+      "write_event": "9a50a215-68db-43b3-8dd7-6c17a1d2006c"
+    },
+    {
+      "read_event": "8b7cd51f-420a-495d-bfe1-c27777c48329",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-75.txt",
+      "write_event": "77264284-30f0-434c-a186-715c4a6d82de"
+    },
+    {
+      "read_event": "f04bad94-199a-45a5-aba1-437d4e5fcfd0",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-76",
+      "write_event": "b200fc6c-8659-4dea-935f-bd9bf0f4f3a7"
+    },
+    {
+      "read_event": "577157f0-91f5-47a0-803b-9ec274da60ea",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-77.txt",
+      "write_event": "3496a2eb-3da2-43fb-b700-c78d5383193b"
+    },
+    {
+      "read_event": "bd2c5675-dc0a-4577-a2bd-e4d4ab9c6cee",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-78",
+      "write_event": "5639ed06-0beb-475a-a303-bac33ecb1ded"
+    },
+    {
+      "read_event": "05a7c394-d53a-4414-b01a-18745a617f3a",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-79.txt",
+      "write_event": "d7eabd92-742f-49c0-ac64-9c6e4c4edcb1"
+    },
+    {
+      "read_event": "2a3f5574-211e-4bbc-aa60-ab7b0eee34af",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-80",
+      "write_event": "c929b85d-2427-408f-a21b-ef6fdef44246"
+    },
+    {
+      "read_event": "7c8fa4d1-9326-43bd-af80-7b435777b080",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-81.txt",
+      "write_event": "d306d26a-20f9-4481-994b-6dee099fcf62"
+    },
+    {
+      "read_event": "bd3ed4d6-cf2a-4cbc-8ffd-8cc4867549dd",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-82",
+      "write_event": "c8c04e31-cdd0-4517-997b-55498bf60aa8"
+    },
+    {
+      "read_event": "94a6f800-d7f8-4438-898e-31bd6e55b481",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-83.txt",
+      "write_event": "21c86979-e891-4338-99cb-de74167c827b"
+    },
+    {
+      "read_event": "195dbf23-888c-4d04-a7b0-4ee9f9575c3a",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-84",
+      "write_event": "5e4cd38c-aa77-4373-817d-339fb7892b1b"
+    },
+    {
+      "read_event": "6938a975-5dcf-48d7-a278-87d2376d12b7",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-85.txt",
+      "write_event": "5e9acba5-320e-4035-84ee-b1f3018b0cf0"
+    },
+    {
+      "read_event": "907226fa-05d0-4a04-a0f5-7b02184080c1",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-86",
+      "write_event": "2530a117-55d2-4ca8-a0c1-6a73db81d87c"
+    },
+    {
+      "read_event": "57bd2060-dd61-4332-9107-071c9cec14d1",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-87.txt",
+      "write_event": "0854b52e-a7cd-4193-b8fa-d780f6604db1"
+    },
+    {
+      "read_event": "85d6a893-00e7-45db-bf0a-34d835b7578d",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-88",
+      "write_event": "d0da0e5a-b2d8-4bf1-941e-1a7bfac5c34b"
+    },
+    {
+      "read_event": "47b3b4f8-7564-435f-9499-c2074c216851",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-89.txt",
+      "write_event": "e3c6e5b7-5414-446c-ac7b-eb5e01ec7be0"
+    },
+    {
+      "read_event": "cb8ad8fc-1231-4835-85d4-46380453a661",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-90",
+      "write_event": "d45f1fde-6c6e-47cf-9f49-15c257871fe8"
+    },
+    {
+      "read_event": "627e77be-2b13-4c18-b160-f89cc0cfebed",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-91.txt",
+      "write_event": "af4b691f-84ae-4c7a-9970-1d6785f2c716"
+    },
+    {
+      "read_event": "d3e966ff-ee4a-4d5e-a60c-9d709e5dbec4",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-92",
+      "write_event": "fb9f208a-3035-401d-9026-14d0cb3dd50e"
+    },
+    {
+      "read_event": "abaab047-5b04-41b2-88e0-a4b936931270",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-93.txt",
+      "write_event": "69bb5d57-da0e-4d1f-a0e0-999081ca2126"
+    },
+    {
+      "read_event": "2644d162-1e12-4266-bab7-af7537870283",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-94",
+      "write_event": "4445b578-def7-4a9d-a498-10b2df853215"
+    },
+    {
+      "read_event": "a2aaafef-aa7f-4308-b3d2-cc51a5a9c925",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-95.txt",
+      "write_event": "82b286ec-6810-46ac-9191-ea26d1c98312"
+    },
+    {
+      "read_event": "021670ca-5b89-4acb-8167-6fc0307216a3",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-96",
+      "write_event": "1f4a7953-6949-4cfe-ade6-185d4684d644"
+    },
+    {
+      "read_event": "39cd1b3b-cd0c-4e87-87de-2f4caab3ba23",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-97.txt",
+      "write_event": "7a9a760c-2d96-4ae6-9536-b71d2cf34cd5"
+    },
+    {
+      "read_event": "0d011062-89f7-4207-9bc8-4c23416181ee",
+      "recovered": true,
+      "resource_uri": "mem://shared/key-98",
+      "write_event": "e0a336d1-ca74-4b51-b1c7-9b2b51b5405b"
+    },
+    {
+      "read_event": "4b9da807-2e39-4775-9076-c44889653bb7",
+      "recovered": true,
+      "resource_uri": "file:///benchmark/key-99.txt",
+      "write_event": "e34c68d3-b6ae-490f-a580-dfdd2ac9f242"
+    }
+  ],
+  "false_dependencies": 0,
+  "kind": "experiment2",
+  "missed_dependencies": 0,
+  "recovery_rate": 1.0
+}
+```

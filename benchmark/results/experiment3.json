@@ -1,0 +1,297 @@
+{
+  "aggregate": {
+    "case_count": 20,
+    "raw_deletion_failure_rate": 1.0,
+    "semantic_port_successes": 20,
+    "targets": {
+      "raw_deletion_over_35_percent": {
+        "measured": 1.0,
+        "met": true,
+        "threshold": 0.35
+      }
+    }
+  },
+  "cases": [
+    {
+      "case": 1,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 2,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 3,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 4,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 5,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 6,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 7,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 8,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 9,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 10,
+      "format": "json",
+      "raw_text_deletion": {
+        "failure_category": "parsing_failure",
+        "outcome": "parsing_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 11,
+      "format": "key_value",
+      "raw_text_deletion": {
+        "failure_category": "schema_failure",
+        "outcome": "schema_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 12,
+      "format": "key_value",
+      "raw_text_deletion": {
+        "failure_category": "schema_failure",
+        "outcome": "schema_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 13,
+      "format": "key_value",
+      "raw_text_deletion": {
+        "failure_category": "schema_failure",
+        "outcome": "schema_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 14,
+      "format": "key_value",
+      "raw_text_deletion": {
+        "failure_category": "schema_failure",
+        "outcome": "schema_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 15,
+      "format": "key_value",
+      "raw_text_deletion": {
+        "failure_category": "schema_failure",
+        "outcome": "schema_failure",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 16,
+      "format": "prose",
+      "raw_text_deletion": {
+        "failure_category": "invalid_decision",
+        "outcome": "invalid_decision",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 17,
+      "format": "prose",
+      "raw_text_deletion": {
+        "failure_category": "invalid_decision",
+        "outcome": "invalid_decision",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 18,
+      "format": "prose",
+      "raw_text_deletion": {
+        "failure_category": "invalid_decision",
+        "outcome": "invalid_decision",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 19,
+      "format": "prose",
+      "raw_text_deletion": {
+        "failure_category": "invalid_decision",
+        "outcome": "invalid_decision",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    },
+    {
+      "case": 20,
+      "format": "prose",
+      "raw_text_deletion": {
+        "failure_category": "invalid_decision",
+        "outcome": "invalid_decision",
+        "semantic_correct": false,
+        "successful_execution": false
+      },
+      "semantic_port": {
+        "outcome": "success",
+        "successful_execution": true
+      }
+    }
+  ],
+  "kind": "experiment3"
+}
