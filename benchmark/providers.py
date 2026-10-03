@@ -133,7 +133,8 @@ class FastinoProvider:
     ) -> str:
         if not self.api_key:
             raise RuntimeError(
-                "FASTINO_API_KEY/FASTINO_LABS_API_KEY is not set; export it before using --provider fastino."
+                "FASTINO_API_KEY/FASTINO_LABS_API_KEY is not set; "
+                "export it before using --provider fastino."
             )
         payload = self.request_payload(
             messages, temperature=temperature, seed=seed, max_tokens=max_tokens
