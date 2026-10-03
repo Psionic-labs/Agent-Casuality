@@ -77,6 +77,106 @@ class ResponseCache:
             handle.write(json.dumps(row, sort_keys=True) + "\n")
 
 
+def _coerce_text(value: Any) -> str:
+    if value is None:
+        raise ValueError("Fastino decision value is missing")
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
+
+
+def _normalize_branch_value(value: Any, *, field: str) -> str:
+    text = _coerce_text(value).lower()
+    if text in {"good", "bad"}:
+        return text
+    if text.startswith("good") and not text.startswith("bad"):
+        return "good"
+    if text.startswith("bad") and not text.startswith("good"):
+        return "bad"
+    if "good" in text and "bad" not in text:
+        return "good"
+    if "bad" in text and "good" not in text:
+        return "bad"
+    raise ValueError(
+        "Fastino response does not contain a valid good/bad "
+        f"'{field}' value or left/right branch pair; "
+        f"got {value!r}"
+    )
+
+
+def _branch_value_for_record(value: Any, *, field: str) -> str:
+    if isinstance(value, dict):
+        for key in (
+            field,
+            "value",
+            "label",
+            "decision",
+            "status",
+            "outcome",
+            "result",
+        ):
+            if key in value:
+                return _normalize_branch_value(
+                    _branch_value_for_record(value[key], field=field),
+                    field=field,
+                )
+        for nested in value.values():
+            try:
+                return _normalize_branch_value(
+                    _branch_value_for_record(nested, field=field),
+                    field=field,
+                )
+            except ValueError:
+                continue
+        raise ValueError(f"Fastino response has no valid '{field}' branch value: {value!r}")
+    if isinstance(value, list):
+        for item in value:
+            try:
+                return _branch_value_for_record(item, field=field)
+            except ValueError:
+                continue
+        raise ValueError(f"Fastino response has no valid '{field}' branch value in sequence")
+    return _normalize_branch_value(value, field=field)
+
+
+def _extract_left_right(response: Any) -> dict[str, str]:
+    if isinstance(response, str):
+        try:
+            parsed = json.loads(response)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Fastino response is not valid JSON: {response!r}") from exc
+        return _extract_left_right(parsed)
+    if not isinstance(response, dict):
+        raise ValueError(f"Fastino response is not a dict-like structured decision: {response!r}")
+    if {"left", "right"}.issubset(response):
+        return {
+            "left": _branch_value_for_record(response["left"], field="left"),
+            "right": _branch_value_for_record(response["right"], field="right"),
+        }
+    if "intent" in response and "label" in response["intent"]:
+        raise ValueError(
+            "Fastino returned a single structured classification instead "
+            "of independent left/right decisions; "
+            "ask the model for two independent branch questions and map them to left/right."
+        )
+    if "left" in response or "right" in response:
+        left = response.get("left")
+        right = response.get("right")
+        if left is None or right is None:
+            raise ValueError(
+                "Fastino response is missing one branch value; expected left/right pair: "
+                f"{response!r}"
+            )
+        return {
+            "left": _branch_value_for_record(left, field="left"),
+            "right": _branch_value_for_record(right, field="right"),
+        }
+    raise ValueError(
+        "Fastino response does not contain independent left/right labels; "
+        "expected a valid good/bad decision or a left/right branch pair."
+    )
+
+
 class FastinoProvider:
     """Pioneer/Fastino OpenAI-compatible chat-completions provider.
 
@@ -151,6 +251,88 @@ class FastinoProvider:
         except (HTTPError, URLError) as exc:
             raise RuntimeError(f"Fastino request failed: {exc}") from exc
         try:
-            return str(data["choices"][0]["message"]["content"])
+            content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(f"Fastino response has no chat completion: {data!r}") from exc
+        if isinstance(content, str):
+            return content
+        if isinstance(content, dict):
+            return json.dumps(content, sort_keys=True)
+        return str(content)
+
+    @staticmethod
+    def parse_decision_response(response: Any, *, field: str = "decision") -> str:
+        try:
+            payload = json.loads(response) if isinstance(response, str) else response
+        except (TypeError, ValueError):
+            payload = response
+        if isinstance(payload, dict) and {"left", "right"}.issubset(payload):
+            left_right = _extract_left_right(payload)
+            if field in {"left", "right"}:
+                return left_right[field]
+            return left_right["left"] if "left" in left_right else left_right["right"]
+        if isinstance(payload, dict) and ("left" in payload or "right" in payload):
+            raise ValueError(
+                "Fastino response is missing one branch value; expected left/right pair: "
+                f"{payload!r}"
+            )
+        if isinstance(payload, dict):
+            for key, value in payload.items():
+                if key == field:
+                    return _normalize_branch_value(value, field=field)
+                if key in {"label", "decision", "status", "outcome", "result", "value"}:
+                    return _normalize_branch_value(value, field=key)
+                if isinstance(value, dict):
+                    nested = value.get("label") or value.get("decision") or value.get("value")
+                    if nested is not None:
+                        return _normalize_branch_value(nested, field=field)
+        if isinstance(payload, str):
+            text = payload.strip().lower()
+            if text in {"good", "bad"}:
+                return text
+            if "good" in text and "bad" not in text:
+                return "good"
+            if "bad" in text and "good" not in text:
+                return "bad"
+        raise ValueError(
+            "Fastino decision response has no valid good/bad label; "
+            f"got {response!r}"
+        )
+
+    def generate_decision(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        temperature: float,
+        seed: int | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        raw = self.generate(messages, temperature=temperature, seed=seed, max_tokens=max_tokens)
+        return self.parse_decision_response(raw, field="decision")
+
+    def generate_pair(
+        self,
+        left_messages: list[dict[str, Any]],
+        right_messages: list[dict[str, Any]],
+        *,
+        temperature: float,
+        seed: int | None = None,
+        max_tokens: int | None = None,
+    ) -> dict[str, str]:
+        left_value = self.generate_decision(
+            left_messages,
+            temperature=temperature,
+            seed=seed,
+            max_tokens=max_tokens,
+        )
+        right_value = self.generate_decision(
+            right_messages,
+            temperature=temperature,
+            seed=(seed + 1) if seed is not None else None,
+            max_tokens=max_tokens,
+        )
+        if left_value == right_value and left_value in {"good", "bad"}:
+            # This is a valid result only when the model intentionally returned the same
+            # decision on both branches; the benchmark still needs independent values.
+            return {"left": left_value, "right": right_value}
+        return {"left": left_value, "right": right_value}

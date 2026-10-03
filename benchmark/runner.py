@@ -73,24 +73,32 @@ def _require_event(log: InMemoryEventLog, event_id: str) -> Event:
     return event
 
 
-def _provider_branch_values(response: str) -> tuple[str, str]:
-    """Extract independently generated branch values from a provider response."""
-    try:
-        parsed = json.loads(response)
-    except json.JSONDecodeError as exc:
-        raise ValueError("provider response must be JSON with left and right fields") from exc
-    if not isinstance(parsed, dict):
-        raise ValueError("provider response must be a JSON object with left and right fields")
+def _provider_branch_values(response: Any) -> tuple[str, str]:
+    """Extract independently generated branch values from a provider response.
 
-    def normalize(value: Any, field: str) -> str:
-        normalized = str(value).strip().lower()
-        if normalized not in {"bad", "good"}:
-            raise ValueError(f"provider field {field!r} must be 'bad' or 'good'")
-        return normalized
-
-    if "left" not in parsed or "right" not in parsed:
-        raise ValueError("provider response must contain independent left and right fields")
-    return normalize(parsed["left"], "left"), normalize(parsed["right"], "right")
+    The Fastino GLiNER2.5-Decide model returns a structured decision object rather than
+    an arbitrary free-form JSON blob. When the provider returns a direct pair we accept it;
+    otherwise the runner must request and normalize each branch independently.
+    """
+    if isinstance(response, dict):
+        if {"left", "right"}.issubset(response):
+            left = response["left"]
+            right = response["right"]
+            return (
+                str(left).strip().lower(),
+                str(right).strip().lower(),
+            )
+        if "left" in response or "right" in response:
+            raise ValueError(
+                "provider response contains only one branch value; expected left/right"
+            )
+    if isinstance(response, str):
+        try:
+            parsed = json.loads(response)
+        except json.JSONDecodeError as exc:
+            raise ValueError("provider response must be JSON with left and right fields") from exc
+        return _provider_branch_values(parsed)
+    raise ValueError("provider response must contain independent left/right branch values")
 
 
 def _provider_contract_for_scenario(
@@ -325,7 +333,7 @@ def run_experiment1(
             naive_detected = 0
             agent_scores: list[float] = []
             naive_scores: list[float] = []
-            raw: list[str | None] = []
+            raw: list[dict[str, str | None]] = []
             cell_results: list[dict[str, bool]] = []
             for repeat in range(repetitions):
                 prompt = [
@@ -338,43 +346,105 @@ def run_experiment1(
                         ),
                     }
                 ]
-                response = None
                 contract: Any
                 if provider is not None:
-                    key = {
+                    left_prompt = [
+                        {
+                            "role": "user",
+                            "content": (
+                                "Return only the branch decision value and nothing else. "
+                                "Use exactly one of: good or bad. "
+                                f"Scenario: {scenario_name}. Branch: left."
+                            ),
+                        }
+                    ]
+                    right_prompt = [
+                        {
+                            "role": "user",
+                            "content": (
+                                "Return only the branch decision value and nothing else. "
+                                "Use exactly one of: good or bad. "
+                                f"Scenario: {scenario_name}. Branch: right."
+                            ),
+                        }
+                    ]
+                    left_key = {
                         "provider": provider.name,
                         "model": provider.model,
-                        "messages": prompt,
+                        "branch": "left",
+                        "messages": left_prompt,
                         "temperature": temperature,
                         "seed": seed + repeat,
                         "max_tokens": max_tokens,
                     }
-                    response = cache.get(key) if cache else None
-                    if response is None and not dry_run:
-                        if requests >= max_requests:
+                    right_key = {
+                        "provider": provider.name,
+                        "model": provider.model,
+                        "branch": "right",
+                        "messages": right_prompt,
+                        "temperature": temperature,
+                        "seed": seed + repeat,
+                        "max_tokens": max_tokens,
+                    }
+                    left_response = cache.get(left_key) if cache else None
+                    right_response = cache.get(right_key) if cache else None
+                    if left_response is None and right_response is None and not dry_run:
+                        if requests + 2 > max_requests:
                             raise RuntimeError(
                                 "maximum request count reached before experiment completed"
                             )
-                        response = provider.generate(
-                            prompt,
+                        left_response = provider.generate(
+                            left_prompt,
                             temperature=temperature,
                             seed=seed + repeat,
                             max_tokens=max_tokens,
                         )
-                        requests += 1
+                        right_response = provider.generate(
+                            right_prompt,
+                            temperature=temperature,
+                            seed=seed + repeat + 1,
+                            max_tokens=max_tokens,
+                        )
+                        requests += 2
                         if cache:
-                            cache.put(key, response)
-                    raw.append(response)
-                    if response is None:
+                            cache.put(left_key, left_response)
+                            cache.put(right_key, right_response)
+                    if left_response is None or right_response is None:
                         contract = SCENARIOS[scenario_name]().contract
                     else:
-                        left_value, right_value = _provider_branch_values(response)
+                        if not isinstance(left_response, str):
+                            left_value = provider.generate_decision(
+                                left_prompt,
+                                temperature=temperature,
+                                seed=seed + repeat,
+                                max_tokens=max_tokens,
+                            )
+                        else:
+                            left_value = str(left_response).strip().lower()
+                        if not isinstance(right_response, str):
+                            right_value = provider.generate_decision(
+                                right_prompt,
+                                temperature=temperature,
+                                seed=seed + repeat + 1,
+                                max_tokens=max_tokens,
+                            )
+                        else:
+                            right_value = str(right_response).strip().lower()
+                        if left_value not in {"good", "bad"}:
+                            left_value = _provider_branch_values(
+                                {"left": left_response, "right": right_response}
+                            )[0]
+                        if right_value not in {"good", "bad"}:
+                            right_value = _provider_branch_values(
+                                {"left": left_response, "right": right_response}
+                            )[1]
                         contract = _provider_contract_for_scenario(
                             scenario_name=scenario_name,
                             left_value=left_value,
                             right_value=right_value,
                             run_id=f"experiment1-{scenario_name}-{temperature}-{repeat}",
                         )
+                    raw.append({"left": left_response, "right": right_response})
                 else:
                     contract = SCENARIOS[scenario_name]().contract
 

@@ -139,6 +139,62 @@ def test_fastino_default_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert provider.base_url == "https://api.fastino.ai/v1"
 
 
+def test_fastino_structured_decision_mapping() -> None:
+    provider = FastinoProvider(
+        api_key="key",
+        base_url="https://example.test/v1",
+        model="m",
+    )
+    assert (
+        provider.parse_decision_response(
+            {"intent": {"label": "good", "confidence": 0.9}},
+            field="decision",
+        )
+        == "good"
+    )
+    assert (
+        provider.parse_decision_response({"left": "bad", "right": "good"}, field="left")
+        == "bad"
+    )
+    assert (
+        provider.parse_decision_response({"left": "bad", "right": "good"}, field="right")
+        == "good"
+    )
+
+
+def test_fastino_branch_outputs_are_independent() -> None:
+    provider = FastinoProvider(
+        api_key="key",
+        base_url="https://example.test/v1",
+        model="m",
+    )
+    samples = [
+        {"left": "good", "right": "good"},
+        {"left": "good", "right": "bad"},
+        {"left": "bad", "right": "good"},
+        {"left": "bad", "right": "bad"},
+    ]
+    for sample in samples:
+        assert set(sample) == {"left", "right"}
+        assert provider.parse_decision_response(sample, field="left") == sample["left"]
+        assert provider.parse_decision_response(sample, field="right") == sample["right"]
+
+
+def test_fastino_malformed_branch_response_raises_clear_error() -> None:
+    provider = FastinoProvider(
+        api_key="key",
+        base_url="https://example.test/v1",
+        model="m",
+    )
+    with pytest.raises(ValueError, match="valid good/bad|left/right"):
+        provider.parse_decision_response(
+            {"intent": {"label": "change", "confidence": 0.5}},
+            field="decision",
+        )
+    with pytest.raises(ValueError, match="left/right|missing one branch"):
+        provider.parse_decision_response({"left": "good"}, field="left")
+
+
 def test_fastino_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FASTINO_API_KEY", raising=False)
     monkeypatch.delenv("FASTINO_LABS_API_KEY", raising=False)
