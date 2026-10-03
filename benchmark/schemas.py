@@ -19,8 +19,8 @@ class GroundTruth:
     failure_event: str
     structural_slice: tuple[str, ...]
     minimal_slice: tuple[str, ...] = ()
-    expected_interactions: tuple[tuple[str, str], ...] = ()
-    expected_provenance: tuple[tuple[str, str], ...] = ()
+    expected_interactions: tuple[tuple[str, ...], ...] = ()
+    expected_provenance: tuple[tuple[str, ...], ...] = ()
     required_events: tuple[str, ...] = ()
     excluded_events: tuple[str, ...] = ()
     expected_outcome: str | None = None
@@ -35,8 +35,8 @@ class GroundTruth:
             failure_event=str(data["failure_event"]),
             structural_slice=tuple(str(v) for v in data.get("structural_slice", [])),
             minimal_slice=tuple(str(v) for v in data.get("minimal_slice", [])),
-            expected_interactions=tuple(tuple(map(str, row)) for row in interaction_rows),
-            expected_provenance=tuple(tuple(map(str, row)) for row in provenance_rows),
+            expected_interactions=tuple(tuple(str(v) for v in row) for row in interaction_rows),
+            expected_provenance=tuple(tuple(str(v) for v in row) for row in provenance_rows),
             required_events=tuple(str(v) for v in data.get("required_events", [])),
             excluded_events=tuple(str(v) for v in data.get("excluded_events", [])),
             expected_outcome=data.get("expected_outcome"),

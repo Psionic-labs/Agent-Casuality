@@ -30,6 +30,7 @@ share/python-wheels/
 MANIFEST
 *.uv-cache
 .casuality
+HANDOFF.md
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
@@ -155,12 +156,18 @@ activemq-data/
 # Environments
 .env
 .envrc
+benchmark/.env
+benchmark/.env.*
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Benchmark generated artifacts
+benchmark/benchmark/
+benchmark/results/model-cache.jsonl
 
 # Spyder project settings
 .spyderproject

@@ -10,6 +10,30 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
+def _env_aliases(*names: str) -> str | None:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def _load_local_env() -> None:
+    env_path = Path(__file__).resolve().with_name(".env")
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = [part.strip() for part in line.split("=", 1)]
+        if key and key not in os.environ:
+            os.environ[key] = value.strip("\"'")
+
+
+_load_local_env()
+
+
 class ModelProvider(Protocol):
     name: str
     model: str | None
@@ -68,11 +92,13 @@ class FastinoProvider:
         base_url: str | None = None,
         model: str | None = None,
     ) -> None:
-        self.api_key = api_key or os.environ.get("FASTINO_API_KEY")
+        self.api_key = api_key or _env_aliases("FASTINO_API_KEY", "FASTINO_LABS_API_KEY")
         self.base_url = (
-            base_url or os.environ.get("FASTINO_BASE_URL") or "https://api.pioneer.ai/v1"
+            base_url
+            or _env_aliases("FASTINO_BASE_URL", "FASTINO_LABS_BASE_URL")
+            or "https://api.fastino.ai/v1"
         ).rstrip("/")
-        self.model = model or os.environ.get("FASTINO_MODEL")
+        self.model = model or _env_aliases("FASTINO_MODEL", "FASTINO_LABS_MODEL")
 
     def request_payload(
         self,
@@ -83,7 +109,9 @@ class FastinoProvider:
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
         if not self.model:
-            raise RuntimeError("FASTINO_MODEL is not set; pass --model or export FASTINO_MODEL.")
+            raise RuntimeError(
+                "FASTINO_MODEL is not set; pass --model or export FASTINO_MODEL/FASTINO_LABS_MODEL."
+            )
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -105,7 +133,7 @@ class FastinoProvider:
     ) -> str:
         if not self.api_key:
             raise RuntimeError(
-                "FASTINO_API_KEY is not set; export it before using --provider fastino."
+                "FASTINO_API_KEY/FASTINO_LABS_API_KEY is not set; export it before using --provider fastino."
             )
         payload = self.request_payload(
             messages, temperature=temperature, seed=seed, max_tokens=max_tokens

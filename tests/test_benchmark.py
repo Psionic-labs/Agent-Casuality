@@ -84,7 +84,23 @@ def test_response_cache_and_fastino_request(
     assert provider.generate([], temperature=0.0) == "ok"
 
 
+def test_fastino_labs_api_key_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FASTINO_API_KEY", raising=False)
+    monkeypatch.delenv("FASTINO_LABS_API_KEY", raising=False)
+    monkeypatch.setenv("FASTINO_LABS_API_KEY", "lab-key")
+    provider = FastinoProvider(model="m")
+    assert provider.api_key == "lab-key"
+
+
+def test_fastino_default_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FASTINO_BASE_URL", raising=False)
+    monkeypatch.delenv("FASTINO_LABS_BASE_URL", raising=False)
+    provider = FastinoProvider(model="m")
+    assert provider.base_url == "https://api.fastino.ai/v1"
+
+
 def test_fastino_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FASTINO_API_KEY", raising=False)
-    with pytest.raises(RuntimeError, match="FASTINO_API_KEY"):
+    monkeypatch.delenv("FASTINO_LABS_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="FASTINO_API_KEY|FASTINO_LABS_API_KEY"):
         FastinoProvider(model="m").generate([], temperature=0.0)

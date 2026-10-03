@@ -202,7 +202,7 @@ missing links, and unexpected links.
 
 `experiment1` uses deterministic replay offline. To make explicitly opt-in
 Fastino requests, set `FASTINO_API_KEY`, `FASTINO_MODEL`, and optionally
-`FASTINO_BASE_URL` (default `https://api.pioneer.ai/v1`), then run:
+`FASTINO_BASE_URL` (default `https://api.fastino.ai/v1`), then run:
 
 ```powershell
 uv run casuality-benchmark experiment1 --provider fastino --repetitions 3 --max-requests 12

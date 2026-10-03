@@ -24,7 +24,7 @@ from core.replay import (
 )
 from core.slicing import structural_slice
 from core.validator import GraphValidator
-from sdk.events import AgentClock, InMemoryEventLog
+from sdk.events import AgentClock, Event, InMemoryEventLog
 from sdk.memory import CapturedMemory, ResourceRegistry
 
 from .providers import FastinoProvider, ModelProvider, ResponseCache
@@ -39,6 +39,13 @@ def _timestamp() -> str:
 
 def _alias_pairs(scenario: GeneratedScenario, pairs: list[list[str]]) -> list[list[str]]:
     return [[scenario.alias(item) for item in pair] for pair in pairs]
+
+
+def _require_event(log: InMemoryEventLog, event_id: str) -> Event:
+    event = log.get(event_id)
+    if event is None:
+        raise RuntimeError(f"missing event with id {event_id!r}")
+    return event
 
 
 def run_scenario(
@@ -119,19 +126,22 @@ def run_failure_injections() -> dict[str, Any]:
     """Mutate evidence while retaining the actual causal graph for diagnosis tests."""
     results: list[dict[str, Any]] = []
     memory = SCENARIOS["memory_contamination"]()
-    memory.log.get(memory.aliases["write"]).payload["after"] = "corrupted"  # type: ignore[index]
+    memory_write = _require_event(memory.log, memory.aliases["write"])
+    memory_write.payload["after"] = "corrupted"
     structural = structural_slice(memory.failure_event_id, memory.log).event_ids
+    memory_read = _require_event(memory.log, memory.aliases["read"])
     results.append(
         {
             "case": "corrupt_memory_write",
             "causal_write_present": memory.aliases["write"] in structural,
             "resource_dependency_recovered": memory.aliases["write"]
-            in memory.log.get(memory.aliases["read"]).causal_parent_ids,
+            in memory_read.causal_parent_ids,
             "unrelated_distractor_selected": False,
         }
     )
     tool = SCENARIOS["single_cause"]()
-    tool.log.get(tool.aliases["source"]).payload["output"] = "incorrect"  # type: ignore[index]
+    tool_source = _require_event(tool.log, tool.aliases["source"])
+    tool_source.payload["output"] = "incorrect"
     minimal = ddmin(
         list(structural_slice(tool.failure_event_id, tool.log).event_ids),
         test_fn_from(tool.contract, tool.failure_event_id),
@@ -146,8 +156,8 @@ def run_failure_injections() -> dict[str, Any]:
         }
     )
     broken = SCENARIOS["interaction"]()
-    event = broken.log.get(broken.aliases["decision"])
-    event.causal_parent_ids.remove(broken.aliases["right"])  # type: ignore[union-attr]
+    event = _require_event(broken.log, broken.aliases["decision"])
+    event.causal_parent_ids.remove(broken.aliases["right"])
     report = GraphValidator(broken.log).validate_run(broken.run_id, decisions=[broken.contract])
     results.append(
         {

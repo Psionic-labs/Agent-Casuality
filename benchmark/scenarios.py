@@ -41,6 +41,13 @@ def _truth(name: str) -> GroundTruth:
     return load_ground_truth(ROOT / "ground_truth" / f"{name}.json")
 
 
+def _require_event(log: InMemoryEventLog, event_id: str) -> Event:
+    event = log.get(event_id)
+    if event is None:
+        raise ValueError(f"missing event with id {event_id!r}")
+    return event
+
+
 def _capture(
     log: InMemoryEventLog,
     clocks: dict[str, AgentClock],
@@ -52,7 +59,9 @@ def _capture(
     parents: tuple[str, ...] = (),
 ) -> Event:
     parent_ids = [aliases[p] for p in parents]
-    parent_seqs = [log.get(parent_id).logical_seq for parent_id in parent_ids if log.get(parent_id)]
+    parent_seqs = [
+        parent.logical_seq for parent_id in parent_ids if (parent := log.get(parent_id)) is not None
+    ]
     event, stored = record_event(
         agent_id=agent,
         clock=clocks.setdefault(agent, AgentClock()),
@@ -126,7 +135,7 @@ def _decision(
         event_type="model_call",
         payload=contract.to_event_payload({"output": "failure"}),
         causal_parent_ids=[aliases[p] for p in parents],
-        causal_parent_seqs=[log.get(aliases[p]).logical_seq for p in parents],
+        causal_parent_seqs=[_require_event(log, aliases[p]).logical_seq for p in parents],
         run_id="benchmark",
         event_id=event_id,
     )
@@ -165,7 +174,7 @@ def single_cause() -> GeneratedScenario:
         lambda values: "failure" if values["signal"] == "bad" else "success",
         ("source",),
     )
-    failure = _finish(log, clocks, aliases, log.get(aliases["decision"]))
+    failure = _finish(log, clocks, aliases, _require_event(log, aliases["decision"]))
     _add_provenance(log, contract.run_id, aliases["decision"], [aliases["source"]])
     return GeneratedScenario(name, contract.run_id, log, contract, failure, aliases, _truth(name))
 
@@ -183,7 +192,7 @@ def multiple_parents() -> GeneratedScenario:
         lambda values: "failure" if "bad" in values.values() else "success",
         ("left", "right"),
     )
-    failure = _finish(log, clocks, aliases, log.get(aliases["decision"]))
+    failure = _finish(log, clocks, aliases, _require_event(log, aliases["decision"]))
     _add_provenance(log, contract.run_id, aliases["decision"], [aliases["left"], aliases["right"]])
     return GeneratedScenario(name, contract.run_id, log, contract, failure, aliases, _truth(name))
 
@@ -203,7 +212,7 @@ def interaction() -> GeneratedScenario:
         ),
         ("left", "right"),
     )
-    failure = _finish(log, clocks, aliases, log.get(aliases["decision"]))
+    failure = _finish(log, clocks, aliases, _require_event(log, aliases["decision"]))
     _add_provenance(log, contract.run_id, aliases["decision"], [aliases["left"], aliases["right"]])
     return GeneratedScenario(name, contract.run_id, log, contract, failure, aliases, _truth(name))
 
@@ -223,7 +232,7 @@ def distractor() -> GeneratedScenario:
         lambda values: "failure" if values["signal"] == "bad" else "success",
         ("source", "distractor"),
     )
-    failure = _finish(log, clocks, aliases, log.get(aliases["decision"]))
+    failure = _finish(log, clocks, aliases, _require_event(log, aliases["decision"]))
     _add_provenance(log, contract.run_id, aliases["decision"], [aliases["source"]])
     return GeneratedScenario(name, contract.run_id, log, contract, failure, aliases, _truth(name))
 
@@ -260,7 +269,7 @@ def memory_contamination() -> GeneratedScenario:
         lambda values: "failure" if values["approval"] == "bad" else "success",
         ("read",),
     )
-    failure = _finish(log, clocks, aliases, log.get(aliases["decision"]))
+    failure = _finish(log, clocks, aliases, _require_event(log, aliases["decision"]))
     _add_provenance(log, contract.run_id, aliases["decision"], [aliases["read"]])
     return GeneratedScenario(name, contract.run_id, log, contract, failure, aliases, _truth(name))
 

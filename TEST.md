@@ -33,7 +33,7 @@ target evaluation; `experiment2.json` contains automatic memory/file resource
 dependency recovery; `experiment3.json` contains each prompt-format intervention
 failure category. Thresholds in the research memo remain hypotheses until a
 stored result measures them. Fastino is opt-in: set `FASTINO_API_KEY` and
-`FASTINO_MODEL`, optionally `FASTINO_BASE_URL`, then add `--provider fastino`.
+`FASTINO_MODEL`, optionally `FASTINO_BASE_URL` (default `https://api.fastino.ai/v1`), then add `--provider fastino`.
 The JSONL response cache prevents an identical provider/model/prompt/config
 request from being regenerated.
 

@@ -12,7 +12,7 @@ from core.reducer import reconstruct
 from core.replay import compute_shapley_interaction, ddmin, test_fn_from
 from core.slicing import structural_slice
 from core.validator import GraphValidator
-from sdk.events import AgentClock, record_event
+from sdk.events import AgentClock, Event, record_event
 from storage.sqlite import SQLiteEventStore
 
 
@@ -21,7 +21,7 @@ def test_customer_approval_fixture_is_a_real_runtime_regression(tmp_path: Path) 
     path = tmp_path / "customer-control.db"
     log = SQLiteEventStore(path)
     clocks: dict[str, AgentClock] = {}
-    by_id: dict[str, object] = {}
+    by_id: dict[str, Event] = {}
     contract = create_fixture_decision(data)
     for row in data["events"]:
         agent_id = row["agent_id"]
