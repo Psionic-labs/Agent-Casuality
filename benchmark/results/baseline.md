@@ -230,16 +230,36 @@ The named historical Phase 2 memory baseline was passed through its adapter for 
     }
   ],
   "environment": {
-    "available_diff_tool": "git 2.54.0.windows.1",
     "platform": "Windows-11-10.0.26200-SP0",
     "python": "3.12.13 (main, Jun 23 2026, 15:23:43) [MSC v.1944 64 bit (AMD64)]",
-    "repository_head": "7211ecc2ebdf29ca339cb7eb5c48edd49d14694f"
+    "repository_head": "a3427a67c551df4f936a85161d25ef6457e6917e",
+    "tools_checked": [
+      {
+        "reason": "does not analyze execution causality or interactions",
+        "tool": "git",
+        "usable": false,
+        "version": "2.54.0.windows.1"
+      },
+      {
+        "reason": "explicitly excluded by the baseline task",
+        "tool": "OpenCode",
+        "usable": false,
+        "version": "1.18.32"
+      },
+      {
+        "reason": "no executable or pinned checkout exists",
+        "tool": "historical Phase 2 baseline",
+        "usable": false,
+        "version": "unavailable"
+      }
+    ]
   },
   "experiment": "baseline comparison",
   "kind": "baseline",
   "limitations": [
     "No independent diff-oriented baseline executable is available in this checkout.",
     "Git 2.54.0.windows.1 was available but cannot analyze execution causality or interactions.",
+    "OpenCode 1.18.32 was installed but explicitly excluded by the task.",
     "The current ResourceRegistry and causal engine are not substituted for the baseline.",
     "Unsupported capabilities have no precision, recall, or failure score.",
     "the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py"
@@ -502,12 +522,13 @@ Platform: `Windows-11-10.0.26200-SP0`
 
 Python: `3.12.13 (main, Jun 23 2026, 15:23:43) [MSC v.1944 64 bit (AMD64)]`
 
-Repository head: `7211ecc2ebdf29ca339cb7eb5c48edd49d14694f`
+Repository head: `a3427a67c551df4f936a85161d25ef6457e6917e`
 
 ## Limitations
 
 - No independent diff-oriented baseline executable is available in this checkout.
 - Git 2.54.0.windows.1 was available but cannot analyze execution causality or interactions.
+- OpenCode 1.18.32 was installed but explicitly excluded by the task.
 - The current ResourceRegistry and causal engine are not substituted for the baseline.
 - Unsupported capabilities have no precision, recall, or failure score.
 - the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\Coding\Agent-Casuality\benchmark\scenarios.py

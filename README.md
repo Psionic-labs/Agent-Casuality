@@ -194,8 +194,9 @@ uv run casuality-benchmark all
 
 The baseline command uses the named historical Phase 2 adapter when an
 executable and pinned checkout are available. In this checkout that baseline
-does not exist, and Git is not a causal-debugging baseline, so the command
-produces a versioned audit artifact with `status: blocked`; unsupported
+does not exist. Git is not a causal-debugging baseline, and the installed
+OpenCode 1.18.32 tool is explicitly excluded from this comparison, so the
+command produces a versioned audit artifact with `status: blocked`; unsupported
 capabilities are not scored as failures.
 
 Results are JSON plus a readable Markdown rendering in `benchmark/results/`;

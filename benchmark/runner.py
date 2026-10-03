@@ -905,7 +905,26 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
             "platform": platform.platform(),
             "python": sys.version,
             "repository_head": _repository_head(),
-            "available_diff_tool": "git 2.54.0.windows.1",
+            "tools_checked": [
+                {
+                    "tool": "git",
+                    "version": "2.54.0.windows.1",
+                    "usable": False,
+                    "reason": "does not analyze execution causality or interactions",
+                },
+                {
+                    "tool": "OpenCode",
+                    "version": "1.18.32",
+                    "usable": False,
+                    "reason": "explicitly excluded by the baseline task",
+                },
+                {
+                    "tool": "historical Phase 2 baseline",
+                    "version": "unavailable",
+                    "usable": False,
+                    "reason": "no executable or pinned checkout exists",
+                },
+            ],
         },
         "reproducibility": {
             "command": "uv run casuality-benchmark baseline",
@@ -939,6 +958,7 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
             "No independent diff-oriented baseline executable is available in this checkout.",
             "Git 2.54.0.windows.1 was available but cannot analyze execution causality "
             "or interactions.",
+            "OpenCode 1.18.32 was installed but explicitly excluded by the task.",
             "The current ResourceRegistry and causal engine are not substituted for the baseline.",
             "Unsupported capabilities have no precision, recall, or failure score.",
             *execution_errors,
