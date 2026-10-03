@@ -27,13 +27,11 @@ uv run casuality-benchmark experiment3
 uv run casuality-benchmark baseline
 ```
 
-`baseline` invokes the named historical Phase 2 adapter once for each of the
-five scenarios. The current checkout has no executable or pinned output
-contract for that historical implementation, so `baseline.json` records
-`status: blocked`, command/version evidence, and unsupported capabilities
-without assigning zero scores. Git is recorded as an available tool but is
-not used as a causal baseline because it cannot analyze execution artifacts.
-OpenCode 1.18.32 is recorded as checked but excluded by the comparison task.
+`baseline` invokes `clay-good/agent-replay` at the pinned commit
+`ccda6229a9451692fb6f1d6d323dd825c2be9dbb` once for each of the five
+scenarios. It records the real `ingest`, `list`, and `diff` commands and scores
+only divergence localization. Causal interactions, resource dependencies,
+distractor reasoning, and minimal reduction remain explicitly unsupported.
 
 The commands write machine-readable JSON and Markdown to `benchmark/results/`.
 `experiment1.json` contains temperature/repetition interaction detections and

@@ -1,0 +1,316 @@
+[
+  {
+    "agent_name": "agent-casuality-memory_contamination",
+    "agent_version": "benchmark",
+    "ended_at": "2026-01-01T00:00:01.000Z",
+    "input": {
+      "scenario": "memory_contamination"
+    },
+    "metadata": {
+      "benchmark_scenario": "memory_contamination",
+      "source": "Agent-Casuality scenario event records",
+      "variant": "recorded"
+    },
+    "output": {
+      "status": "failure"
+    },
+    "started_at": "2026-01-01T00:00:00.000Z",
+    "status": "failed",
+    "steps": [
+      {
+        "caused_by_step_number": null,
+        "input": {
+          "causal_parent_ids": [],
+          "event_id": "880f118d-41af-4954-8431-ac6b1b65ea6b",
+          "event_type": "memory_write"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "880f118d-41af-4954-8431-ac6b1b65ea6b",
+          "agent_id": "writer",
+          "causal_parent_ids": [],
+          "run_id": "benchmark"
+        },
+        "name": "memory_write",
+        "output": {
+          "after": "bad",
+          "after_found": true,
+          "before": null,
+          "before_found": false,
+          "key": "approval",
+          "operation": "set",
+          "resource_uri": "mem://shared/approval"
+        },
+        "parent_step_number": null,
+        "step_number": 1,
+        "step_type": "tool_call"
+      },
+      {
+        "caused_by_step_number": 1,
+        "input": {
+          "causal_parent_ids": [
+            "880f118d-41af-4954-8431-ac6b1b65ea6b"
+          ],
+          "event_id": "e5742016-a3af-4d9a-b0b9-c188480cf39d",
+          "event_type": "memory_read"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "e5742016-a3af-4d9a-b0b9-c188480cf39d",
+          "agent_id": "reader",
+          "causal_parent_ids": [
+            "880f118d-41af-4954-8431-ac6b1b65ea6b"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "memory_read",
+        "output": {
+          "found": true,
+          "key": "approval",
+          "resource_uri": "mem://shared/approval",
+          "value": "bad"
+        },
+        "parent_step_number": 1,
+        "step_number": 2,
+        "step_type": "retrieval"
+      },
+      {
+        "caused_by_step_number": 2,
+        "input": {
+          "causal_parent_ids": [
+            "e5742016-a3af-4d9a-b0b9-c188480cf39d"
+          ],
+          "event_id": "66ce26a6-f95d-46e0-8c34-1a97b9675aec",
+          "event_type": "model_call"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "66ce26a6-f95d-46e0-8c34-1a97b9675aec",
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "e5742016-a3af-4d9a-b0b9-c188480cf39d"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "model_call",
+        "output": {
+          "decision_contract": {
+            "agent_id": "merge",
+            "decision_event_id": "66ce26a6-f95d-46e0-8c34-1a97b9675aec",
+            "decision_id": "23a7fb49-b582-4acc-aae2-ffc1c51f71e3",
+            "decision_type": "benchmark.memory_contamination",
+            "is_side_effecting": false,
+            "metadata": {
+              "downstream_failure_event": ""
+            },
+            "outcome": "failure",
+            "policy_version": null,
+            "ports": [
+              {
+                "baseline_value": "good",
+                "description": "",
+                "field_path": "output",
+                "port_id": "approval",
+                "recorded_value": "bad",
+                "source_event_id": "e5742016-a3af-4d9a-b0b9-c188480cf39d",
+                "strategy": "canonical_baseline"
+              }
+            ],
+            "run_id": "benchmark"
+          },
+          "output": "failure"
+        },
+        "parent_step_number": 2,
+        "step_number": 3,
+        "step_type": "llm_call"
+      },
+      {
+        "caused_by_step_number": 3,
+        "input": {
+          "causal_parent_ids": [
+            "66ce26a6-f95d-46e0-8c34-1a97b9675aec"
+          ],
+          "event_id": "20139a0c-10b6-4ac6-b6b7-3a18bbf219d7",
+          "event_type": "agent_finish"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "20139a0c-10b6-4ac6-b6b7-3a18bbf219d7",
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "66ce26a6-f95d-46e0-8c34-1a97b9675aec"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "agent_finish",
+        "output": {
+          "status": "failure"
+        },
+        "parent_step_number": 3,
+        "step_number": 4,
+        "step_type": "output"
+      }
+    ],
+    "tags": [
+      "agent-casuality",
+      "baseline",
+      "memory_contamination",
+      "recorded"
+    ],
+    "total_duration_ms": 1000,
+    "trigger": "event"
+  },
+  {
+    "agent_name": "agent-casuality-memory_contamination",
+    "agent_version": "benchmark",
+    "ended_at": "2026-01-01T00:00:01.000Z",
+    "input": {
+      "scenario": "memory_contamination"
+    },
+    "metadata": {
+      "benchmark_scenario": "memory_contamination",
+      "source": "Agent-Casuality scenario event records",
+      "variant": "counterfactual"
+    },
+    "output": {
+      "status": "failure"
+    },
+    "started_at": "2026-01-01T00:00:00.000Z",
+    "status": "failed",
+    "steps": [
+      {
+        "caused_by_step_number": null,
+        "input": {
+          "causal_parent_ids": [],
+          "event_id": "880f118d-41af-4954-8431-ac6b1b65ea6b",
+          "event_type": "memory_write"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "880f118d-41af-4954-8431-ac6b1b65ea6b",
+          "agent_id": "writer",
+          "causal_parent_ids": [],
+          "run_id": "benchmark"
+        },
+        "name": "memory_write",
+        "output": {
+          "after": "good",
+          "after_found": true,
+          "before": null,
+          "before_found": false,
+          "key": "approval",
+          "operation": "set",
+          "resource_uri": "mem://shared/approval"
+        },
+        "parent_step_number": null,
+        "step_number": 1,
+        "step_type": "tool_call"
+      },
+      {
+        "caused_by_step_number": 1,
+        "input": {
+          "causal_parent_ids": [
+            "880f118d-41af-4954-8431-ac6b1b65ea6b"
+          ],
+          "event_id": "e5742016-a3af-4d9a-b0b9-c188480cf39d",
+          "event_type": "memory_read"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "e5742016-a3af-4d9a-b0b9-c188480cf39d",
+          "agent_id": "reader",
+          "causal_parent_ids": [
+            "880f118d-41af-4954-8431-ac6b1b65ea6b"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "memory_read",
+        "output": {
+          "found": true,
+          "key": "approval",
+          "resource_uri": "mem://shared/approval",
+          "value": "good"
+        },
+        "parent_step_number": 1,
+        "step_number": 2,
+        "step_type": "retrieval"
+      },
+      {
+        "caused_by_step_number": 2,
+        "input": {
+          "causal_parent_ids": [
+            "e5742016-a3af-4d9a-b0b9-c188480cf39d"
+          ],
+          "event_id": "66ce26a6-f95d-46e0-8c34-1a97b9675aec",
+          "event_type": "model_call"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "66ce26a6-f95d-46e0-8c34-1a97b9675aec",
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "e5742016-a3af-4d9a-b0b9-c188480cf39d"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "model_call",
+        "output": {
+          "decision_contract": {
+            "agent_id": "merge",
+            "decision_event_id": "66ce26a6-f95d-46e0-8c34-1a97b9675aec",
+            "decision_id": "23a7fb49-b582-4acc-aae2-ffc1c51f71e3",
+            "decision_type": "benchmark.memory_contamination",
+            "is_side_effecting": false,
+            "metadata": {
+              "downstream_failure_event": ""
+            },
+            "outcome": "failure",
+            "policy_version": null,
+            "ports": [
+              {
+                "baseline_value": "good",
+                "description": "",
+                "field_path": "output",
+                "port_id": "approval",
+                "recorded_value": "bad",
+                "source_event_id": "e5742016-a3af-4d9a-b0b9-c188480cf39d",
+                "strategy": "canonical_baseline"
+              }
+            ],
+            "run_id": "benchmark"
+          },
+          "output": "failure"
+        },
+        "parent_step_number": 2,
+        "step_number": 3,
+        "step_type": "llm_call"
+      },
+      {
+        "caused_by_step_number": 3,
+        "input": {
+          "causal_parent_ids": [
+            "66ce26a6-f95d-46e0-8c34-1a97b9675aec"
+          ],
+          "event_id": "20139a0c-10b6-4ac6-b6b7-3a18bbf219d7",
+          "event_type": "agent_finish"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "20139a0c-10b6-4ac6-b6b7-3a18bbf219d7",
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "66ce26a6-f95d-46e0-8c34-1a97b9675aec"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "agent_finish",
+        "output": {
+          "status": "failure"
+        },
+        "parent_step_number": 3,
+        "step_number": 4,
+        "step_type": "output"
+      }
+    ],
+    "tags": [
+      "agent-casuality",
+      "baseline",
+      "memory_contamination",
+      "counterfactual"
+    ],
+    "total_duration_ms": 1000,
+    "trigger": "event"
+  }
+]

@@ -192,12 +192,11 @@ uv run casuality-benchmark baseline
 uv run casuality-benchmark all
 ```
 
-The baseline command uses the named historical Phase 2 adapter when an
-executable and pinned checkout are available. In this checkout that baseline
-does not exist. Git is not a causal-debugging baseline, and the installed
-OpenCode 1.18.32 tool is explicitly excluded from this comparison, so the
-command produces a versioned audit artifact with `status: blocked`; unsupported
-capabilities are not scored as failures.
+The baseline command uses `clay-good/agent-replay` at commit
+`ccda6229a9451692fb6f1d6d323dd825c2be9dbb` and runs its real `ingest`, `list`,
+and `diff` workflow against all five scenarios. It measures divergence
+localization only; multi-parent causality, interactions, shared-state
+causality, distractor reasoning, and minimal reduction remain unsupported.
 
 Results are JSON plus a readable Markdown rendering in `benchmark/results/`;
 `latest.*` always names the most recent command. Each run records its scenario,

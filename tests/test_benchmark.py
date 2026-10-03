@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from benchmark.baseline import BaselineExecution
+from benchmark.baseline import AgentReplayAdapter, BaselineExecution, BaselineUnavailableError
 from benchmark.providers import FastinoProvider, ResponseCache
 from benchmark.runner import (
     _counterfactual_cells,
@@ -78,16 +79,28 @@ def test_experiment1_provider_values_remain_independently_controllable() -> None
 
 
 def test_baseline_is_explicitly_blocked_without_history() -> None:
-    result = run_baseline()
+    class BlockedAdapter:
+        name = "missing-baseline"
+        version = "unavailable"
+        command = "missing-baseline"
+
+        def analyze(self, scenario_name: str, scenario_artifact: Path) -> BaselineExecution:
+            raise BaselineUnavailableError(f"missing baseline for {scenario_name}")
+
+    result = run_baseline(BlockedAdapter())
     assert result["baseline"]["status"] == "blocked"
     assert result["baseline"]["version"] == "unavailable"
     assert result["reproducibility"]["execution_attempted"] is False
     assert [row["scenario"] for row in result["scenarios"]] == list(SCENARIOS)
     assert all(row["status"] == "blocked" for row in result["scenarios"])
     assert all(
-        capability["status"] == "unsupported"
+        row["capabilities"]["cause_identification"]["status"] == "not_measurable"
+        and all(
+            capability["status"] == "unsupported"
+            for name, capability in row["capabilities"].items()
+            if name != "cause_identification"
+        )
         for row in result["scenarios"]
-        for capability in row["capabilities"].values()
     )
     assert all(row["normalized_metrics"] == {} for row in result["scenarios"])
 
@@ -101,7 +114,7 @@ def test_baseline_adapter_version_execution_and_scenario_coverage() -> None:
         def __init__(self) -> None:
             self.paths: list[Path] = []
 
-        def analyze(self, scenario_artifact: Path) -> BaselineExecution:
+        def analyze(self, scenario_name: str, scenario_artifact: Path) -> BaselineExecution:
             self.paths.append(scenario_artifact)
             return BaselineExecution(
                 status="completed",
@@ -118,7 +131,60 @@ def test_baseline_adapter_version_execution_and_scenario_coverage() -> None:
     assert result["reproducibility"]["execution_attempted"] is True
     assert len(adapter.paths) == 5
     assert all(row["execution"]["exit_code"] == 0 for row in result["scenarios"])
-    assert all(row["normalized_metrics"] == {} for row in result["scenarios"])
+    assert all("cause_identification" in row["normalized_metrics"] for row in result["scenarios"])
+
+
+def test_agent_replay_adapter_captures_real_diff_contract(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    responses = iter(
+        [
+            (0, "ingested", ""),
+            (
+                0,
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "id": "recorded-id",
+                                "metadata": {
+                                    "benchmark_scenario": "single_cause",
+                                    "variant": "recorded",
+                                },
+                            },
+                            {
+                                "id": "counterfactual-id",
+                                "metadata": {
+                                    "benchmark_scenario": "single_cause",
+                                    "variant": "counterfactual",
+                                },
+                            },
+                        ]
+                    }
+                ),
+                "",
+            ),
+            (0, json.dumps({"divergence_step": 1, "diffs": [{"step_number": 1}]}), ""),
+        ]
+    )
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        returncode, stdout, stderr = next(responses)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    monkeypatch.setattr("benchmark.baseline.subprocess.run", fake_run)
+    adapter = AgentReplayAdapter(executable="agent-replay")
+    result = adapter.analyze("single_cause", tmp_path / "single_cause.json")
+    assert adapter.version == "0.2.0"
+    assert result.status == "completed"
+    assert result.exit_code == 0
+    assert result.output == {"divergence_step": 1, "diffs": [{"step_number": 1}]}
+    assert len(result.commands) == 3
 
 
 def test_result_serialization(tmp_path: Path) -> None:

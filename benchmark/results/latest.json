@@ -1,230 +1,260 @@
 {
   "baseline": {
-    "command": "historical Phase 2 executable (not present in this checkout)",
+    "command": "agent-replay ingest/list/diff",
     "commit_or_build": null,
     "input": "the five deterministic benchmark scenarios",
-    "methodology": "The named historical Phase 2 memory implementation is not an independent diff-oriented debugger. It is retained as the required baseline reference, but no executable, pinned checkout, or output contract is present.",
-    "procedure": "adapter invoked once per scenario",
-    "status": "blocked",
-    "tool": "Phase 2 sdk/memory.py resource dependency capture",
-    "version": "unavailable"
+    "methodology": "Each existing Agent-Casuality scenario is serialized into a recorded trace and a paired counterfactual trace with only the scenario's known target event values changed. agent-replay diff compares those two traces. Its output is scored only as divergence localization; causal capabilities remain unsupported.",
+    "procedure": "agent-replay ingest, list, and diff invoked once per scenario",
+    "status": "completed",
+    "tool": "clay-good/agent-replay",
+    "version": "0.2.0"
   },
   "comparison": [
     {
       "agent_casuality": "measured by deterministic benchmark",
-      "baseline": "unsupported",
+      "baseline": "supported",
       "capability": "cause_identification",
-      "comparable": false,
-      "scenario": "single_cause"
+      "comparable": true,
+      "scenario": "single_cause",
+      "scope": "divergence localization, not causal attribution"
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "multiple_parents",
       "comparable": false,
-      "scenario": "single_cause"
+      "scenario": "single_cause",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "distractor_handling",
       "comparable": false,
-      "scenario": "single_cause"
+      "scenario": "single_cause",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "interaction",
       "comparable": false,
-      "scenario": "single_cause"
+      "scenario": "single_cause",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "shared_state_causality",
       "comparable": false,
-      "scenario": "single_cause"
+      "scenario": "single_cause",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "minimal_causal_reduction",
       "comparable": false,
-      "scenario": "single_cause"
+      "scenario": "single_cause",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
-      "baseline": "unsupported",
+      "baseline": "supported",
       "capability": "cause_identification",
-      "comparable": false,
-      "scenario": "multiple_parents"
+      "comparable": true,
+      "scenario": "multiple_parents",
+      "scope": "divergence localization, not causal attribution"
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "multiple_parents",
       "comparable": false,
-      "scenario": "multiple_parents"
+      "scenario": "multiple_parents",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "distractor_handling",
       "comparable": false,
-      "scenario": "multiple_parents"
+      "scenario": "multiple_parents",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "interaction",
       "comparable": false,
-      "scenario": "multiple_parents"
+      "scenario": "multiple_parents",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "shared_state_causality",
       "comparable": false,
-      "scenario": "multiple_parents"
+      "scenario": "multiple_parents",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "minimal_causal_reduction",
       "comparable": false,
-      "scenario": "multiple_parents"
+      "scenario": "multiple_parents",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
-      "baseline": "unsupported",
+      "baseline": "supported",
       "capability": "cause_identification",
-      "comparable": false,
-      "scenario": "interaction"
+      "comparable": true,
+      "scenario": "interaction",
+      "scope": "divergence localization, not causal attribution"
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "multiple_parents",
       "comparable": false,
-      "scenario": "interaction"
+      "scenario": "interaction",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "distractor_handling",
       "comparable": false,
-      "scenario": "interaction"
+      "scenario": "interaction",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "interaction",
       "comparable": false,
-      "scenario": "interaction"
+      "scenario": "interaction",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "shared_state_causality",
       "comparable": false,
-      "scenario": "interaction"
+      "scenario": "interaction",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "minimal_causal_reduction",
       "comparable": false,
-      "scenario": "interaction"
+      "scenario": "interaction",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
-      "baseline": "unsupported",
+      "baseline": "supported",
       "capability": "cause_identification",
-      "comparable": false,
-      "scenario": "distractor"
+      "comparable": true,
+      "scenario": "distractor",
+      "scope": "divergence localization, not causal attribution"
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "multiple_parents",
       "comparable": false,
-      "scenario": "distractor"
+      "scenario": "distractor",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "distractor_handling",
       "comparable": false,
-      "scenario": "distractor"
+      "scenario": "distractor",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "interaction",
       "comparable": false,
-      "scenario": "distractor"
+      "scenario": "distractor",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "shared_state_causality",
       "comparable": false,
-      "scenario": "distractor"
+      "scenario": "distractor",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "minimal_causal_reduction",
       "comparable": false,
-      "scenario": "distractor"
+      "scenario": "distractor",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
-      "baseline": "unsupported",
+      "baseline": "supported",
       "capability": "cause_identification",
-      "comparable": false,
-      "scenario": "memory_contamination"
+      "comparable": true,
+      "scenario": "memory_contamination",
+      "scope": "divergence localization, not causal attribution"
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "multiple_parents",
       "comparable": false,
-      "scenario": "memory_contamination"
+      "scenario": "memory_contamination",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "distractor_handling",
       "comparable": false,
-      "scenario": "memory_contamination"
+      "scenario": "memory_contamination",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "interaction",
       "comparable": false,
-      "scenario": "memory_contamination"
+      "scenario": "memory_contamination",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "shared_state_causality",
       "comparable": false,
-      "scenario": "memory_contamination"
+      "scenario": "memory_contamination",
+      "scope": null
     },
     {
       "agent_casuality": "measured by deterministic benchmark",
       "baseline": "unsupported",
       "capability": "minimal_causal_reduction",
       "comparable": false,
-      "scenario": "memory_contamination"
+      "scenario": "memory_contamination",
+      "scope": null
     }
   ],
   "environment": {
     "platform": "Windows-11-10.0.26200-SP0",
     "python": "3.12.13 (main, Jun 23 2026, 15:23:43) [MSC v.1944 64 bit (AMD64)]",
-    "repository_head": "a3427a67c551df4f936a85161d25ef6457e6917e",
+    "repository_head": "be5fcdda9d2f68b3062fbfd03960b2aeed09f70f",
     "tools_checked": [
       {
         "reason": "does not analyze execution causality or interactions",
@@ -239,227 +269,523 @@
         "version": "1.18.32"
       },
       {
-        "reason": "no executable or pinned checkout exists",
-        "tool": "historical Phase 2 baseline",
-        "usable": false,
-        "version": "unavailable"
+        "commit": "ccda6229a9451692fb6f1d6d323dd825c2be9dbb",
+        "reason": "built and executed locally",
+        "tool": "clay-good/agent-replay",
+        "usable": true,
+        "version": "0.2.0"
       }
     ]
   },
   "experiment": "baseline comparison",
   "kind": "baseline",
   "limitations": [
-    "No independent diff-oriented baseline executable is available in this checkout.",
+    "agent-replay diff compares paired traces and does not establish causal influence.",
     "Git 2.54.0.windows.1 was available but cannot analyze execution causality or interactions.",
     "OpenCode 1.18.32 was installed but explicitly excluded by the task.",
     "The current ResourceRegistry and causal engine are not substituted for the baseline.",
     "Unsupported capabilities have no precision, recall, or failure score.",
-    "the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py"
+    "The paired counterfactual traces are adapter inputs derived from existing event records; agent-replay does not execute Agent-Casuality scenarios itself."
   ],
   "reproducibility": {
     "command": "uv run casuality-benchmark baseline",
     "configuration": {
-      "adapter": "Phase 2 sdk/memory.py resource dependency capture"
+      "adapter": "clay-good/agent-replay"
     },
-    "execution_attempted": false,
-    "exit_code": null,
+    "execution_attempted": true,
+    "exit_code": 0,
     "required_input": "the five benchmark scenarios under benchmark/ground_truth/"
   },
   "scenarios": [
     {
       "capabilities": {
         "cause_identification": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
-          "status": "unsupported"
+          "metrics": {
+            "exact_match": true,
+            "expected_steps": [
+              1
+            ],
+            "precision": 1.0,
+            "predicted_steps": [
+              1
+            ],
+            "recall": 1.0
+          },
+          "scope": "divergence localization, not causal attribution",
+          "status": "supported"
         },
         "distractor_handling": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay reports changed fields but does not classify irrelevant branches",
           "status": "unsupported"
         },
         "interaction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff has no interaction or counterfactual outcome model",
           "status": "unsupported"
         },
         "minimal_causal_reduction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff does not minimize a causal event set",
           "status": "unsupported"
         },
         "multiple_parents": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff exposes linear step diffs, not multiple causal parents",
           "status": "unsupported"
         },
         "shared_state_causality": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay has no resource-version dependency model",
           "status": "unsupported"
         }
       },
       "execution": {
-        "exit_code": null,
-        "output": null,
-        "status": "blocked",
-        "stderr": "the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-        "stdout": ""
+        "commands": [
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd ingest D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\single_cause.json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-single_cause-fvf3l1dw\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd list --json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-single_cause-fvf3l1dw\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd diff --json trc_Cg4vOZQaG1-L trc_X08LFprgt_KF --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-single_cause-fvf3l1dw\\store"
+        ],
+        "exit_code": 0,
+        "output": {
+          "compared_fields": null,
+          "diffs": [
+            {
+              "field": "output",
+              "left_value": {
+                "output": "bad"
+              },
+              "right_value": {
+                "output": "good"
+              },
+              "step_number": 1
+            }
+          ],
+          "divergence_step": 1,
+          "left_step_count": 4,
+          "left_trace_id": "trc_Cg4vOZQaG1-L",
+          "right_step_count": 4,
+          "right_trace_id": "trc_X08LFprgt_KF"
+        },
+        "status": "completed",
+        "stderr": "",
+        "stdout": "{\n  \"left_trace_id\": \"trc_Cg4vOZQaG1-L\",\n  \"right_trace_id\": \"trc_X08LFprgt_KF\",\n  \"divergence_step\": 1,\n  \"left_step_count\": 4,\n  \"right_step_count\": 4,\n  \"diffs\": [\n    {\n      \"step_number\": 1,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"output\": \"bad\"\n      },\n      \"right_value\": {\n        \"output\": \"good\"\n      }\n    }\n  ],\n  \"compared_fields\": null\n}\n"
       },
-      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-      "normalized_metrics": {},
+      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\single_cause.json",
+      "normalized_metrics": {
+        "cause_identification": {
+          "exact_match": true,
+          "expected_steps": [
+            1
+          ],
+          "precision": 1.0,
+          "predicted_steps": [
+            1
+          ],
+          "recall": 1.0
+        }
+      },
       "scenario": "single_cause",
-      "status": "blocked"
+      "status": "completed"
     },
     {
       "capabilities": {
         "cause_identification": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
-          "status": "unsupported"
+          "metrics": {
+            "exact_match": true,
+            "expected_steps": [
+              1,
+              2
+            ],
+            "precision": 1.0,
+            "predicted_steps": [
+              1,
+              2
+            ],
+            "recall": 1.0
+          },
+          "scope": "divergence localization, not causal attribution",
+          "status": "supported"
         },
         "distractor_handling": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay reports changed fields but does not classify irrelevant branches",
           "status": "unsupported"
         },
         "interaction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff has no interaction or counterfactual outcome model",
           "status": "unsupported"
         },
         "minimal_causal_reduction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff does not minimize a causal event set",
           "status": "unsupported"
         },
         "multiple_parents": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff exposes linear step diffs, not multiple causal parents",
           "status": "unsupported"
         },
         "shared_state_causality": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay has no resource-version dependency model",
           "status": "unsupported"
         }
       },
       "execution": {
-        "exit_code": null,
-        "output": null,
-        "status": "blocked",
-        "stderr": "the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-        "stdout": ""
+        "commands": [
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd ingest D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\multiple_parents.json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-multiple_parents-uzsxzq5e\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd list --json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-multiple_parents-uzsxzq5e\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd diff --json trc_uKWQj2r0T43H trc_zczmi_sleptT --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-multiple_parents-uzsxzq5e\\store"
+        ],
+        "exit_code": 0,
+        "output": {
+          "compared_fields": null,
+          "diffs": [
+            {
+              "field": "output",
+              "left_value": {
+                "output": "bad"
+              },
+              "right_value": {
+                "output": "good"
+              },
+              "step_number": 1
+            },
+            {
+              "field": "output",
+              "left_value": {
+                "output": "bad"
+              },
+              "right_value": {
+                "output": "good"
+              },
+              "step_number": 2
+            }
+          ],
+          "divergence_step": 1,
+          "left_step_count": 4,
+          "left_trace_id": "trc_uKWQj2r0T43H",
+          "right_step_count": 4,
+          "right_trace_id": "trc_zczmi_sleptT"
+        },
+        "status": "completed",
+        "stderr": "",
+        "stdout": "{\n  \"left_trace_id\": \"trc_uKWQj2r0T43H\",\n  \"right_trace_id\": \"trc_zczmi_sleptT\",\n  \"divergence_step\": 1,\n  \"left_step_count\": 4,\n  \"right_step_count\": 4,\n  \"diffs\": [\n    {\n      \"step_number\": 1,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"output\": \"bad\"\n      },\n      \"right_value\": {\n        \"output\": \"good\"\n      }\n    },\n    {\n      \"step_number\": 2,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"output\": \"bad\"\n      },\n      \"right_value\": {\n        \"output\": \"good\"\n      }\n    }\n  ],\n  \"compared_fields\": null\n}\n"
       },
-      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-      "normalized_metrics": {},
+      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\multiple_parents.json",
+      "normalized_metrics": {
+        "cause_identification": {
+          "exact_match": true,
+          "expected_steps": [
+            1,
+            2
+          ],
+          "precision": 1.0,
+          "predicted_steps": [
+            1,
+            2
+          ],
+          "recall": 1.0
+        }
+      },
       "scenario": "multiple_parents",
-      "status": "blocked"
+      "status": "completed"
     },
     {
       "capabilities": {
         "cause_identification": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
-          "status": "unsupported"
+          "metrics": {
+            "exact_match": true,
+            "expected_steps": [
+              1,
+              2
+            ],
+            "precision": 1.0,
+            "predicted_steps": [
+              1,
+              2
+            ],
+            "recall": 1.0
+          },
+          "scope": "divergence localization, not causal attribution",
+          "status": "supported"
         },
         "distractor_handling": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay reports changed fields but does not classify irrelevant branches",
           "status": "unsupported"
         },
         "interaction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff has no interaction or counterfactual outcome model",
           "status": "unsupported"
         },
         "minimal_causal_reduction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff does not minimize a causal event set",
           "status": "unsupported"
         },
         "multiple_parents": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff exposes linear step diffs, not multiple causal parents",
           "status": "unsupported"
         },
         "shared_state_causality": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay has no resource-version dependency model",
           "status": "unsupported"
         }
       },
       "execution": {
-        "exit_code": null,
-        "output": null,
-        "status": "blocked",
-        "stderr": "the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-        "stdout": ""
+        "commands": [
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd ingest D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\interaction.json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-interaction-dsx9r596\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd list --json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-interaction-dsx9r596\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd diff --json trc_bDIblwlb_bng trc_3a5vGcWUoK0Q --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-interaction-dsx9r596\\store"
+        ],
+        "exit_code": 0,
+        "output": {
+          "compared_fields": null,
+          "diffs": [
+            {
+              "field": "output",
+              "left_value": {
+                "output": "bad"
+              },
+              "right_value": {
+                "output": "good"
+              },
+              "step_number": 1
+            },
+            {
+              "field": "output",
+              "left_value": {
+                "output": "bad"
+              },
+              "right_value": {
+                "output": "good"
+              },
+              "step_number": 2
+            }
+          ],
+          "divergence_step": 1,
+          "left_step_count": 4,
+          "left_trace_id": "trc_bDIblwlb_bng",
+          "right_step_count": 4,
+          "right_trace_id": "trc_3a5vGcWUoK0Q"
+        },
+        "status": "completed",
+        "stderr": "",
+        "stdout": "{\n  \"left_trace_id\": \"trc_bDIblwlb_bng\",\n  \"right_trace_id\": \"trc_3a5vGcWUoK0Q\",\n  \"divergence_step\": 1,\n  \"left_step_count\": 4,\n  \"right_step_count\": 4,\n  \"diffs\": [\n    {\n      \"step_number\": 1,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"output\": \"bad\"\n      },\n      \"right_value\": {\n        \"output\": \"good\"\n      }\n    },\n    {\n      \"step_number\": 2,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"output\": \"bad\"\n      },\n      \"right_value\": {\n        \"output\": \"good\"\n      }\n    }\n  ],\n  \"compared_fields\": null\n}\n"
       },
-      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-      "normalized_metrics": {},
+      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\interaction.json",
+      "normalized_metrics": {
+        "cause_identification": {
+          "exact_match": true,
+          "expected_steps": [
+            1,
+            2
+          ],
+          "precision": 1.0,
+          "predicted_steps": [
+            1,
+            2
+          ],
+          "recall": 1.0
+        }
+      },
       "scenario": "interaction",
-      "status": "blocked"
+      "status": "completed"
     },
     {
       "capabilities": {
         "cause_identification": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
-          "status": "unsupported"
+          "metrics": {
+            "exact_match": true,
+            "expected_steps": [
+              1
+            ],
+            "precision": 1.0,
+            "predicted_steps": [
+              1
+            ],
+            "recall": 1.0
+          },
+          "scope": "divergence localization, not causal attribution",
+          "status": "supported"
         },
         "distractor_handling": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay reports changed fields but does not classify irrelevant branches",
           "status": "unsupported"
         },
         "interaction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff has no interaction or counterfactual outcome model",
           "status": "unsupported"
         },
         "minimal_causal_reduction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff does not minimize a causal event set",
           "status": "unsupported"
         },
         "multiple_parents": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff exposes linear step diffs, not multiple causal parents",
           "status": "unsupported"
         },
         "shared_state_causality": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay has no resource-version dependency model",
           "status": "unsupported"
         }
       },
       "execution": {
-        "exit_code": null,
-        "output": null,
-        "status": "blocked",
-        "stderr": "the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-        "stdout": ""
+        "commands": [
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd ingest D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\distractor.json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-distractor-2mxid47k\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd list --json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-distractor-2mxid47k\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd diff --json trc_HVlm4BsyCICs trc_ykurlmAJljUY --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-distractor-2mxid47k\\store"
+        ],
+        "exit_code": 0,
+        "output": {
+          "compared_fields": null,
+          "diffs": [
+            {
+              "field": "output",
+              "left_value": {
+                "output": "bad"
+              },
+              "right_value": {
+                "output": "good"
+              },
+              "step_number": 1
+            }
+          ],
+          "divergence_step": 1,
+          "left_step_count": 4,
+          "left_trace_id": "trc_HVlm4BsyCICs",
+          "right_step_count": 4,
+          "right_trace_id": "trc_ykurlmAJljUY"
+        },
+        "status": "completed",
+        "stderr": "",
+        "stdout": "{\n  \"left_trace_id\": \"trc_HVlm4BsyCICs\",\n  \"right_trace_id\": \"trc_ykurlmAJljUY\",\n  \"divergence_step\": 1,\n  \"left_step_count\": 4,\n  \"right_step_count\": 4,\n  \"diffs\": [\n    {\n      \"step_number\": 1,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"output\": \"bad\"\n      },\n      \"right_value\": {\n        \"output\": \"good\"\n      }\n    }\n  ],\n  \"compared_fields\": null\n}\n"
       },
-      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-      "normalized_metrics": {},
+      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\distractor.json",
+      "normalized_metrics": {
+        "cause_identification": {
+          "exact_match": true,
+          "expected_steps": [
+            1
+          ],
+          "precision": 1.0,
+          "predicted_steps": [
+            1
+          ],
+          "recall": 1.0
+        }
+      },
       "scenario": "distractor",
-      "status": "blocked"
+      "status": "completed"
     },
     {
       "capabilities": {
         "cause_identification": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
-          "status": "unsupported"
+          "metrics": {
+            "exact_match": true,
+            "expected_steps": [
+              1,
+              2
+            ],
+            "precision": 1.0,
+            "predicted_steps": [
+              1,
+              2
+            ],
+            "recall": 1.0
+          },
+          "scope": "divergence localization, not causal attribution",
+          "status": "supported"
         },
         "distractor_handling": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay reports changed fields but does not classify irrelevant branches",
           "status": "unsupported"
         },
         "interaction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff has no interaction or counterfactual outcome model",
           "status": "unsupported"
         },
         "minimal_causal_reduction": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff does not minimize a causal event set",
           "status": "unsupported"
         },
         "multiple_parents": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay diff exposes linear step diffs, not multiple causal parents",
           "status": "unsupported"
         },
         "shared_state_causality": {
-          "reason": "the selected baseline has no runnable implementation or output contract in this checkout",
+          "reason": "agent-replay has no resource-version dependency model",
           "status": "unsupported"
         }
       },
       "execution": {
-        "exit_code": null,
-        "output": null,
-        "status": "blocked",
-        "stderr": "the named historical Phase 2 baseline has no executable, pinned checkout, or documented input contract; scenario artifact was D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-        "stdout": ""
+        "commands": [
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd ingest D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\memory_contamination.json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-memory_contamination-wvju0u8u\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd list --json --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-memory_contamination-wvju0u8u\\store",
+          "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\agent-replay.cmd diff --json trc_TeSXcXr2ivcP trc_ZNUsggvl3qxt --dir C:\\Users\\Nyx\\AppData\\Local\\Temp\\agent-replay-memory_contamination-wvju0u8u\\store"
+        ],
+        "exit_code": 0,
+        "output": {
+          "compared_fields": null,
+          "diffs": [
+            {
+              "field": "output",
+              "left_value": {
+                "after": "bad",
+                "after_found": true,
+                "before": null,
+                "before_found": false,
+                "key": "approval",
+                "operation": "set",
+                "resource_uri": "mem://shared/approval"
+              },
+              "right_value": {
+                "after": "good",
+                "after_found": true,
+                "before": null,
+                "before_found": false,
+                "key": "approval",
+                "operation": "set",
+                "resource_uri": "mem://shared/approval"
+              },
+              "step_number": 1
+            },
+            {
+              "field": "output",
+              "left_value": {
+                "found": true,
+                "key": "approval",
+                "resource_uri": "mem://shared/approval",
+                "value": "bad"
+              },
+              "right_value": {
+                "found": true,
+                "key": "approval",
+                "resource_uri": "mem://shared/approval",
+                "value": "good"
+              },
+              "step_number": 2
+            }
+          ],
+          "divergence_step": 1,
+          "left_step_count": 4,
+          "left_trace_id": "trc_TeSXcXr2ivcP",
+          "right_step_count": 4,
+          "right_trace_id": "trc_ZNUsggvl3qxt"
+        },
+        "status": "completed",
+        "stderr": "",
+        "stdout": "{\n  \"left_trace_id\": \"trc_TeSXcXr2ivcP\",\n  \"right_trace_id\": \"trc_ZNUsggvl3qxt\",\n  \"divergence_step\": 1,\n  \"left_step_count\": 4,\n  \"right_step_count\": 4,\n  \"diffs\": [\n    {\n      \"step_number\": 1,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"after\": \"bad\",\n        \"after_found\": true,\n        \"before\": null,\n        \"before_found\": false,\n        \"key\": \"approval\",\n        \"operation\": \"set\",\n        \"resource_uri\": \"mem://shared/approval\"\n      },\n      \"right_value\": {\n        \"after\": \"good\",\n        \"after_found\": true,\n        \"before\": null,\n        \"before_found\": false,\n        \"key\": \"approval\",\n        \"operation\": \"set\",\n        \"resource_uri\": \"mem://shared/approval\"\n      }\n    },\n    {\n      \"step_number\": 2,\n      \"field\": \"output\",\n      \"left_value\": {\n        \"found\": true,\n        \"key\": \"approval\",\n        \"resource_uri\": \"mem://shared/approval\",\n        \"value\": \"bad\"\n      },\n      \"right_value\": {\n        \"found\": true,\n        \"key\": \"approval\",\n        \"resource_uri\": \"mem://shared/approval\",\n        \"value\": \"good\"\n      }\n    }\n  ],\n  \"compared_fields\": null\n}\n"
       },
-      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\scenarios.py",
-      "normalized_metrics": {},
+      "input_artifact": "D:\\Coding\\Agent-Casuality\\benchmark\\results\\baseline-inputs\\memory_contamination.json",
+      "normalized_metrics": {
+        "cause_identification": {
+          "exact_match": true,
+          "expected_steps": [
+            1,
+            2
+          ],
+          "precision": 1.0,
+          "predicted_steps": [
+            1,
+            2
+          ],
+          "recall": 1.0
+        }
+      },
       "scenario": "memory_contamination",
-      "status": "blocked"
+      "status": "completed"
     }
   ]
 }

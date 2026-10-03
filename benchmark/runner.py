@@ -39,7 +39,13 @@ from core.validator import GraphValidator
 from sdk.events import AgentClock, Event, InMemoryEventLog
 from sdk.memory import CapturedMemory, ResourceRegistry
 
-from .baseline import BaselineAdapter, BaselineUnavailableError, HistoricalPhase2Adapter
+from .baseline import (
+    AgentReplayAdapter,
+    BaselineAdapter,
+    BaselineCommandError,
+    BaselineUnavailableError,
+    write_agent_replay_pair,
+)
 from .providers import FastinoProvider, ModelProvider, ResponseCache
 from .scenarios import SCENARIOS, GeneratedScenario
 from .schemas import BenchmarkRun
@@ -826,9 +832,10 @@ def run_experiment3() -> dict[str, Any]:
 
 
 def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
-    """Run the named baseline adapter or record why it cannot be executed."""
-    selected = adapter or HistoricalPhase2Adapter()
-    scenario_artifact = Path(__file__).resolve().with_name("scenarios.py")
+    """Run agent-replay against all five existing scenario-derived trace pairs."""
+    selected = adapter or AgentReplayAdapter()
+    input_dir = Path(__file__).resolve().parent / "results" / "baseline-inputs"
+    input_dir.mkdir(parents=True, exist_ok=True)
     capability_names = (
         "cause_identification",
         "multiple_parents",
@@ -839,9 +846,17 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
     )
     scenario_rows: list[dict[str, Any]] = []
     execution_errors: list[str] = []
-    for scenario_name in SCENARIOS:
+    for scenario_name, factory in SCENARIOS.items():
+        scenario = factory()
+        scenario_artifact = input_dir / f"{scenario_name}.json"
+        target_event_ids = write_agent_replay_pair(scenario, scenario_artifact)
+        target_steps = {
+            index
+            for index, event in enumerate(scenario.log.events(), start=1)
+            if event.id in target_event_ids
+        }
         try:
-            execution = selected.analyze(scenario_artifact)
+            execution = selected.analyze(scenario_name, scenario_artifact)
         except BaselineUnavailableError as exc:
             execution = {
                 "status": "blocked",
@@ -849,6 +864,18 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
                 "stdout": "",
                 "stderr": str(exc),
                 "output": None,
+                "commands": (),
+            }
+            if str(exc) not in execution_errors:
+                execution_errors.append(str(exc))
+        except BaselineCommandError as exc:
+            execution = {
+                "status": "failed",
+                "exit_code": None,
+                "stdout": "",
+                "stderr": str(exc),
+                "output": None,
+                "commands": (),
             }
             if str(exc) not in execution_errors:
                 execution_errors.append(str(exc))
@@ -859,24 +886,72 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
                 "stdout": execution.stdout,
                 "stderr": execution.stderr,
                 "output": execution.output,
+                "commands": execution.commands,
             }
+        raw_diff_output = execution["output"]
+        diff_output: dict[str, Any] = (
+            raw_diff_output if isinstance(raw_diff_output, dict) else {}
+        )
+        raw_diffs = diff_output.get("diffs", [])
+        diffs = raw_diffs if isinstance(raw_diffs, list) else []
+        diff_steps = {
+            diff["step_number"]
+            for diff in diffs
+            if isinstance(diff, dict) and isinstance(diff.get("step_number"), int)
+        }
+        intersection = diff_steps & target_steps
+        cause_metrics = {
+            "precision": len(intersection) / len(diff_steps) if diff_steps else 0.0,
+            "recall": len(intersection) / len(target_steps) if target_steps else 1.0,
+            "exact_match": diff_steps == target_steps,
+            "predicted_steps": sorted(diff_steps),
+            "expected_steps": sorted(target_steps),
+        }
+        capabilities = {
+            "cause_identification": {
+                "status": "supported" if execution["status"] == "completed" else "not_measurable",
+                "scope": "divergence localization, not causal attribution",
+                "metrics": cause_metrics if execution["status"] == "completed" else {},
+            },
+            "multiple_parents": {
+                "status": "unsupported",
+                "reason": (
+                    "agent-replay diff exposes linear step diffs, "
+                    "not multiple causal parents"
+                ),
+            },
+            "distractor_handling": {
+                "status": "unsupported",
+                "reason": (
+                    "agent-replay reports changed fields but does not classify "
+                    "irrelevant branches"
+                ),
+            },
+            "interaction": {
+                "status": "unsupported",
+                "reason": "agent-replay diff has no interaction or counterfactual outcome model",
+            },
+            "shared_state_causality": {
+                "status": "unsupported",
+                "reason": "agent-replay has no resource-version dependency model",
+            },
+            "minimal_causal_reduction": {
+                "status": "unsupported",
+                "reason": "agent-replay diff does not minimize a causal event set",
+            },
+        }
         scenario_rows.append(
             {
                 "scenario": scenario_name,
                 "status": execution["status"],
                 "input_artifact": str(scenario_artifact),
                 "execution": execution,
-                "capabilities": {
-                    capability: {
-                        "status": "unsupported",
-                        "reason": (
-                            "the selected baseline has no runnable implementation or output "
-                            "contract in this checkout"
-                        ),
-                    }
-                    for capability in capability_names
-                },
-                "normalized_metrics": {},
+                "capabilities": capabilities,
+                "normalized_metrics": {
+                    "cause_identification": cause_metrics
+                }
+                if execution["status"] == "completed"
+                else {},
             }
         )
     baseline_status = (
@@ -893,11 +968,12 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
             "commit_or_build": None,
             "input": "the five deterministic benchmark scenarios",
             "methodology": (
-                "The named historical Phase 2 memory implementation is not an independent "
-                "diff-oriented debugger. It is retained as the required baseline reference, "
-                "but no executable, pinned checkout, or output contract is present."
+                "Each existing Agent-Casuality scenario is serialized into a recorded trace "
+                "and a paired counterfactual trace with only the scenario's known target event "
+                "values changed. agent-replay diff compares those two traces. Its output is "
+                "scored only as divergence localization; causal capabilities remain unsupported."
             ),
-            "procedure": "adapter invoked once per scenario",
+            "procedure": "agent-replay ingest, list, and diff invoked once per scenario",
             "status": baseline_status,
             "command": selected.command,
         },
@@ -919,10 +995,11 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
                     "reason": "explicitly excluded by the baseline task",
                 },
                 {
-                    "tool": "historical Phase 2 baseline",
-                    "version": "unavailable",
-                    "usable": False,
-                    "reason": "no executable or pinned checkout exists",
+                    "tool": "clay-good/agent-replay",
+                    "version": "0.2.0",
+                    "commit": "ccda6229a9451692fb6f1d6d323dd825c2be9dbb",
+                    "usable": True,
+                    "reason": "built and executed locally",
                 },
             ],
         },
@@ -947,20 +1024,24 @@ def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
             {
                 "scenario": row["scenario"],
                 "capability": capability,
-                "baseline": "unsupported",
+                "baseline": row["capabilities"][capability]["status"],
                 "agent_casuality": "measured by deterministic benchmark",
-                "comparable": False,
+                "comparable": row["capabilities"][capability]["status"] == "supported",
+                "scope": row["capabilities"][capability].get("scope"),
             }
             for row in scenario_rows
             for capability in capability_names
         ],
         "limitations": [
-            "No independent diff-oriented baseline executable is available in this checkout.",
+            "agent-replay diff compares paired traces and does not establish causal influence.",
             "Git 2.54.0.windows.1 was available but cannot analyze execution causality "
             "or interactions.",
             "OpenCode 1.18.32 was installed but explicitly excluded by the task.",
             "The current ResourceRegistry and causal engine are not substituted for the baseline.",
             "Unsupported capabilities have no precision, recall, or failure score.",
+            "The paired counterfactual traces are adapter inputs derived from existing event "
+            "records; "
+            "agent-replay does not execute Agent-Casuality scenarios itself.",
             *execution_errors,
         ],
     }

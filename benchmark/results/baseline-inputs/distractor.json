@@ -1,0 +1,294 @@
+[
+  {
+    "agent_name": "agent-casuality-distractor",
+    "agent_version": "benchmark",
+    "ended_at": "2026-01-01T00:00:01.000Z",
+    "input": {
+      "scenario": "distractor"
+    },
+    "metadata": {
+      "benchmark_scenario": "distractor",
+      "source": "Agent-Casuality scenario event records",
+      "variant": "recorded"
+    },
+    "output": {
+      "status": "failure"
+    },
+    "started_at": "2026-01-01T00:00:00.000Z",
+    "status": "failed",
+    "steps": [
+      {
+        "caused_by_step_number": null,
+        "input": {
+          "causal_parent_ids": [],
+          "event_id": "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+          "event_type": "tool_result"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+          "agent_id": "upstream",
+          "causal_parent_ids": [],
+          "run_id": "benchmark"
+        },
+        "name": "tool_result",
+        "output": {
+          "output": "bad"
+        },
+        "parent_step_number": null,
+        "step_number": 1,
+        "step_type": "tool_call"
+      },
+      {
+        "caused_by_step_number": null,
+        "input": {
+          "causal_parent_ids": [],
+          "event_id": "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a",
+          "event_type": "tool_result"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a",
+          "agent_id": "background",
+          "causal_parent_ids": [],
+          "run_id": "benchmark"
+        },
+        "name": "tool_result",
+        "output": {
+          "output": "plausible"
+        },
+        "parent_step_number": null,
+        "step_number": 2,
+        "step_type": "tool_call"
+      },
+      {
+        "caused_by_step_number": 1,
+        "input": {
+          "causal_parent_ids": [
+            "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+            "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a"
+          ],
+          "event_id": "c9ab1f28-5c2b-4fd4-987c-d93f1555a859",
+          "event_type": "model_call"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "c9ab1f28-5c2b-4fd4-987c-d93f1555a859",
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+            "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "model_call",
+        "output": {
+          "decision_contract": {
+            "agent_id": "merge",
+            "decision_event_id": "c9ab1f28-5c2b-4fd4-987c-d93f1555a859",
+            "decision_id": "a145134e-92e6-4d8c-acbc-7870aea6da5b",
+            "decision_type": "benchmark.distractor",
+            "is_side_effecting": false,
+            "metadata": {
+              "downstream_failure_event": ""
+            },
+            "outcome": "failure",
+            "policy_version": null,
+            "ports": [
+              {
+                "baseline_value": "good",
+                "description": "",
+                "field_path": "output",
+                "port_id": "signal",
+                "recorded_value": "bad",
+                "source_event_id": "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+                "strategy": "canonical_baseline"
+              }
+            ],
+            "run_id": "benchmark"
+          },
+          "output": "failure"
+        },
+        "parent_step_number": 1,
+        "step_number": 3,
+        "step_type": "llm_call"
+      },
+      {
+        "caused_by_step_number": 3,
+        "input": {
+          "causal_parent_ids": [
+            "c9ab1f28-5c2b-4fd4-987c-d93f1555a859"
+          ],
+          "event_id": "710a7972-cfe8-4414-a636-4c5df1f2303a",
+          "event_type": "agent_finish"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "710a7972-cfe8-4414-a636-4c5df1f2303a",
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "c9ab1f28-5c2b-4fd4-987c-d93f1555a859"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "agent_finish",
+        "output": {
+          "status": "failure"
+        },
+        "parent_step_number": 3,
+        "step_number": 4,
+        "step_type": "output"
+      }
+    ],
+    "tags": [
+      "agent-casuality",
+      "baseline",
+      "distractor",
+      "recorded"
+    ],
+    "total_duration_ms": 1000,
+    "trigger": "event"
+  },
+  {
+    "agent_name": "agent-casuality-distractor",
+    "agent_version": "benchmark",
+    "ended_at": "2026-01-01T00:00:01.000Z",
+    "input": {
+      "scenario": "distractor"
+    },
+    "metadata": {
+      "benchmark_scenario": "distractor",
+      "source": "Agent-Casuality scenario event records",
+      "variant": "counterfactual"
+    },
+    "output": {
+      "status": "failure"
+    },
+    "started_at": "2026-01-01T00:00:00.000Z",
+    "status": "failed",
+    "steps": [
+      {
+        "caused_by_step_number": null,
+        "input": {
+          "causal_parent_ids": [],
+          "event_id": "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+          "event_type": "tool_result"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+          "agent_id": "upstream",
+          "causal_parent_ids": [],
+          "run_id": "benchmark"
+        },
+        "name": "tool_result",
+        "output": {
+          "output": "good"
+        },
+        "parent_step_number": null,
+        "step_number": 1,
+        "step_type": "tool_call"
+      },
+      {
+        "caused_by_step_number": null,
+        "input": {
+          "causal_parent_ids": [],
+          "event_id": "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a",
+          "event_type": "tool_result"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a",
+          "agent_id": "background",
+          "causal_parent_ids": [],
+          "run_id": "benchmark"
+        },
+        "name": "tool_result",
+        "output": {
+          "output": "plausible"
+        },
+        "parent_step_number": null,
+        "step_number": 2,
+        "step_type": "tool_call"
+      },
+      {
+        "caused_by_step_number": 1,
+        "input": {
+          "causal_parent_ids": [
+            "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+            "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a"
+          ],
+          "event_id": "c9ab1f28-5c2b-4fd4-987c-d93f1555a859",
+          "event_type": "model_call"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "c9ab1f28-5c2b-4fd4-987c-d93f1555a859",
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+            "32dfd4e1-085c-49d1-bc56-ea2f88f46d0a"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "model_call",
+        "output": {
+          "decision_contract": {
+            "agent_id": "merge",
+            "decision_event_id": "c9ab1f28-5c2b-4fd4-987c-d93f1555a859",
+            "decision_id": "a145134e-92e6-4d8c-acbc-7870aea6da5b",
+            "decision_type": "benchmark.distractor",
+            "is_side_effecting": false,
+            "metadata": {
+              "downstream_failure_event": ""
+            },
+            "outcome": "failure",
+            "policy_version": null,
+            "ports": [
+              {
+                "baseline_value": "good",
+                "description": "",
+                "field_path": "output",
+                "port_id": "signal",
+                "recorded_value": "bad",
+                "source_event_id": "5d17ee79-3e6e-482f-aed3-97f0f9a86704",
+                "strategy": "canonical_baseline"
+              }
+            ],
+            "run_id": "benchmark"
+          },
+          "output": "failure"
+        },
+        "parent_step_number": 1,
+        "step_number": 3,
+        "step_type": "llm_call"
+      },
+      {
+        "caused_by_step_number": 3,
+        "input": {
+          "causal_parent_ids": [
+            "c9ab1f28-5c2b-4fd4-987c-d93f1555a859"
+          ],
+          "event_id": "710a7972-cfe8-4414-a636-4c5df1f2303a",
+          "event_type": "agent_finish"
+        },
+        "metadata": {
+          "agent_casuality_event_id": "710a7972-cfe8-4414-a636-4c5df1f2303a",
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "c9ab1f28-5c2b-4fd4-987c-d93f1555a859"
+          ],
+          "run_id": "benchmark"
+        },
+        "name": "agent_finish",
+        "output": {
+          "status": "failure"
+        },
+        "parent_step_number": 3,
+        "step_number": 4,
+        "step_type": "output"
+      }
+    ],
+    "tags": [
+      "agent-casuality",
+      "baseline",
+      "distractor",
+      "counterfactual"
+    ],
+    "total_duration_ms": 1000,
+    "trigger": "event"
+  }
+]
