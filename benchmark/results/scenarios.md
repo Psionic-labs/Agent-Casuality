@@ -1,4 +1,9 @@
-# Benchmark result
+# Benchmark result: five_scenarios
+
+## Methodology
+This artifact records an offline benchmark execution.
+
+## Machine-readable result
 
 ```json
 {
@@ -45,42 +50,42 @@
           "agent_id": "upstream",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "32e7f4b4-632d-4992-b0e4-78d1f8b5409c",
+          "id": "fb74dd66-ba74-4e5d-a3ee-cea4c38ebcef",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "bad"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
         },
         {
           "agent_id": "background",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "5b380ae7-6c2a-44af-806b-2021f4b2d006",
+          "id": "5bfb8036-b1e1-4389-a21d-ab88f031f666",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "bad-looking"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
         },
         {
           "agent_id": "merge",
           "causal_parent_ids": [
-            "32e7f4b4-632d-4992-b0e4-78d1f8b5409c"
+            "fb74dd66-ba74-4e5d-a3ee-cea4c38ebcef"
           ],
           "event_type": "model_call",
-          "id": "34720c27-ff34-4334-a1a3-58334e1e931d",
+          "id": "6a931beb-fee8-4cf1-9fc5-29746a00ecc6",
           "idempotency_key": null,
           "logical_seq": 2,
           "payload": {
             "decision_contract": {
               "agent_id": "merge",
-              "decision_event_id": "34720c27-ff34-4334-a1a3-58334e1e931d",
-              "decision_id": "f9bbd33d-3d42-421e-a90e-8d7a750125b6",
+              "decision_event_id": "6a931beb-fee8-4cf1-9fc5-29746a00ecc6",
+              "decision_id": "cfe7e1f8-14df-449c-b85b-6ac3630ea6fb",
               "decision_type": "benchmark.single_cause",
               "is_side_effecting": false,
               "metadata": {
@@ -95,7 +100,7 @@
                   "field_path": "output",
                   "port_id": "signal",
                   "recorded_value": "bad",
-                  "source_event_id": "32e7f4b4-632d-4992-b0e4-78d1f8b5409c",
+                  "source_event_id": "fb74dd66-ba74-4e5d-a3ee-cea4c38ebcef",
                   "strategy": "canonical_baseline"
                 }
               ],
@@ -104,22 +109,22 @@
             "output": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
         },
         {
           "agent_id": "terminal",
           "causal_parent_ids": [
-            "34720c27-ff34-4334-a1a3-58334e1e931d"
+            "6a931beb-fee8-4cf1-9fc5-29746a00ecc6"
           ],
           "event_type": "agent_finish",
-          "id": "7c9c3a9c-df55-4906-a0b0-27c118428c7d",
+          "id": "152b327b-a5a2-4bb2-b173-1784c99d91ae",
           "idempotency_key": null,
           "logical_seq": 3,
           "payload": {
             "status": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.752548+00:00"
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
         }
       ],
       "ground_truth": {
@@ -223,7 +228,7 @@
       "run_id": "benchmark",
       "scenario": "single_cause",
       "temperature": null,
-      "timestamp": "2026-10-03T00:09:07.757243+00:00"
+      "timestamp": "2026-10-03T13:38:16.591735+00:00"
     },
     {
       "configuration": {
@@ -240,43 +245,43 @@
           "agent_id": "left",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "68f9b87c-2c38-49f4-b27d-002f427cafc6",
+          "id": "03db2226-350b-4e90-9ad7-cb88b495b6f8",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "bad"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
         },
         {
           "agent_id": "right",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "4fa26c92-b414-4ef9-83db-0d868db5f475",
+          "id": "e86efc51-8237-4ccd-8e17-d6d575b90628",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "bad"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
         },
         {
           "agent_id": "merge",
           "causal_parent_ids": [
-            "68f9b87c-2c38-49f4-b27d-002f427cafc6",
-            "4fa26c92-b414-4ef9-83db-0d868db5f475"
+            "03db2226-350b-4e90-9ad7-cb88b495b6f8",
+            "e86efc51-8237-4ccd-8e17-d6d575b90628"
           ],
           "event_type": "model_call",
-          "id": "1c057e46-f1b2-412a-bec0-ffdb2bc24ea4",
+          "id": "4c49d4ef-c958-44a1-8567-067e76977463",
           "idempotency_key": null,
           "logical_seq": 2,
           "payload": {
             "decision_contract": {
               "agent_id": "merge",
-              "decision_event_id": "1c057e46-f1b2-412a-bec0-ffdb2bc24ea4",
-              "decision_id": "cca35dfa-c10a-4430-8d4f-a2c697c1c2f7",
+              "decision_event_id": "4c49d4ef-c958-44a1-8567-067e76977463",
+              "decision_id": "4a60c4da-631f-4151-a46e-497b56b243d7",
               "decision_type": "benchmark.multiple_parents",
               "is_side_effecting": false,
               "metadata": {
@@ -291,7 +296,7 @@
                   "field_path": "output",
                   "port_id": "left",
                   "recorded_value": "bad",
-                  "source_event_id": "68f9b87c-2c38-49f4-b27d-002f427cafc6",
+                  "source_event_id": "03db2226-350b-4e90-9ad7-cb88b495b6f8",
                   "strategy": "canonical_baseline"
                 },
                 {
@@ -300,7 +305,7 @@
                   "field_path": "output",
                   "port_id": "right",
                   "recorded_value": "bad",
-                  "source_event_id": "4fa26c92-b414-4ef9-83db-0d868db5f475",
+                  "source_event_id": "e86efc51-8237-4ccd-8e17-d6d575b90628",
                   "strategy": "canonical_baseline"
                 }
               ],
@@ -309,22 +314,22 @@
             "output": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
         },
         {
           "agent_id": "terminal",
           "causal_parent_ids": [
-            "1c057e46-f1b2-412a-bec0-ffdb2bc24ea4"
+            "4c49d4ef-c958-44a1-8567-067e76977463"
           ],
           "event_type": "agent_finish",
-          "id": "d3f129c8-c700-4560-bfcd-6ae5c5c4a07f",
+          "id": "0d6fbf6b-e7f4-452e-9e01-3ec45b11ca43",
           "idempotency_key": null,
           "logical_seq": 3,
           "payload": {
             "status": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.757243+00:00"
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
         }
       ],
       "ground_truth": {
@@ -437,7 +442,7 @@
       "run_id": "benchmark",
       "scenario": "multiple_parents",
       "temperature": null,
-      "timestamp": "2026-10-03T00:09:07.775976+00:00"
+      "timestamp": "2026-10-03T13:38:16.598330+00:00"
     },
     {
       "configuration": {
@@ -454,43 +459,43 @@
           "agent_id": "left",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "f2a8b51e-36c0-424a-be47-d8b158093166",
+          "id": "f5390814-2b68-46c0-9f17-9fcad43dc1ee",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "bad"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
         },
         {
           "agent_id": "right",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "cbf91b76-9972-49e6-8d29-664e374d3c14",
+          "id": "19491558-3514-456d-80f7-e1be912e5363",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "bad"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
         },
         {
           "agent_id": "merge",
           "causal_parent_ids": [
-            "f2a8b51e-36c0-424a-be47-d8b158093166",
-            "cbf91b76-9972-49e6-8d29-664e374d3c14"
+            "f5390814-2b68-46c0-9f17-9fcad43dc1ee",
+            "19491558-3514-456d-80f7-e1be912e5363"
           ],
           "event_type": "model_call",
-          "id": "4e9ac67f-2d25-4820-9944-47f6141b76bd",
+          "id": "b7b2a698-9370-4837-9af7-b441eb333e81",
           "idempotency_key": null,
           "logical_seq": 2,
           "payload": {
             "decision_contract": {
               "agent_id": "merge",
-              "decision_event_id": "4e9ac67f-2d25-4820-9944-47f6141b76bd",
-              "decision_id": "27d1d206-d0d7-4d48-8955-db97a957b13f",
+              "decision_event_id": "b7b2a698-9370-4837-9af7-b441eb333e81",
+              "decision_id": "5b0625c2-4453-4c1d-979c-92e8149538d5",
               "decision_type": "benchmark.interaction",
               "is_side_effecting": false,
               "metadata": {
@@ -505,7 +510,7 @@
                   "field_path": "output",
                   "port_id": "left",
                   "recorded_value": "bad",
-                  "source_event_id": "f2a8b51e-36c0-424a-be47-d8b158093166",
+                  "source_event_id": "f5390814-2b68-46c0-9f17-9fcad43dc1ee",
                   "strategy": "canonical_baseline"
                 },
                 {
@@ -514,7 +519,7 @@
                   "field_path": "output",
                   "port_id": "right",
                   "recorded_value": "bad",
-                  "source_event_id": "cbf91b76-9972-49e6-8d29-664e374d3c14",
+                  "source_event_id": "19491558-3514-456d-80f7-e1be912e5363",
                   "strategy": "canonical_baseline"
                 }
               ],
@@ -523,22 +528,22 @@
             "output": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
         },
         {
           "agent_id": "terminal",
           "causal_parent_ids": [
-            "4e9ac67f-2d25-4820-9944-47f6141b76bd"
+            "b7b2a698-9370-4837-9af7-b441eb333e81"
           ],
           "event_type": "agent_finish",
-          "id": "f48f724d-b5ab-44d3-b98a-a204ea60e8ea",
+          "id": "9fb36128-eaa6-4002-915c-f2570ca9e497",
           "idempotency_key": null,
           "logical_seq": 3,
           "payload": {
             "status": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.776975+00:00"
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
         }
       ],
       "ground_truth": {
@@ -663,7 +668,7 @@
       "run_id": "benchmark",
       "scenario": "interaction",
       "temperature": null,
-      "timestamp": "2026-10-03T00:09:07.791875+00:00"
+      "timestamp": "2026-10-03T13:38:16.605425+00:00"
     },
     {
       "configuration": {
@@ -680,43 +685,43 @@
           "agent_id": "upstream",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "76547932-2ce0-42d6-b0cd-1a3d39495e82",
+          "id": "e1f229de-0b84-4ccf-8ef1-d9c70401e239",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "bad"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
           "agent_id": "background",
           "causal_parent_ids": [],
           "event_type": "tool_result",
-          "id": "003e3d37-7f40-46f3-b42f-cb20c0740aee",
+          "id": "ee83b8de-3a02-480d-982b-a9600ffed8db",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
             "output": "plausible"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
           "agent_id": "merge",
           "causal_parent_ids": [
-            "76547932-2ce0-42d6-b0cd-1a3d39495e82",
-            "003e3d37-7f40-46f3-b42f-cb20c0740aee"
+            "e1f229de-0b84-4ccf-8ef1-d9c70401e239",
+            "ee83b8de-3a02-480d-982b-a9600ffed8db"
           ],
           "event_type": "model_call",
-          "id": "075cfa01-bd5a-4881-859a-0373d575c867",
+          "id": "37a8c9ea-881c-4f9b-9f1b-fea8fb2175f8",
           "idempotency_key": null,
           "logical_seq": 2,
           "payload": {
             "decision_contract": {
               "agent_id": "merge",
-              "decision_event_id": "075cfa01-bd5a-4881-859a-0373d575c867",
-              "decision_id": "3eacd5eb-6108-4dd3-b201-d908965b86d0",
+              "decision_event_id": "37a8c9ea-881c-4f9b-9f1b-fea8fb2175f8",
+              "decision_id": "58c4b2ca-4ffd-4e14-8b14-c2c59e4d9c18",
               "decision_type": "benchmark.distractor",
               "is_side_effecting": false,
               "metadata": {
@@ -731,7 +736,7 @@
                   "field_path": "output",
                   "port_id": "signal",
                   "recorded_value": "bad",
-                  "source_event_id": "76547932-2ce0-42d6-b0cd-1a3d39495e82",
+                  "source_event_id": "e1f229de-0b84-4ccf-8ef1-d9c70401e239",
                   "strategy": "canonical_baseline"
                 }
               ],
@@ -740,22 +745,22 @@
             "output": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
           "agent_id": "terminal",
           "causal_parent_ids": [
-            "075cfa01-bd5a-4881-859a-0373d575c867"
+            "37a8c9ea-881c-4f9b-9f1b-fea8fb2175f8"
           ],
           "event_type": "agent_finish",
-          "id": "e4cc9915-4fa9-4a35-828e-6c1787e77837",
+          "id": "39577f16-15f2-4e52-9159-d2b05215377a",
           "idempotency_key": null,
           "logical_seq": 3,
           "payload": {
             "status": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.792873+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         }
       ],
       "ground_truth": {
@@ -861,7 +866,7 @@
       "run_id": "benchmark",
       "scenario": "distractor",
       "temperature": null,
-      "timestamp": "2026-10-03T00:09:07.795339+00:00"
+      "timestamp": "2026-10-03T13:38:16.605425+00:00"
     },
     {
       "configuration": {
@@ -878,7 +883,7 @@
           "agent_id": "writer",
           "causal_parent_ids": [],
           "event_type": "memory_write",
-          "id": "f866e3b2-4356-49dd-8be1-f690ee44997d",
+          "id": "ad8eefba-31bc-4274-a7e7-89234fbcc5cc",
           "idempotency_key": null,
           "logical_seq": 1,
           "payload": {
@@ -891,15 +896,15 @@
             "resource_uri": "mem://shared/approval"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
           "agent_id": "reader",
           "causal_parent_ids": [
-            "f866e3b2-4356-49dd-8be1-f690ee44997d"
+            "ad8eefba-31bc-4274-a7e7-89234fbcc5cc"
           ],
           "event_type": "memory_read",
-          "id": "536412d4-5e06-459e-9711-9af95fab5409",
+          "id": "0379154d-19c9-42cf-bfce-06c4d559f5da",
           "idempotency_key": null,
           "logical_seq": 2,
           "payload": {
@@ -909,22 +914,22 @@
             "value": "bad"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
           "agent_id": "merge",
           "causal_parent_ids": [
-            "536412d4-5e06-459e-9711-9af95fab5409"
+            "0379154d-19c9-42cf-bfce-06c4d559f5da"
           ],
           "event_type": "model_call",
-          "id": "7f860a45-a6df-442d-8855-9f7016c7198e",
+          "id": "e59327d7-b7a6-40c8-9226-59d3e0b7f42d",
           "idempotency_key": null,
           "logical_seq": 3,
           "payload": {
             "decision_contract": {
               "agent_id": "merge",
-              "decision_event_id": "7f860a45-a6df-442d-8855-9f7016c7198e",
-              "decision_id": "28589435-35e4-4945-92af-93791fcbd815",
+              "decision_event_id": "e59327d7-b7a6-40c8-9226-59d3e0b7f42d",
+              "decision_id": "83318ffe-067a-4d78-b11d-eab2f07e5eaf",
               "decision_type": "benchmark.memory_contamination",
               "is_side_effecting": false,
               "metadata": {
@@ -939,7 +944,7 @@
                   "field_path": "output",
                   "port_id": "approval",
                   "recorded_value": "bad",
-                  "source_event_id": "536412d4-5e06-459e-9711-9af95fab5409",
+                  "source_event_id": "0379154d-19c9-42cf-bfce-06c4d559f5da",
                   "strategy": "canonical_baseline"
                 }
               ],
@@ -948,22 +953,22 @@
             "output": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
           "agent_id": "terminal",
           "causal_parent_ids": [
-            "7f860a45-a6df-442d-8855-9f7016c7198e"
+            "e59327d7-b7a6-40c8-9226-59d3e0b7f42d"
           ],
           "event_type": "agent_finish",
-          "id": "f700cd49-61bf-4974-9ccf-0b7097a560fc",
+          "id": "d18ef3d7-bea2-4ed6-9b2a-1b29988ab004",
           "idempotency_key": null,
           "logical_seq": 4,
           "payload": {
             "status": "failure"
           },
           "run_id": "benchmark",
-          "wall_time": "2026-10-03 00:09:07.795339+00:00"
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         }
       ],
       "ground_truth": {
@@ -1068,7 +1073,7 @@
       "run_id": "benchmark",
       "scenario": "memory_contamination",
       "temperature": null,
-      "timestamp": "2026-10-03T00:09:07.797797+00:00"
+      "timestamp": "2026-10-03T13:38:16.610166+00:00"
     }
   ]
 }

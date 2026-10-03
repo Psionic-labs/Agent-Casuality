@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from benchmark.baseline import BaselineExecution
 from benchmark.providers import FastinoProvider, ResponseCache
 from benchmark.runner import (
     _counterfactual_cells,
@@ -76,10 +77,48 @@ def test_experiment1_provider_values_remain_independently_controllable() -> None
     assert not _counterfactual_cells(left_only)["11"]
 
 
-def test_baseline_is_explicitly_not_evaluated_without_history() -> None:
+def test_baseline_is_explicitly_blocked_without_history() -> None:
     result = run_baseline()
-    assert result["baseline"]["status"] == "not_evaluated"
-    assert all(row["status"] == "not_evaluated" for row in result["scenarios"])
+    assert result["baseline"]["status"] == "blocked"
+    assert result["baseline"]["version"] == "unavailable"
+    assert result["reproducibility"]["execution_attempted"] is False
+    assert [row["scenario"] for row in result["scenarios"]] == list(SCENARIOS)
+    assert all(row["status"] == "blocked" for row in result["scenarios"])
+    assert all(
+        capability["status"] == "unsupported"
+        for row in result["scenarios"]
+        for capability in row["capabilities"].values()
+    )
+    assert all(row["normalized_metrics"] == {} for row in result["scenarios"])
+
+
+def test_baseline_adapter_version_execution_and_scenario_coverage() -> None:
+    class FakeAdapter:
+        name = "fixture-diff-tool"
+        version = "1.2.3"
+        command = "fixture-diff-tool --scenario <path>"
+
+        def __init__(self) -> None:
+            self.paths: list[Path] = []
+
+        def analyze(self, scenario_artifact: Path) -> BaselineExecution:
+            self.paths.append(scenario_artifact)
+            return BaselineExecution(
+                status="completed",
+                exit_code=0,
+                stdout='{"capabilities": {}}',
+                stderr="",
+                output={"capabilities": {}},
+            )
+
+    adapter = FakeAdapter()
+    result = run_baseline(adapter)
+    assert result["baseline"]["version"] == "1.2.3"
+    assert result["baseline"]["command"] == "fixture-diff-tool --scenario <path>"
+    assert result["reproducibility"]["execution_attempted"] is True
+    assert len(adapter.paths) == 5
+    assert all(row["execution"]["exit_code"] == 0 for row in result["scenarios"])
+    assert all(row["normalized_metrics"] == {} for row in result["scenarios"])
 
 
 def test_result_serialization(tmp_path: Path) -> None:

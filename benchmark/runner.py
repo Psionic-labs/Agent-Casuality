@@ -39,6 +39,7 @@ from core.validator import GraphValidator
 from sdk.events import AgentClock, Event, InMemoryEventLog
 from sdk.memory import CapturedMemory, ResourceRegistry
 
+from .baseline import BaselineAdapter, BaselineUnavailableError, HistoricalPhase2Adapter
 from .providers import FastinoProvider, ModelProvider, ResponseCache
 from .scenarios import SCENARIOS, GeneratedScenario
 from .schemas import BenchmarkRun
@@ -824,64 +825,123 @@ def run_experiment3() -> dict[str, Any]:
     }
 
 
-def run_baseline() -> dict[str, Any]:
-    """Report the named historical baseline without inventing unavailable results."""
-    baseline_name = "Phase 2 sdk/memory.py resource dependency capture"
-    unsupported = {
-        "single_cause": ["structural_slice", "minimal_reduction", "interaction"],
-        "multiple_parents": ["structural_slice", "minimal_reduction", "interaction"],
-        "interaction": ["structural_slice", "minimal_reduction", "interaction"],
-        "distractor": ["structural_slice", "minimal_reduction", "interaction"],
-        "memory_contamination": ["structural_slice", "minimal_reduction", "interaction"],
-    }
+def run_baseline(adapter: BaselineAdapter | None = None) -> dict[str, Any]:
+    """Run the named baseline adapter or record why it cannot be executed."""
+    selected = adapter or HistoricalPhase2Adapter()
+    scenario_artifact = Path(__file__).resolve().with_name("scenarios.py")
+    capability_names = (
+        "cause_identification",
+        "multiple_parents",
+        "distractor_handling",
+        "interaction",
+        "shared_state_causality",
+        "minimal_causal_reduction",
+    )
+    scenario_rows: list[dict[str, Any]] = []
+    execution_errors: list[str] = []
+    for scenario_name in SCENARIOS:
+        try:
+            execution = selected.analyze(scenario_artifact)
+        except BaselineUnavailableError as exc:
+            execution = {
+                "status": "blocked",
+                "exit_code": None,
+                "stdout": "",
+                "stderr": str(exc),
+                "output": None,
+            }
+            if str(exc) not in execution_errors:
+                execution_errors.append(str(exc))
+        else:
+            execution = {
+                "status": execution.status,
+                "exit_code": execution.exit_code,
+                "stdout": execution.stdout,
+                "stderr": execution.stderr,
+                "output": execution.output,
+            }
+        scenario_rows.append(
+            {
+                "scenario": scenario_name,
+                "status": execution["status"],
+                "input_artifact": str(scenario_artifact),
+                "execution": execution,
+                "capabilities": {
+                    capability: {
+                        "status": "unsupported",
+                        "reason": (
+                            "the selected baseline has no runnable implementation or output "
+                            "contract in this checkout"
+                        ),
+                    }
+                    for capability in capability_names
+                },
+                "normalized_metrics": {},
+            }
+        )
+    baseline_status = (
+        "completed"
+        if scenario_rows and all(row["execution"]["status"] == "completed" for row in scenario_rows)
+        else "blocked"
+    )
     return {
         "kind": "baseline",
         "experiment": "baseline comparison",
         "baseline": {
-            "tool": baseline_name,
-            "version": "unknown",
+            "tool": selected.name,
+            "version": selected.version,
             "commit_or_build": None,
             "input": "the five deterministic benchmark scenarios",
             "methodology": (
-                "The research memo names the historical Phase 2 memory implementation, "
-                "but no executable or version-pinned checkout is present."
+                "The named historical Phase 2 memory implementation is not an independent "
+                "diff-oriented debugger. It is retained as the required baseline reference, "
+                "but no executable, pinned checkout, or output contract is present."
             ),
-            "procedure": "not executed",
-            "status": "not_evaluated",
+            "procedure": "adapter invoked once per scenario",
+            "status": baseline_status,
+            "command": selected.command,
         },
         "environment": {
             "platform": platform.platform(),
             "python": sys.version,
             "repository_head": _repository_head(),
+            "available_diff_tool": "git 2.54.0.windows.1",
         },
         "reproducibility": {
             "command": "uv run casuality-benchmark baseline",
             "required_input": "the five benchmark scenarios under benchmark/ground_truth/",
-            "blocking_requirement": (
-                "provide the historical Phase 2 executable and version identifier"
+            "configuration": {"adapter": selected.name},
+            "exit_code": next(
+                (
+                    row["execution"]["exit_code"]
+                    for row in scenario_rows
+                    if row["execution"]["exit_code"] is not None
+                ),
+                None,
+            ),
+            "execution_attempted": any(
+                row["execution"]["status"] != "blocked" for row in scenario_rows
             ),
         },
-        "scenarios": [
+        "scenarios": scenario_rows,
+        "comparison": [
             {
-                "scenario": name,
-                "status": "not_evaluated",
-                "results": {
-                    "relevant_change_or_cause": "unsupported",
-                    "distinguish_distractor": "unsupported",
-                    "multiple_parents": "unsupported",
-                    "interactions": "unsupported",
-                    "shared_state_causality": "unsupported",
-                    "minimal_reduction": "unsupported",
-                },
-                "unsupported_comparisons": unsupported[name],
-                "reason": "no historical executable baseline exists in this checkout",
+                "scenario": row["scenario"],
+                "capability": capability,
+                "baseline": "unsupported",
+                "agent_casuality": "measured by deterministic benchmark",
+                "comparable": False,
             }
-            for name in SCENARIOS
+            for row in scenario_rows
+            for capability in capability_names
         ],
         "limitations": [
-            "No baseline measurements are claimed.",
-            "The current ResourceRegistry is not substituted for the historical baseline.",
-            "Unsupported capabilities are not scored.",
+            "No independent diff-oriented baseline executable is available in this checkout.",
+            "Git 2.54.0.windows.1 was available but cannot analyze execution causality "
+            "or interactions.",
+            "The current ResourceRegistry and causal engine are not substituted for the baseline.",
+            "Unsupported capabilities have no precision, recall, or failure score.",
+            *execution_errors,
         ],
     }
 
@@ -903,17 +963,54 @@ def _markdown(result: dict[str, Any]) -> str:
             "the same local parser, schema validator, and decision evaluator."
         ),
         "baseline": (
-            "The named historical Phase 2 memory baseline is reported without fabricated scores. "
-            "Every unsupported comparison is explicit and the missing executable/version "
-            "is recorded."
+            "The named historical Phase 2 memory baseline was passed through its adapter for "
+            "all five scenarios. No executable or version-pinned checkout exists, so execution "
+            "is blocked and unsupported capabilities are explicitly unscored."
         ),
     }.get(kind, "This artifact records an offline benchmark execution.")
-    return (
+    rendered = (
         f"# Benchmark result: {kind}\n\n## Methodology\n{methodology}\n\n"
         "## Machine-readable result\n\n```json\n"
         + json.dumps(result, indent=2, sort_keys=True, default=str)
         + "\n```\n"
     )
+    if kind == "baseline":
+        baseline = result.get("baseline", {})
+        environment = result.get("environment", {})
+        table = [
+            "\n## Capability Comparison\n",
+            "| Scenario | Capability | Baseline | Agent-Casuality | Comparable |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        table.extend(
+            "| {scenario} | {capability} | {baseline} | {agent} | {comparable} |".format(
+                scenario=row["scenario"],
+                capability=row["capability"],
+                baseline=row["baseline"],
+                agent=row["agent_casuality"],
+                comparable="yes" if row["comparable"] else "no",
+            )
+            for row in result.get("comparison", [])
+        )
+        rendered += "\n".join(table) + "\n"
+        rendered += (
+            "\n## Baseline Description\n\n"
+            f"Tool: `{baseline.get('tool')}`\n\n"
+            f"Version: `{baseline.get('version')}`\n\n"
+            f"Command: `{baseline.get('command')}`\n\n"
+            "## Version and Environment\n\n"
+            f"Platform: `{environment.get('platform')}`\n\n"
+            f"Python: `{environment.get('python')}`\n\n"
+            f"Repository head: `{environment.get('repository_head')}`\n\n"
+            "## Limitations\n\n"
+            + "\n".join(f"- {item}" for item in result.get("limitations", []))
+            + "\n"
+            "\n## Reproduction\n\n"
+            "```powershell\nuv run casuality-benchmark baseline\n```\n\n"
+            "The available Git executable was audited but rejected as a baseline because "
+            "it does not consume these execution artifacts or produce causal analysis.\n"
+        )
+    return rendered
 
 
 def write_result(result: dict[str, Any], results_dir: Path, name: str) -> None:

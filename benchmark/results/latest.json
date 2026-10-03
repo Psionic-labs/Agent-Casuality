@@ -1,556 +1,1071 @@
 {
   "aggregate": {
-    "agent_casuality": {
-      "false_negative": 0,
-      "false_positive": 0,
-      "false_positive_rate": 0.0,
-      "true_negative": 12,
-      "true_positive": 12,
-      "true_positive_rate": 1.0
+    "dimensions": {
+      "interaction": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "minimal_slice": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "provenance": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "structural_slice": {
+        "exact_match_rate": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      }
     },
-    "cache_hits": 0,
-    "naive_2x2": {
-      "false_negative": 0,
-      "false_positive": 0,
-      "false_positive_rate": 0.0,
-      "true_negative": 12,
-      "true_positive": 12,
-      "true_positive_rate": 1.0
-    },
-    "requests": 0
+    "passed": 5,
+    "scenario_count": 5
   },
-  "configuration": {
-    "max_requests": 48,
-    "max_tokens": null,
-    "num_bootstrap": 20,
-    "samples_per_cell": 1,
-    "seed": 0
-  },
-  "kind": "experiment1",
-  "provider": "offline",
-  "repetitions": 3,
-  "rows": [
+  "kind": "five_scenarios",
+  "runs": [
     {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
-        ],
-        "true_negative": 0,
-        "true_positive": 3
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
       },
-      "counterfactual_cells": [
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The structural slice contains 3 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "upstream",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "fb74dd66-ba74-4e5d-a3ee-cea4c38ebcef",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
         },
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "background",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "5bfb8036-b1e1-4389-a21d-ab88f031f666",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad-looking"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
         },
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "fb74dd66-ba74-4e5d-a3ee-cea4c38ebcef"
+          ],
+          "event_type": "model_call",
+          "id": "6a931beb-fee8-4cf1-9fc5-29746a00ecc6",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "6a931beb-fee8-4cf1-9fc5-29746a00ecc6",
+              "decision_id": "cfe7e1f8-14df-449c-b85b-6ac3630ea6fb",
+              "decision_type": "benchmark.single_cause",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "signal",
+                  "recorded_value": "bad",
+                  "source_event_id": "fb74dd66-ba74-4e5d-a3ee-cea4c38ebcef",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "6a931beb-fee8-4cf1-9fc5-29746a00ecc6"
+          ],
+          "event_type": "agent_finish",
+          "id": "152b327b-a5a2-4bb2-b173-1784c99d91ae",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.584880+00:00"
         }
       ],
-      "expected_interaction": true,
       "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": true
-      },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: interaction.",
-          "role": "user"
-        }
-      ],
-      "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
+        "excluded_events": [
+          "distractor"
         ],
-        "true_negative": 0,
-        "true_positive": 3
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "source"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "notes": "One bad upstream port is sufficient.",
+        "required_events": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "scenario": "single_cause",
+        "structural_slice": [
+          "source",
+          "decision",
+          "failure"
+        ]
       },
-      "number_of_runs": 3,
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.0,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "source",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "source"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "source",
+        "decision",
+        "failure"
+      ],
       "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-interaction-0.0-2",
-      "scenario": "interaction",
-      "seed": 2,
-      "temperature": 0.0
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "single_cause",
+      "temperature": null,
+      "timestamp": "2026-10-03T13:38:16.591735+00:00"
     },
     {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
-        ],
-        "true_negative": 3,
-        "true_positive": 0
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
       },
-      "counterfactual_cells": [
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The reported interaction between left and right is -1.0.\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
         {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
+          "agent_id": "left",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "03db2226-350b-4e90-9ad7-cb88b495b6f8",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
         },
         {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
+          "agent_id": "right",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "e86efc51-8237-4ccd-8e17-d6d575b90628",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
         },
         {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "03db2226-350b-4e90-9ad7-cb88b495b6f8",
+            "e86efc51-8237-4ccd-8e17-d6d575b90628"
+          ],
+          "event_type": "model_call",
+          "id": "4c49d4ef-c958-44a1-8567-067e76977463",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "4c49d4ef-c958-44a1-8567-067e76977463",
+              "decision_id": "4a60c4da-631f-4151-a46e-497b56b243d7",
+              "decision_type": "benchmark.multiple_parents",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "left",
+                  "recorded_value": "bad",
+                  "source_event_id": "03db2226-350b-4e90-9ad7-cb88b495b6f8",
+                  "strategy": "canonical_baseline"
+                },
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "right",
+                  "recorded_value": "bad",
+                  "source_event_id": "e86efc51-8237-4ccd-8e17-d6d575b90628",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "4c49d4ef-c958-44a1-8567-067e76977463"
+          ],
+          "event_type": "agent_finish",
+          "id": "0d6fbf6b-e7f4-452e-9e01-3ec45b11ca43",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.591735+00:00"
         }
       ],
-      "expected_interaction": false,
       "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": false
-      },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: multiple_parents.",
-          "role": "user"
-        }
-      ],
-      "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
+        "excluded_events": [],
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "left"
+          ],
+          [
+            "decision.output.decision",
+            "right"
+          ]
         ],
-        "true_negative": 3,
-        "true_positive": 0
+        "failure_event": "failure",
+        "minimal_slice": [
+          "right",
+          "decision",
+          "failure"
+        ],
+        "notes": "Both recorded parents are independently sufficient; a positive joint interaction is not expected.",
+        "required_events": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ],
+        "scenario": "multiple_parents",
+        "structural_slice": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ]
       },
-      "number_of_runs": 3,
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 2,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.25,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "right",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "left"
+        ],
+        [
+          "decision.output.decision",
+          "right"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "left",
+        "right",
+        "decision",
+        "failure"
+      ],
       "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-multiple_parents-0.0-2",
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
       "scenario": "multiple_parents",
-      "seed": 2,
-      "temperature": 0.0
+      "temperature": null,
+      "timestamp": "2026-10-03T13:38:16.598330+00:00"
     },
     {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
-        ],
-        "true_negative": 0,
-        "true_positive": 3
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
       },
-      "counterfactual_cells": [
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (4 events).\n- The reported interaction between left and right is 1.0.\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "left",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "f5390814-2b68-46c0-9f17-9fcad43dc1ee",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
         },
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "right",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "19491558-3514-456d-80f7-e1be912e5363",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
         },
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "f5390814-2b68-46c0-9f17-9fcad43dc1ee",
+            "19491558-3514-456d-80f7-e1be912e5363"
+          ],
+          "event_type": "model_call",
+          "id": "b7b2a698-9370-4837-9af7-b441eb333e81",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "b7b2a698-9370-4837-9af7-b441eb333e81",
+              "decision_id": "5b0625c2-4453-4c1d-979c-92e8149538d5",
+              "decision_type": "benchmark.interaction",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "left",
+                  "recorded_value": "bad",
+                  "source_event_id": "f5390814-2b68-46c0-9f17-9fcad43dc1ee",
+                  "strategy": "canonical_baseline"
+                },
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "right",
+                  "recorded_value": "bad",
+                  "source_event_id": "19491558-3514-456d-80f7-e1be912e5363",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "b7b2a698-9370-4837-9af7-b441eb333e81"
+          ],
+          "event_type": "agent_finish",
+          "id": "9fb36128-eaa6-4002-915c-f2570ca9e497",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.600337+00:00"
         }
       ],
-      "expected_interaction": true,
       "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": true
-      },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: interaction.",
-          "role": "user"
-        }
-      ],
-      "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
+        "excluded_events": [],
+        "expected_interactions": [
+          [
+            "left",
+            "right"
+          ]
         ],
-        "true_negative": 0,
-        "true_positive": 3
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "left"
+          ],
+          [
+            "decision.output.decision",
+            "right"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ],
+        "notes": "Failure needs both active branches, so positive Shapley interaction is expected.",
+        "required_events": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ],
+        "scenario": "interaction",
+        "structural_slice": [
+          "left",
+          "right",
+          "decision",
+          "failure"
+        ]
       },
-      "number_of_runs": 3,
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 2,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.0,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [
+        [
+          "left",
+          "right"
+        ]
+      ],
+      "predicted_minimal_slice": [
+        "left",
+        "right",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "left"
+        ],
+        [
+          "decision.output.decision",
+          "right"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "left",
+        "right",
+        "decision",
+        "failure"
+      ],
       "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-interaction-0.3-2",
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
       "scenario": "interaction",
-      "seed": 2,
-      "temperature": 0.3
+      "temperature": null,
+      "timestamp": "2026-10-03T13:38:16.605425+00:00"
     },
     {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
-        ],
-        "true_negative": 3,
-        "true_positive": 0
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
       },
-      "counterfactual_cells": [
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
         {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
+          "agent_id": "upstream",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "e1f229de-0b84-4ccf-8ef1-d9c70401e239",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
+          "agent_id": "background",
+          "causal_parent_ids": [],
+          "event_type": "tool_result",
+          "id": "ee83b8de-3a02-480d-982b-a9600ffed8db",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "output": "plausible"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "e1f229de-0b84-4ccf-8ef1-d9c70401e239",
+            "ee83b8de-3a02-480d-982b-a9600ffed8db"
+          ],
+          "event_type": "model_call",
+          "id": "37a8c9ea-881c-4f9b-9f1b-fea8fb2175f8",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "37a8c9ea-881c-4f9b-9f1b-fea8fb2175f8",
+              "decision_id": "58c4b2ca-4ffd-4e14-8b14-c2c59e4d9c18",
+              "decision_type": "benchmark.distractor",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "signal",
+                  "recorded_value": "bad",
+                  "source_event_id": "e1f229de-0b84-4ccf-8ef1-d9c70401e239",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "37a8c9ea-881c-4f9b-9f1b-fea8fb2175f8"
+          ],
+          "event_type": "agent_finish",
+          "id": "39577f16-15f2-4e52-9159-d2b05215377a",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         }
       ],
-      "expected_interaction": false,
       "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": false
-      },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: multiple_parents.",
-          "role": "user"
-        }
-      ],
-      "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
+        "excluded_events": [
+          "distractor"
         ],
-        "true_negative": 3,
-        "true_positive": 0
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "source"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "notes": "The distractor is structurally plausible but has no decision port.",
+        "required_events": [
+          "source",
+          "decision",
+          "failure"
+        ],
+        "scenario": "distractor",
+        "structural_slice": [
+          "source",
+          "distractor",
+          "decision",
+          "failure"
+        ]
       },
-      "number_of_runs": 3,
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.25,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
+        }
+      },
+      "model": null,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "source",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "source"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "distractor",
+        "source",
+        "decision",
+        "failure"
+      ],
       "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-multiple_parents-0.3-2",
-      "scenario": "multiple_parents",
-      "seed": 2,
-      "temperature": 0.3
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "distractor",
+      "temperature": null,
+      "timestamp": "2026-10-03T13:38:16.605425+00:00"
     },
     {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
-        ],
-        "true_negative": 0,
-        "true_positive": 3
+      "configuration": {
+        "validation": {
+          "event_count": 4,
+          "run_id": "benchmark",
+          "violation_count": 0,
+          "warning_count": 0
+        }
       },
-      "counterfactual_cells": [
+      "final_explanation": "Diagnosis: The terminal event is marked 'failure' because the decision returned 'failure' from its upstream inputs.\nEvidence:\n- Minimal tested chain: customer_status + risk_score -> decision -> terminal failure (3 events).\n- The structural slice contains 4 events; replay reduced it to the smaller tested subset above.\nLimitations: the evidence does not establish why the upstream tools produced these values.",
+      "generated_events": [
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "writer",
+          "causal_parent_ids": [],
+          "event_type": "memory_write",
+          "id": "ad8eefba-31bc-4274-a7e7-89234fbcc5cc",
+          "idempotency_key": null,
+          "logical_seq": 1,
+          "payload": {
+            "after": "bad",
+            "after_found": true,
+            "before": null,
+            "before_found": false,
+            "key": "approval",
+            "operation": "set",
+            "resource_uri": "mem://shared/approval"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "reader",
+          "causal_parent_ids": [
+            "ad8eefba-31bc-4274-a7e7-89234fbcc5cc"
+          ],
+          "event_type": "memory_read",
+          "id": "0379154d-19c9-42cf-bfce-06c4d559f5da",
+          "idempotency_key": null,
+          "logical_seq": 2,
+          "payload": {
+            "found": true,
+            "key": "approval",
+            "resource_uri": "mem://shared/approval",
+            "value": "bad"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         },
         {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
+          "agent_id": "merge",
+          "causal_parent_ids": [
+            "0379154d-19c9-42cf-bfce-06c4d559f5da"
+          ],
+          "event_type": "model_call",
+          "id": "e59327d7-b7a6-40c8-9226-59d3e0b7f42d",
+          "idempotency_key": null,
+          "logical_seq": 3,
+          "payload": {
+            "decision_contract": {
+              "agent_id": "merge",
+              "decision_event_id": "e59327d7-b7a6-40c8-9226-59d3e0b7f42d",
+              "decision_id": "83318ffe-067a-4d78-b11d-eab2f07e5eaf",
+              "decision_type": "benchmark.memory_contamination",
+              "is_side_effecting": false,
+              "metadata": {
+                "downstream_failure_event": ""
+              },
+              "outcome": "failure",
+              "policy_version": null,
+              "ports": [
+                {
+                  "baseline_value": "good",
+                  "description": "",
+                  "field_path": "output",
+                  "port_id": "approval",
+                  "recorded_value": "bad",
+                  "source_event_id": "0379154d-19c9-42cf-bfce-06c4d559f5da",
+                  "strategy": "canonical_baseline"
+                }
+              ],
+              "run_id": "benchmark"
+            },
+            "output": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
+        },
+        {
+          "agent_id": "terminal",
+          "causal_parent_ids": [
+            "e59327d7-b7a6-40c8-9226-59d3e0b7f42d"
+          ],
+          "event_type": "agent_finish",
+          "id": "d18ef3d7-bea2-4ed6-9b2a-1b29988ab004",
+          "idempotency_key": null,
+          "logical_seq": 4,
+          "payload": {
+            "status": "failure"
+          },
+          "run_id": "benchmark",
+          "wall_time": "2026-10-03 13:38:16.605425+00:00"
         }
       ],
-      "expected_interaction": true,
       "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": true
+        "excluded_events": [],
+        "expected_interactions": [],
+        "expected_outcome": "failure",
+        "expected_provenance": [
+          [
+            "decision.output.decision",
+            "read"
+          ]
+        ],
+        "failure_event": "failure",
+        "minimal_slice": [
+          "read",
+          "decision",
+          "failure"
+        ],
+        "notes": "The write-to-read edge must be recovered by ResourceRegistry, not supplied manually.",
+        "required_events": [
+          "write",
+          "read",
+          "decision",
+          "failure"
+        ],
+        "scenario": "memory_contamination",
+        "structural_slice": [
+          "write",
+          "read",
+          "decision",
+          "failure"
+        ]
       },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: interaction.",
-          "role": "user"
+      "metrics": {
+        "interaction": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 0,
+          "unexpected": []
+        },
+        "minimal_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 3,
+          "unexpected": []
+        },
+        "pass": true,
+        "provenance": {
+          "exact_match": true,
+          "false_interaction_rate": 0.0,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 1,
+          "unexpected": []
+        },
+        "slice_reduction_ratio": 0.25,
+        "structural_slice": {
+          "exact_match": true,
+          "false_negative": 0,
+          "false_positive": 0,
+          "missing": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "true_positive": 4,
+          "unexpected": []
         }
-      ],
+      },
       "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
-        ],
-        "true_negative": 0,
-        "true_positive": 3
-      },
-      "number_of_runs": 3,
+      "predicted_interactions": [],
+      "predicted_minimal_slice": [
+        "read",
+        "decision",
+        "failure"
+      ],
+      "predicted_provenance": [
+        [
+          "decision.output.decision",
+          "read"
+        ]
+      ],
+      "predicted_structural_slice": [
+        "write",
+        "read",
+        "decision",
+        "failure"
+      ],
       "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-interaction-0.7-2",
-      "scenario": "interaction",
-      "seed": 2,
-      "temperature": 0.7
-    },
-    {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
-        ],
-        "true_negative": 3,
-        "true_positive": 0
-      },
-      "counterfactual_cells": [
-        {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
-        },
-        {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
-        },
-        {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
-        }
-      ],
-      "expected_interaction": false,
-      "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": false
-      },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: multiple_parents.",
-          "role": "user"
-        }
-      ],
-      "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
-        ],
-        "true_negative": 3,
-        "true_positive": 0
-      },
-      "number_of_runs": 3,
-      "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-multiple_parents-0.7-2",
-      "scenario": "multiple_parents",
-      "seed": 2,
-      "temperature": 0.7
-    },
-    {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
-        ],
-        "true_negative": 0,
-        "true_positive": 3
-      },
-      "counterfactual_cells": [
-        {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
-        },
-        {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
-        },
-        {
-          "00": false,
-          "01": false,
-          "10": false,
-          "11": true
-        }
-      ],
-      "expected_interaction": true,
-      "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": true
-      },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: interaction.",
-          "role": "user"
-        }
-      ],
-      "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          1.0,
-          1.0,
-          1.0
-        ],
-        "true_negative": 0,
-        "true_positive": 3
-      },
-      "number_of_runs": 3,
-      "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-interaction-1.0-2",
-      "scenario": "interaction",
-      "seed": 2,
-      "temperature": 1.0
-    },
-    {
-      "agent_casuality": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
-        ],
-        "true_negative": 3,
-        "true_positive": 0
-      },
-      "counterfactual_cells": [
-        {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
-        },
-        {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
-        },
-        {
-          "00": false,
-          "01": true,
-          "10": true,
-          "11": true
-        }
-      ],
-      "expected_interaction": false,
-      "ground_truth": {
-        "decision_outcome": "failure",
-        "interaction": false
-      },
-      "input": [
-        {
-          "content": "Return JSON only with independent fields left and right. Each field must be exactly 'bad' or 'good'. Scenario: multiple_parents.",
-          "role": "user"
-        }
-      ],
-      "model": null,
-      "naive_2x2": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "score_distribution": [
-          -1.0,
-          -1.0,
-          -1.0
-        ],
-        "true_negative": 3,
-        "true_positive": 0
-      },
-      "number_of_runs": 3,
-      "provider": "offline",
-      "raw_model_responses": [],
-      "run_id": "experiment1-multiple_parents-1.0-2",
-      "scenario": "multiple_parents",
-      "seed": 2,
-      "temperature": 1.0
+      "random_seed": 0,
+      "raw_model_response": null,
+      "run_id": "benchmark",
+      "scenario": "memory_contamination",
+      "temperature": null,
+      "timestamp": "2026-10-03T13:38:16.610166+00:00"
     }
-  ],
-  "targets": {
-    "agent_casuality_false_positive_under_1_percent": {
-      "measured": 0.0,
-      "status": "TARGET MET",
-      "threshold": 0.01
-    },
-    "naive_comparison_over_15_percent": {
-      "measured": 0.0,
-      "status": "TARGET NOT MET",
-      "threshold": 0.15
-    }
-  },
-  "temperatures": [
-    0.0,
-    0.3,
-    0.7,
-    1.0
   ]
 }
