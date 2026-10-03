@@ -456,6 +456,22 @@ Verify that the Resource-Version Invariant automatically recovers dependencies t
 - In Baseline, `ancestors(A4)` contains only $\{A_4, A_3, C_2, C_1, A_1\}$. $B$'s write event is missing (0% causal recall on $B$).
 - In Treatment, `ancestors(A4)` contains $B$'s write event and $B$'s prior execution branch (100% causal recall).
 
+### External Experiment 1 Status (2026-10-03)
+
+The authenticated Fastino model catalog currently exposes ten models. Every
+model reports `structured_outputs: supported: false`. The only
+decision-oriented entry is `fastino/GLiNER-2.5-Decide`; its live
+chat-completions response is a single schema-driven object such as
+`{"intent": {"label": "status", "confidence": ...}}`.
+
+Two independent branch-context requests were made to that model. Both returned
+the same native intent classification rather than a `good` or `bad` decision,
+and the model did not expose a supported two-field structured-output mode.
+Consequently, the external stochastic Experiment 1 is **blocked by provider**.
+The provider remains strict and the deterministic offline benchmark remains the
+valid evidence path. No external Fastino result is claimed until a compatible
+model or API mode becomes available.
+
 ---
 
 ### Experiment 3: Prompt Perturbation vs Semantic Port Ablation

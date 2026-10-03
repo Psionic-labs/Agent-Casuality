@@ -89,14 +89,6 @@ def _normalize_branch_value(value: Any, *, field: str) -> str:
     text = _coerce_text(value).lower()
     if text in {"good", "bad"}:
         return text
-    if text.startswith("good") and not text.startswith("bad"):
-        return "good"
-    if text.startswith("bad") and not text.startswith("good"):
-        return "bad"
-    if "good" in text and "bad" not in text:
-        return "good"
-    if "bad" in text and "good" not in text:
-        return "bad"
     raise ValueError(
         "Fastino response does not contain a valid good/bad "
         f"'{field}' value or left/right branch pair; "
@@ -106,36 +98,11 @@ def _normalize_branch_value(value: Any, *, field: str) -> str:
 
 def _branch_value_for_record(value: Any, *, field: str) -> str:
     if isinstance(value, dict):
-        for key in (
-            field,
-            "value",
-            "label",
-            "decision",
-            "status",
-            "outcome",
-            "result",
-        ):
-            if key in value:
-                return _normalize_branch_value(
-                    _branch_value_for_record(value[key], field=field),
-                    field=field,
-                )
-        for nested in value.values():
-            try:
-                return _normalize_branch_value(
-                    _branch_value_for_record(nested, field=field),
-                    field=field,
-                )
-            except ValueError:
-                continue
+        if field in value:
+            return _normalize_branch_value(value[field], field=field)
+        if set(value) == {"label"}:
+            return _normalize_branch_value(value["label"], field=field)
         raise ValueError(f"Fastino response has no valid '{field}' branch value: {value!r}")
-    if isinstance(value, list):
-        for item in value:
-            try:
-                return _branch_value_for_record(item, field=field)
-            except ValueError:
-                continue
-        raise ValueError(f"Fastino response has no valid '{field}' branch value in sequence")
     return _normalize_branch_value(value, field=field)
 
 
@@ -277,23 +244,14 @@ class FastinoProvider:
                 f"{payload!r}"
             )
         if isinstance(payload, dict):
-            for key, value in payload.items():
-                if key == field:
-                    return _normalize_branch_value(value, field=field)
-                if key in {"label", "decision", "status", "outcome", "result", "value"}:
-                    return _normalize_branch_value(value, field=key)
-                if isinstance(value, dict):
-                    nested = value.get("label") or value.get("decision") or value.get("value")
-                    if nested is not None:
-                        return _normalize_branch_value(nested, field=field)
+            if field in payload:
+                return _normalize_branch_value(payload[field], field=field)
+            if set(payload) == {"label"}:
+                return _normalize_branch_value(payload["label"], field=field)
         if isinstance(payload, str):
             text = payload.strip().lower()
             if text in {"good", "bad"}:
                 return text
-            if "good" in text and "bad" not in text:
-                return "good"
-            if "bad" in text and "good" not in text:
-                return "bad"
         raise ValueError(
             "Fastino decision response has no valid good/bad label; "
             f"got {response!r}"

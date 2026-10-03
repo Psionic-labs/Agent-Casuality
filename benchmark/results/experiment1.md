@@ -1,7 +1,7 @@
 # Benchmark result: experiment1
 
 ## Methodology
-Experiment 1 evaluates the same four counterfactual B/C cells with Agent-Casuality Shapley interaction and a direct 2x2 contrast. Provider calls are optional; offline mode uses the deterministic scenario evaluators.
+Experiment 1 evaluates the same four counterfactual B/C cells with Agent-Casuality Shapley interaction and a direct 2x2 contrast. Offline mode uses the deterministic scenario evaluators. The current Fastino catalog exposes no structured-output capability, and GLiNER-2.5-Decide returns a single intent classification rather than good/bad branch decisions; therefore the external Experiment 1 path remains blocked until a compatible model/API mode exists.
 
 ## Machine-readable result
 
@@ -16,6 +16,7 @@ Experiment 1 evaluates the same four counterfactual B/C cells with Agent-Casuali
       "true_positive": 12,
       "true_positive_rate": 1.0
     },
+    "cache_hits": 0,
     "naive_2x2": {
       "false_negative": 0,
       "false_positive": 0,
@@ -27,7 +28,7 @@ Experiment 1 evaluates the same four counterfactual B/C cells with Agent-Casuali
     "requests": 0
   },
   "configuration": {
-    "max_requests": 24,
+    "max_requests": 48,
     "max_tokens": null,
     "num_bootstrap": 20,
     "samples_per_cell": 1,

@@ -10,6 +10,7 @@ from benchmark.runner import (
     _counterfactual_cells,
     _provider_contract_for_scenario,
     run_baseline,
+    run_experiment1,
     run_experiment2,
     run_experiment3,
     run_failure_injections,
@@ -98,6 +99,12 @@ def test_response_cache_and_fastino_request(
     assert cache.get(request) is None
     cache.put(request, "cached")
     assert ResponseCache(tmp_path / "cache.jsonl").get(request) == "cached"
+    assert ResponseCache.key({"model": "m", "temperature": 0.0}) != ResponseCache.key(
+        {"model": "m", "temperature": 0.3}
+    )
+    assert ResponseCache.key({"model": "m", "temperature": 0.0}) != ResponseCache.key(
+        {"model": "other", "temperature": 0.0}
+    )
     provider = FastinoProvider(api_key="key", base_url="https://example.test/v1", model="m")
     payload = provider.request_payload(
         [{"role": "user", "content": "hi"}], temperature=0.3, seed=2, max_tokens=7
@@ -145,13 +152,11 @@ def test_fastino_structured_decision_mapping() -> None:
         base_url="https://example.test/v1",
         model="m",
     )
-    assert (
+    with pytest.raises(ValueError, match="valid good/bad|left/right"):
         provider.parse_decision_response(
             {"intent": {"label": "good", "confidence": 0.9}},
             field="decision",
         )
-        == "good"
-    )
     assert (
         provider.parse_decision_response({"left": "bad", "right": "good"}, field="left")
         == "bad"
@@ -193,6 +198,63 @@ def test_fastino_malformed_branch_response_raises_clear_error() -> None:
         )
     with pytest.raises(ValueError, match="left/right|missing one branch"):
         provider.parse_decision_response({"left": "good"}, field="left")
+    with pytest.raises(ValueError, match="valid good/bad"):
+        provider.parse_decision_response("The result is good.")
+
+
+def test_experiment1_uses_independent_provider_outputs_and_cache(
+    tmp_path: Path,
+) -> None:
+    class FakeProvider:
+        name = "fake"
+        model: str | None = "fake-model"
+
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def generate(
+            self,
+            messages: list[dict[str, object]],
+            *,
+            temperature: float,
+            seed: int | None = None,
+            max_tokens: int | None = None,
+        ) -> str:
+            content = str(messages[0]["content"])
+            branch = "left" if "Branch: left" in content else "right"
+            self.calls.append(
+                {"temperature": temperature, "seed": seed, "max_tokens": max_tokens}
+            )
+            return "bad" if branch == "left" else "good"
+
+    cache = ResponseCache(tmp_path / "cache.jsonl")
+    provider = FakeProvider()
+    first = run_experiment1(
+        repetitions=1,
+        provider=provider,
+        max_requests=16,
+        cache=cache,
+    )
+    assert first["aggregate"]["requests"] == 16
+    assert first["aggregate"]["cache_hits"] == 0
+    assert len(provider.calls) == 16
+    assert {call["temperature"] for call in provider.calls} == {0.0, 0.3, 0.7, 1.0}
+    assert all(
+        entry["branch_left"] == "bad" and entry["branch_right"] == "good"
+        for row in first["rows"]
+        for entry in row["raw_model_responses"]
+    )
+
+    second_provider = FakeProvider()
+    second = run_experiment1(
+        repetitions=1,
+        provider=second_provider,
+        max_requests=0,
+        cache=cache,
+    )
+    assert second["aggregate"]["requests"] == 0
+    assert second["aggregate"]["cache_hits"] == 16
+    assert second_provider.calls == []
 
 
 def test_fastino_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:

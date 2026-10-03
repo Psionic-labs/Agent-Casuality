@@ -8,6 +8,7 @@
       "true_positive": 12,
       "true_positive_rate": 1.0
     },
+    "cache_hits": 0,
     "naive_2x2": {
       "false_negative": 0,
       "false_positive": 0,
@@ -19,7 +20,7 @@
     "requests": 0
   },
   "configuration": {
-    "max_requests": 24,
+    "max_requests": 48,
     "max_tokens": null,
     "num_bootstrap": 20,
     "samples_per_cell": 1,

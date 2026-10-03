@@ -212,3 +212,9 @@ Responses are cached in `benchmark/results/model-cache.jsonl` by provider,
 model, prompt, temperature, seed, and token limit. Use `--dry-run` to inspect
 the experiment without uncached requests. Reported acceptance thresholds are
 measured fields in result artifacts, not assertions baked into the test suite.
+
+The current Fastino catalog exposes ten models, all with structured outputs
+disabled. `fastino/GLiNER-2.5-Decide` is the only decision-oriented model, but
+its live response is a single `intent` classification and not an independent
+`good`/`bad` branch decision. The provider rejects that response; the external
+Experiment 1 is therefore blocked, while the offline benchmark remains valid.

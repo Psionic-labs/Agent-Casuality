@@ -80,25 +80,20 @@ def _provider_branch_values(response: Any) -> tuple[str, str]:
     an arbitrary free-form JSON blob. When the provider returns a direct pair we accept it;
     otherwise the runner must request and normalize each branch independently.
     """
-    if isinstance(response, dict):
-        if {"left", "right"}.issubset(response):
-            left = response["left"]
-            right = response["right"]
-            return (
-                str(left).strip().lower(),
-                str(right).strip().lower(),
-            )
-        if "left" in response or "right" in response:
-            raise ValueError(
-                "provider response contains only one branch value; expected left/right"
-            )
-    if isinstance(response, str):
-        try:
-            parsed = json.loads(response)
-        except json.JSONDecodeError as exc:
-            raise ValueError("provider response must be JSON with left and right fields") from exc
-        return _provider_branch_values(parsed)
-    raise ValueError("provider response must contain independent left/right branch values")
+    try:
+        return (
+            FastinoProvider.parse_decision_response(response, field="left"),
+            FastinoProvider.parse_decision_response(response, field="right"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "provider response must contain independent left/right good/bad values"
+        ) from exc
+
+
+def _provider_decision_value(response: str, *, field: str) -> str:
+    """Parse one cached or freshly returned Fastino decision without re-requesting it."""
+    return FastinoProvider.parse_decision_response(response, field=field)
 
 
 def _provider_contract_for_scenario(
@@ -324,6 +319,7 @@ def run_experiment1(
 ) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     requests = 0
+    cache_hits = 0
     for temperature in (0.0, 0.3, 0.7, 1.0):
         for scenario_name, expected_interaction in (
             ("interaction", True),
@@ -388,63 +384,52 @@ def run_experiment1(
                     }
                     left_response = cache.get(left_key) if cache else None
                     right_response = cache.get(right_key) if cache else None
-                    if left_response is None and right_response is None and not dry_run:
-                        if requests + 2 > max_requests:
-                            raise RuntimeError(
-                                "maximum request count reached before experiment completed"
+                    branch_requests = (
+                        ("left", left_prompt, left_key, left_response, seed + repeat),
+                        ("right", right_prompt, right_key, right_response, seed + repeat + 1),
+                    )
+                    branch_results: dict[str, str | None] = {}
+                    for branch, branch_prompt, branch_key, response, branch_seed in branch_requests:
+                        if response is not None:
+                            cache_hits += 1
+                        elif not dry_run:
+                            if requests >= max_requests:
+                                raise RuntimeError(
+                                    "maximum request count reached before experiment completed"
+                                )
+                            response = provider.generate(
+                                branch_prompt,
+                                temperature=temperature,
+                                seed=branch_seed,
+                                max_tokens=max_tokens,
                             )
-                        left_response = provider.generate(
-                            left_prompt,
-                            temperature=temperature,
-                            seed=seed + repeat,
-                            max_tokens=max_tokens,
-                        )
-                        right_response = provider.generate(
-                            right_prompt,
-                            temperature=temperature,
-                            seed=seed + repeat + 1,
-                            max_tokens=max_tokens,
-                        )
-                        requests += 2
-                        if cache:
-                            cache.put(left_key, left_response)
-                            cache.put(right_key, right_response)
+                            requests += 1
+                            if cache:
+                                cache.put(branch_key, response)
+                        branch_results[branch] = response
+                    left_response = branch_results["left"]
+                    right_response = branch_results["right"]
                     if left_response is None or right_response is None:
                         contract = SCENARIOS[scenario_name]().contract
+                        left_value = None
+                        right_value = None
                     else:
-                        if not isinstance(left_response, str):
-                            left_value = provider.generate_decision(
-                                left_prompt,
-                                temperature=temperature,
-                                seed=seed + repeat,
-                                max_tokens=max_tokens,
-                            )
-                        else:
-                            left_value = str(left_response).strip().lower()
-                        if not isinstance(right_response, str):
-                            right_value = provider.generate_decision(
-                                right_prompt,
-                                temperature=temperature,
-                                seed=seed + repeat + 1,
-                                max_tokens=max_tokens,
-                            )
-                        else:
-                            right_value = str(right_response).strip().lower()
-                        if left_value not in {"good", "bad"}:
-                            left_value = _provider_branch_values(
-                                {"left": left_response, "right": right_response}
-                            )[0]
-                        if right_value not in {"good", "bad"}:
-                            right_value = _provider_branch_values(
-                                {"left": left_response, "right": right_response}
-                            )[1]
+                        left_value = _provider_decision_value(left_response, field="decision")
+                        right_value = _provider_decision_value(right_response, field="decision")
                         contract = _provider_contract_for_scenario(
                             scenario_name=scenario_name,
                             left_value=left_value,
                             right_value=right_value,
                             run_id=f"experiment1-{scenario_name}-{temperature}-{repeat}",
                         )
-                    raw.append({"left": left_response, "right": right_response})
+                    raw.append(
+                        {
+                            "left": left_response,
+                            "right": right_response,
+                            "branch_left": left_value,
+                            "branch_right": right_value,
+                        }
+                    )
                 else:
                     contract = SCENARIOS[scenario_name]().contract
 
@@ -546,6 +531,7 @@ def run_experiment1(
                 "true_positive_rate": naive_true_positive / max(1, interaction_runs),
             },
             "requests": requests,
+            "cache_hits": cache_hits,
         },
         "targets": {
             "agent_casuality_false_positive_under_1_percent": {
@@ -906,7 +892,11 @@ def _markdown(result: dict[str, Any]) -> str:
         "experiment1": (
             "Experiment 1 evaluates the same four counterfactual B/C cells with "
             "Agent-Casuality Shapley interaction and a direct 2x2 contrast. "
-            "Provider calls are optional; offline mode uses the deterministic scenario evaluators."
+            "Offline mode uses the deterministic scenario evaluators. The current Fastino "
+            "catalog exposes no structured-output capability, and GLiNER-2.5-Decide returns "
+            "a single intent classification rather than good/bad branch decisions; therefore "
+            "the external Experiment 1 path remains blocked until a compatible "
+            "model/API mode exists."
         ),
         "experiment3": (
             "Experiment 3 executes semantic-port substitution and raw text deletion through "
@@ -953,7 +943,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--provider", choices=["offline", "fastino"], default="offline")
     parser.add_argument("--model")
     parser.add_argument("--repetitions", type=int, default=3)
-    parser.add_argument("--max-requests", type=int, default=24)
+    parser.add_argument("--max-requests", type=int, default=48)
     parser.add_argument("--max-tokens", type=int, default=None)
     parser.add_argument("--dependencies", type=int, default=100)
     parser.add_argument("--seed", type=int, default=0)
