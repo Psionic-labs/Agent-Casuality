@@ -6,7 +6,14 @@ from pathlib import Path
 import pytest
 
 from benchmark.providers import FastinoProvider, ResponseCache
-from benchmark.runner import run_experiment2, run_failure_injections, run_scenario, write_result
+from benchmark.runner import (
+    run_baseline,
+    run_experiment2,
+    run_experiment3,
+    run_failure_injections,
+    run_scenario,
+    write_result,
+)
 from benchmark.scenarios import SCENARIOS
 from benchmark.schemas import load_ground_truth
 from benchmark.scoring import pair_metrics, score_prediction, set_metrics
@@ -39,6 +46,19 @@ def test_five_scenario_core_scores_and_resource_recovery() -> None:
 def test_failure_injection_mechanics() -> None:
     result = run_failure_injections()
     assert result["aggregate"] == {"passed": 3, "count": 3}
+
+
+def test_experiment3_executes_both_ablation_paths() -> None:
+    result = run_experiment3()
+    assert result["aggregate"]["case_count"] == 20
+    assert result["aggregate"]["semantic_port_successes"] == 20
+    assert result["aggregate"]["raw_deletion_failure_rate"] > 0.35
+
+
+def test_baseline_is_explicitly_not_evaluated_without_history() -> None:
+    result = run_baseline()
+    assert result["baseline"]["status"] == "not_evaluated"
+    assert all(row["status"] == "not_evaluated" for row in result["scenarios"])
 
 
 def test_result_serialization(tmp_path: Path) -> None:
