@@ -126,13 +126,14 @@ def record_event(
     run_id: str | None = None,
     auto_chain: bool = False,
     redactor: Any = None,
+    event_id: str | None = None,
 ) -> tuple[Event, bool]:
     """Allocate and append an event while preserving its causal metadata.
-    
+
     Args:
         redactor: Optional PayloadRedactor to redact sensitive keys before storage.
                   If provided, redactor.redact(payload) is applied.
-    
+
     Returns:
         Tuple of (event, was_stored) where was_stored indicates if persistence succeeded.
     """
@@ -158,15 +159,16 @@ def record_event(
         sequence = next_seq(clock, causal_parent_seqs)
     else:
         sequence = allocator(agent_id, clock, causal_parent_seqs)
-    
+
     # Apply redaction if redactor is provided
     safe_payload = payload
     if redactor is not None:
         safe_payload = redactor.redact(payload)
-    
+
     event, was_stored = _append(
         log,
         Event(
+            id=event_id or str(uuid4()),
             agent_id=agent_id,
             logical_seq=sequence,
             event_type=event_type,
@@ -257,4 +259,3 @@ class InMemoryEventLog:
     def __len__(self) -> int:
         with self._lock:
             return len(self._events)
-

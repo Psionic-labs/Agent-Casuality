@@ -39,7 +39,7 @@ class ResourceVersionTuple:
 
 class ResourceRegistry:
     """Thread-safe registry mapping resource URIs to their monotonic version and last writer event.
-    
+
     Entries are scoped by (run_id, resource_uri) to prevent cross-run causal edges.
     """
 
@@ -111,7 +111,7 @@ class ResourceRegistry:
                         if group_key not in event_groups:
                             event_groups[group_key] = []
                         event_groups[group_key].append(event)
-            
+
             # Process each group in deterministic total order
             for (run_id, uri), group_events in event_groups.items():
                 sorted_events = sorted(
@@ -164,13 +164,22 @@ class CapturedMemory:
         payload: dict[str, Any],
         causal_parent_ids: Iterable[str],
     ) -> tuple[Event, bool]:
+        parent_ids = list(causal_parent_ids)
+        getter = getattr(self.log, "get", None)
+        parent_seqs = []
+        if callable(getter):
+            for parent_id in parent_ids:
+                parent = getter(parent_id)
+                if isinstance(parent, Event):
+                    parent_seqs.append(parent.logical_seq)
         return record_event(
             agent_id=self.agent_id,
             clock=self.clock,
             log=self.log,
             event_type=event_type,
             payload=payload,
-            causal_parent_ids=causal_parent_ids,
+            causal_parent_ids=parent_ids,
+            causal_parent_seqs=parent_seqs,
             run_id=self.run_id,
         )
 
