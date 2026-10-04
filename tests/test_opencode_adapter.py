@@ -115,6 +115,7 @@ def _session_events(session_id: str) -> list[dict[str, object]]:
 
 
 def test_opencode_mapping_redacts_and_preserves_correlation() -> None:
+    """Verify tool call -> tool result causal correlation and bearer token redaction."""
     log = InMemoryEventLog()
     mapper = OpenCodeEventMapper(log)
     mapper.ingest(
@@ -148,6 +149,7 @@ def test_opencode_mapping_redacts_and_preserves_correlation() -> None:
 
 
 def test_opencode_fail_open_does_not_raise() -> None:
+    """Ensure storage layer exceptions are caught fail-open without raising."""
     class BrokenLog:
         def append(self, event: object) -> object:
             raise OSError("disk unavailable")
@@ -164,6 +166,7 @@ def test_opencode_fail_open_does_not_raise() -> None:
 
 
 def test_opencode_event_type_mappings() -> None:
+    """Verify all OpenCode event kinds translate to canonical Agent-Casuality event types."""
     log = InMemoryEventLog()
     mapper = OpenCodeEventMapper(log)
 
@@ -191,6 +194,7 @@ def test_opencode_event_type_mappings() -> None:
 
 
 def test_opencode_resource_causality_linkage() -> None:
+    """Verify file write registers version and subsequent read injects causal parent."""
     log = InMemoryEventLog()
     mapper = OpenCodeEventMapper(log)
 
@@ -221,6 +225,7 @@ def test_opencode_resource_causality_linkage() -> None:
 
 
 def test_opencode_redaction_secrets() -> None:
+    """Verify recursive redaction of sensitive API keys, passwords, and bearer tokens."""
     log = InMemoryEventLog()
     mapper = OpenCodeEventMapper(log)
     result = mapper.ingest(
@@ -252,6 +257,7 @@ def test_opencode_redaction_secrets() -> None:
 
 
 def test_opencode_supplied_wall_time_reaches_persisted_event() -> None:
+    """Ensure external OpenCode event timestamps are stored in the persisted event record."""
     log = InMemoryEventLog()
     mapper = OpenCodeEventMapper(log)
     capture = mapper.ingest(
@@ -270,6 +276,7 @@ def test_opencode_supplied_wall_time_reaches_persisted_event() -> None:
 
 
 def test_opencode_wall_time_survives_sqlite_round_trip(tmp_path: Path) -> None:
+    """Verify that external timestamps survive SQLite persistence, closing, and reloading."""
     store = SQLiteEventStore(tmp_path / "walltime.db")
     mapper = OpenCodeEventMapper(store)
     mapper.ingest(
@@ -294,6 +301,7 @@ def test_opencode_wall_time_survives_sqlite_round_trip(tmp_path: Path) -> None:
 
 
 def test_record_event_defaults_wall_time_to_now() -> None:
+    """Verify that record_event() defaults wall_time to current UTC time when not supplied."""
     log = InMemoryEventLog()
     event, stored = record_event(
         agent_id="agent-default",
@@ -308,6 +316,7 @@ def test_record_event_defaults_wall_time_to_now() -> None:
 
 
 def test_opencode_resource_registry_uses_event_wall_time(tmp_path: Path) -> None:
+    """Confirm ResourceRegistry records the event's external wall_time rather than local time."""
     store = SQLiteEventStore(tmp_path / "registry.db")
     mapper = OpenCodeEventMapper(store)
     mapper.ingest(
@@ -324,6 +333,7 @@ def test_opencode_resource_registry_uses_event_wall_time(tmp_path: Path) -> None
 
 
 def test_opencode_server_fail_open_drops_malformed_telemetry(tmp_path: Path) -> None:
+    """Ensure HTTP receiver handles malformed payloads fail-open with HTTP 202 without crashing."""
     server = OpenCodeIngestServer(tmp_path / "fail_open.db", port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -346,6 +356,7 @@ def test_opencode_server_fail_open_drops_malformed_telemetry(tmp_path: Path) -> 
 
 
 def test_simulated_opencode_session_reaches_sqlite_and_graph(tmp_path: Path) -> None:
+    """Feed deterministic simulated 12-event session through receiver into SQLite and causal DAG."""
     server = OpenCodeIngestServer(tmp_path / "opencode.db", port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

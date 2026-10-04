@@ -15,10 +15,12 @@ from sdk.events import AgentClock, Event, record_event
 from sdk.memory import ResourceRegistry
 from sdk.privacy import PayloadRedactor, make_fail_open_append
 
+# Regex patterns detecting sensitive keys and secret values
 _SECRET_KEY_RE = re.compile(r"(?:api[_-]?key|authorization|bearer|token|secret|password)", re.I)
 _SECRET_VALUE_RE = re.compile(r"(?:bearer\s+|sk[-_]|api[_-]?key\s*[=:])", re.I)
 
 
+# Recursively sanitize nested dictionaries and lists before persistence
 def _redact(value: Any, redactor: PayloadRedactor) -> Any:
     if isinstance(value, dict):
         safe: dict[str, Any] = {}
@@ -35,10 +37,12 @@ def _redact(value: Any, redactor: PayloadRedactor) -> Any:
     return value
 
 
+# Deterministic UUID5 generator based on session, kind, and source event ID
 def _event_id(session_id: str, source_id: str, kind: str) -> str:
     return str(uuid5(NAMESPACE_URL, f"opencode:{session_id}:{kind}:{source_id}"))
 
 
+# Convert OpenCode epoch millisecond timestamps or ISO strings to timezone-aware UTC datetime
 def _timestamp(value: Any) -> datetime:
     if isinstance(value, (int, float)):
         seconds = value / 1000 if value > 10_000_000_000 else value
@@ -162,6 +166,7 @@ class OpenCodeEventMapper:
             parent = payload.get("parent_event_id")
             parents = [str(parent)] if parent else None
             event_type = "context_update"
+            # 1. Session lifecycle mappings
             if kind in {"event:session.created", "session.created"}:
                 event_type = "run_start"
             elif kind in {"event:session.deleted", "session.deleted"}:
@@ -170,19 +175,23 @@ class OpenCodeEventMapper:
                 event_type = "agent_error"
             elif kind in {"event:session.status", "session.status", "event:session.idle"}:
                 event_type = "context_update"
+            # 2. Model call activity
             elif kind in {"event:message.updated", "message.updated"}:
                 event_type = "model_call"
+            # 3. File modifications (treated as tool_result writes)
             elif kind in {"event:file.edited", "file.edited"}:
                 event_type = "tool_result"
                 path = payload.get("file") or payload.get("path")
                 if path:
                     common["resource_uri"] = f"file://{path}"
+            # 4. Command execution
             elif kind in {
                 "event:command.executed",
                 "command.executed",
                 "hook:command.execute.before",
             }:
                 event_type = "tool_call"
+            # 5. Tool invocation before: inspect file path and inject last writer as causal parent
             elif kind in {"hook:tool.execute.before", "tool.execute.before"}:
                 event_type = "tool_call"
                 args = payload.get("args")
@@ -194,11 +203,13 @@ class OpenCodeEventMapper:
                         latest = self.registry.get_latest(resource_uri, run_id=self.run_id)
                         if latest is not None:
                             parents = [latest.last_writer_event_id]
+            # 6. Tool completion after: link back to the preceding tool call as causal parent
             elif kind in {"hook:tool.execute.after", "tool.execute.after"}:
                 event_type = "tool_result"
                 call_id = payload.get("callID") or payload.get("call_id")
                 if call_id and str(call_id) in state.calls:
                     parents = [state.calls[str(call_id)]]
+            # 7. User permission interactions
             elif kind in {
                 "hook:permission.ask",
                 "event:permission.asked",
@@ -211,6 +222,8 @@ class OpenCodeEventMapper:
                 event_type = "context_update"
             elif kind in {"event:session.updated", "session.updated"}:
                 event_type = "context_update"
+
+            # Persist event into the event store with Lamport clock and causal parents
             capture = self._record(
                 session_id=session_id,
                 event_type=event_type,
@@ -219,10 +232,13 @@ class OpenCodeEventMapper:
                 parents=parents,
                 wall_time=timestamp,
             )
+            # Remember tool call ID -> event ID to correlate subsequent tool result
             if kind in {"hook:tool.execute.before", "tool.execute.before"}:
                 call_id = payload.get("callID") or payload.get("call_id")
                 if call_id and capture.stored:
                     state.calls[str(call_id)] = capture.event.id
+            # On file write (file.edited), record write in ResourceRegistry
+            # to enable read-after-write causal linkage
             resource_uri = common.get("resource_uri")
             if capture.stored and isinstance(resource_uri, str) and event_type == "tool_result":
                 self.registry.register_write(
@@ -235,6 +251,7 @@ class OpenCodeEventMapper:
                 )
             return capture
         except Exception:
+            # Telemetry error swallowed: fail-open guarantee
             return None
 
     def resources(self) -> dict[tuple[str | None, str], Any]:

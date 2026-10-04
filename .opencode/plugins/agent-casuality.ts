@@ -4,6 +4,7 @@ declare const process: {
   env: Record<string, string | undefined>
 }
 
+// Telemetry envelope shipped to Agent-Casuality ingest endpoint
 type Envelope = {
   kind: string
   timestamp: number
@@ -11,16 +12,21 @@ type Envelope = {
   payload: Record<string, unknown>
 }
 
+// Configurable endpoint (defaults to local receiver on port 8765)
 const endpoint = process.env.CASUALITY_OPENCODE_INGEST_URL ?? "http://127.0.0.1:8765/v1/opencode/events"
 const authToken = process.env.CASUALITY_OPENCODE_INGEST_TOKEN
+
+// Bounded in-memory telemetry buffer (max 256 items) to prevent memory growth
 const queue: Envelope[] = []
 let draining = false
 
+// Helper to extract session ID across OpenCode payload variants
 function sessionID(payload: Record<string, unknown>): string | undefined {
   const value = payload.sessionID ?? payload.session_id
   return typeof value === "string" ? value : undefined
 }
 
+// Push event to queue and trigger asynchronous drain (drops oldest if full)
 function enqueue(kind: string, payload: unknown): void {
   if (!payload || typeof payload !== "object") return
   queue.push({
@@ -33,6 +39,7 @@ function enqueue(kind: string, payload: unknown): void {
   void drain()
 }
 
+// Asynchronously post buffered envelopes to receiver with up to 3 retries
 async function drain(): Promise<void> {
   if (draining) return
   draining = true
@@ -54,6 +61,7 @@ async function drain(): Promise<void> {
         } catch {
           sent = false
         }
+        // Short exponential backoff between retries (50ms, 100ms)
         if (!sent && attempt < 2) {
           await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)))
         }
@@ -61,16 +69,19 @@ async function drain(): Promise<void> {
       queue.shift()
     }
   } catch {
-    // Telemetry is fail-open: OpenCode execution must never depend on the receiver.
+    // Fail-open guarantee: telemetry errors must never interrupt OpenCode
   } finally {
     draining = false
   }
 }
 
+// OpenCode V1 Plugin implementation registering event and lifecycle hooks
 export const AgentCasualityPlugin: Plugin = async () => ({
+  // Global OpenCode event stream (session lifecycle, file edits, git/file watcher, errors)
   event: async ({ event }) => {
     enqueue(`event:${event.type}`, event.properties)
   },
+  // Tool invocation starts (records tool name, arguments, call ID for causality)
   "tool.execute.before": async (input, output) => {
     enqueue("hook:tool.execute.before", {
       sessionID: input.sessionID,
@@ -79,6 +90,7 @@ export const AgentCasualityPlugin: Plugin = async () => ({
       args: output.args,
     })
   },
+  // Tool invocation completes (records output, metadata, links back to call ID)
   "tool.execute.after": async (input, output) => {
     enqueue("hook:tool.execute.after", {
       sessionID: input.sessionID,
@@ -90,15 +102,18 @@ export const AgentCasualityPlugin: Plugin = async () => ({
       metadata: output.metadata,
     })
   },
+  // User approval / permission dialogs
   "permission.ask": async (input, output) => {
     enqueue("hook:permission.ask", {
       ...input,
       response: output.status,
     })
   },
+  // Shell command execution before running
   "command.execute.before": async (input) => {
     enqueue("hook:command.execute.before", input)
   },
+  // Message activity between agent and model
   "chat.message": async (input, output) => {
     enqueue("hook:chat.message", {
       sessionID: input.sessionID,
@@ -108,6 +123,7 @@ export const AgentCasualityPlugin: Plugin = async () => ({
       parts: output.parts,
     })
   },
+  // Active model, agent, and provider parameters
   "chat.params": async (input) => {
     enqueue("hook:chat.params", {
       sessionID: input.sessionID,
