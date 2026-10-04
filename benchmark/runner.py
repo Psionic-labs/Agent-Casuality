@@ -1135,6 +1135,7 @@ def build_parser() -> argparse.ArgumentParser:
             "experiment2",
             "experiment3",
             "baseline",
+            "opencode",
             "all",
         ],
     )
@@ -1148,6 +1149,34 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--results-dir", type=Path, default=Path("benchmark/results"))
     parser.add_argument("--cache", type=Path, default=Path("benchmark/results/model-cache.jsonl"))
+    parser.add_argument(
+        "--opencode-bin",
+        default=None,
+        help="OpenCode executable for the real-agent benchmark (default: auto-detect)",
+    )
+    parser.add_argument(
+        "--task",
+        action="append",
+        default=None,
+        help="OpenCode benchmark task to run (repeatable; default: all five)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("benchmark/results/opencode"),
+        help="Directory for opencode.json / opencode.md artifacts",
+    )
+    parser.add_argument(
+        "--ingest-url",
+        default=None,
+        help="Use an existing ingest receiver instead of starting one per run",
+    )
+    parser.add_argument(
+        "--runs", type=int, default=1, help="Runs per OpenCode benchmark task"
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=300, help="Timeout in seconds per OpenCode run"
+    )
     return parser
 
 
@@ -1155,6 +1184,21 @@ def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     provider = FastinoProvider(model=args.model) if args.provider == "fastino" else None
     cache = ResponseCache(args.cache)
+    if args.mode == "opencode":
+        from benchmark.opencode.runner import run_suite
+        from benchmark.opencode.tasks import resolve_opencode_binary
+
+        records = run_suite(
+            args.task,
+            opencode_bin=resolve_opencode_binary(args.opencode_bin),
+            output_dir=args.output_dir,
+            ingest_url=args.ingest_url,
+            runs_per_task=args.runs,
+            timeout=args.timeout,
+            model=args.model,
+        )
+        print(f"opencode: {len(records)} runs wrote {args.output_dir / 'opencode.json'}")
+        return
     tasks = {
         "offline": lambda: run_five_scenarios(args.seed),
         "failure-injection": run_failure_injections,

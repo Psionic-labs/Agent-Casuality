@@ -1,0 +1,103 @@
+{
+  "trace": "failed_test_retry",
+  "session_id": "rec-retry-1",
+  "envelopes": [
+    {
+      "kind": "event:session.created",
+      "timestamp": 1000,
+      "payload": { "info": { "id": "rec-retry-1", "title": "recorded retry" } }
+    },
+    {
+      "kind": "event:message.updated",
+      "timestamp": 1100,
+      "payload": {
+        "info": {
+          "id": "rec-msg-1",
+          "sessionID": "rec-retry-1",
+          "role": "assistant",
+          "modelID": "recorded-model",
+          "providerID": "recorded"
+        }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.before",
+      "timestamp": 1200,
+      "session_id": "rec-retry-1",
+      "payload": {
+        "sessionID": "rec-retry-1",
+        "callID": "rec-call-1",
+        "tool": "bash",
+        "args": { "command": "python test_app.py" }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.after",
+      "timestamp": 1300,
+      "session_id": "rec-retry-1",
+      "payload": {
+        "sessionID": "rec-retry-1",
+        "callID": "rec-call-1",
+        "tool": "bash",
+        "output": "Traceback (most recent call last):\n  File \"test_app.py\", line 3, in <module>\nAssertionError: 23",
+        "metadata": {}
+      }
+    },
+    {
+      "kind": "hook:tool.execute.before",
+      "timestamp": 1400,
+      "session_id": "rec-retry-1",
+      "payload": {
+        "sessionID": "rec-retry-1",
+        "callID": "rec-call-2",
+        "tool": "edit",
+        "args": { "filePath": "app.py", "oldText": "return str(a) + str(b)", "newText": "return a + b" }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.after",
+      "timestamp": 1500,
+      "session_id": "rec-retry-1",
+      "payload": {
+        "sessionID": "rec-retry-1",
+        "callID": "rec-call-2",
+        "tool": "edit",
+        "output": "edited app.py",
+        "metadata": {}
+      }
+    },
+    {
+      "kind": "event:file.edited",
+      "timestamp": 1600,
+      "payload": { "file": "app.py" }
+    },
+    {
+      "kind": "hook:tool.execute.before",
+      "timestamp": 1700,
+      "session_id": "rec-retry-1",
+      "payload": {
+        "sessionID": "rec-retry-1",
+        "callID": "rec-call-3",
+        "tool": "bash",
+        "args": { "command": "python test_app.py" }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.after",
+      "timestamp": 1800,
+      "session_id": "rec-retry-1",
+      "payload": {
+        "sessionID": "rec-retry-1",
+        "callID": "rec-call-3",
+        "tool": "bash",
+        "output": "app tests pass",
+        "metadata": {}
+      }
+    },
+    {
+      "kind": "event:session.deleted",
+      "timestamp": 1900,
+      "payload": { "info": { "id": "rec-retry-1" } }
+    }
+  ]
+}

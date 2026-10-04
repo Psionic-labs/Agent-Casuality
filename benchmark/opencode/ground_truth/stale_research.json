@@ -1,0 +1,150 @@
+{
+  "task": "stale_research",
+  "version": 1,
+  "description": "The agent reads an outdated research note recommending a buggy helper, implements accordingly, and the test fails.",
+  "intended_behavior": "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script.",
+  "injected_failure": "RESEARCH.md is stale: legacy_sort() sorts descending, so the test asserting ascending order fails.",
+  "expected_diagnosis": "The stale research note caused the wrong implementation; the fix is to use stable_sort() from lib.py.",
+  "expected_outcome": "failure",
+  "fixtures": {
+    "RESEARCH.md": "# Sorting guidance (v1, 2023)\n\nUse `legacy_sort()` from `legacy.py` for all ordering tasks. It is the team's standard helper.\n",
+    "legacy.py": "def legacy_sort(items):\n    return sorted(items, reverse=True)\n",
+    "lib.py": "def stable_sort(items):\n    return list(sorted(items))\n",
+    "task.py": "\"\"\"Implement sort_items per RESEARCH.md.\"\"\"\n\n\ndef sort_items(items):\n    raise NotImplementedError\n",
+    "test_task.py": "from task import sort_items\n\nassert sort_items([3, 1, 2]) == [1, 2, 3], sort_items([3, 1, 2])\nprint(\"task tests pass\")\n"
+  },
+  "prompt": "Working only inside {workdir}: 1) Read RESEARCH.md. 2) Implement sort_items in task.py following the research note. 3) Run `python test_task.py` from that directory. 4) Report what happened. Do not modify test_task.py or any file outside {workdir}.",
+  "expected_event_classes": {
+    "sessions": {
+      "min": 1,
+      "available": true
+    },
+    "model_calls": {
+      "min": 1,
+      "available": true
+    },
+    "tool_calls": {
+      "min": 3,
+      "available": true
+    },
+    "tool_results": {
+      "min": 3,
+      "available": true
+    },
+    "file_edits": {
+      "min": 1,
+      "available": true
+    },
+    "commands": {
+      "min": 1,
+      "available": true
+    },
+    "errors": {
+      "min": 0,
+      "available": true
+    },
+    "retries": {
+      "min": 0,
+      "available": true
+    },
+    "subagents": {
+      "min": 0,
+      "available": true
+    },
+    "completion": {
+      "min": 0,
+      "available": false
+    }
+  },
+  "unavailable_from_opencode": [
+    "completion: opencode run emits no terminal session event (no session.deleted/idle observed; trace ends on message/part updates)"
+  ],
+  "causal_roles": [
+    {
+      "role": "stale_read",
+      "description": "Agent reads the outdated RESEARCH.md note.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "RESEARCH.md",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "wrong_edit",
+      "description": "Agent edits task.py (following the stale note).",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before",
+          "event:file.edited"
+        ],
+        "path_suffix": "task.py",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "test_failure",
+      "description": "Test run fails (assertion on sort order).",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "AssertionError",
+        "pick": "first",
+        "tool": "bash"
+      }
+    },
+    {
+      "role": "distractor_read",
+      "description": "Reading lib.py (the correct, unused alternative).",
+      "required": false,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "lib.py",
+        "pick": "first"
+      }
+    }
+  ],
+  "failure_selector": {
+    "any": [
+      {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "AssertionError",
+        "pick": "last",
+        "tool": "bash"
+      },
+      {
+        "opencode_kind": [
+          "event:session.error"
+        ],
+        "pick": "last"
+      }
+    ]
+  },
+  "expected_structural_roles": [
+    "stale_read",
+    "wrong_edit",
+    "test_failure"
+  ],
+  "expected_resources": [
+    "RESEARCH.md",
+    "task.py"
+  ],
+  "expected_edges": [],
+  "expected_interactions": [],
+  "excluded_roles": [
+    "distractor_read"
+  ],
+  "explanation_must_mention": [
+    "RESEARCH.md",
+    "legacy_sort"
+  ]
+}

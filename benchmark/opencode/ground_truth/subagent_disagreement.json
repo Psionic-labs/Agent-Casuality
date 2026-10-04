@@ -1,0 +1,157 @@
+{
+  "task": "subagent_disagreement",
+  "version": 1,
+  "description": "Two reviewers disagree on the parsing approach; the agent evaluates both (via subagents when available) and the decision is downstream of both evaluations.",
+  "intended_behavior": "Evaluate Approach A and Approach B (spawn one subagent per approach when a task/subagent tool exists, else evaluate inline), implement parse_entry with the better approach, run tests.",
+  "injected_failure": "Approach A (comma-only split) fails the ';' cases while Approach B (two-stage split) passes; the evaluations disagree and the choice determines the outcome.",
+  "expected_diagnosis": "The two conflicting evaluations jointly feed the implementation decision; the correct choice is Approach B.",
+  "expected_outcome": "completed",
+  "fixtures": {
+    "APPROACH_A.md": "# Approach A (comma split)\n\nParse entries with `entry.split(\",\")`. Reviewer A claims this handles every case.\n",
+    "APPROACH_B.md": "# Approach B (two-stage split)\n\nFirst split on ';', then split each piece on ','. Reviewer B claims the edge case 'a,b;c' needs two-stage splitting.\n",
+    "parser.py": "\"\"\"Implement parse_entry.\"\"\"\n\n\ndef parse_entry(entry):\n    raise NotImplementedError\n",
+    "test_parser.py": "from parser import parse_entry\n\nassert parse_entry(\"a,b\") == [\"a\", \"b\"]\nassert parse_entry(\"a;b\") == [\"a\", \"b\"]\nassert parse_entry(\"a,b;c\") == [\"a\", \"b\", \"c\"], parse_entry(\"a,b;c\")\nprint(\"parser tests pass\")\n"
+  },
+  "prompt": "Working only inside {workdir}: 1) If you have a subagent/task tool, spawn one subagent to evaluate Approach A (APPROACH_A.md against test_parser.py cases) and another to evaluate Approach B (APPROACH_B.md); otherwise evaluate both approaches yourself. 2) Implement parse_entry in parser.py using the better approach. 3) Run `python test_parser.py` from that directory. 4) Report which approach you chose and the test result. Do not modify test_parser.py or any file outside {workdir}.",
+  "expected_event_classes": {
+    "sessions": {
+      "min": 1,
+      "available": true
+    },
+    "model_calls": {
+      "min": 1,
+      "available": true
+    },
+    "tool_calls": {
+      "min": 4,
+      "available": true
+    },
+    "tool_results": {
+      "min": 4,
+      "available": true
+    },
+    "file_edits": {
+      "min": 1,
+      "available": true
+    },
+    "commands": {
+      "min": 1,
+      "available": true
+    },
+    "errors": {
+      "min": 0,
+      "available": true
+    },
+    "retries": {
+      "min": 0,
+      "available": true
+    },
+    "subagents": {
+      "min": 0,
+      "available": true,
+      "wanted": true
+    },
+    "completion": {
+      "min": 0,
+      "available": false
+    }
+  },
+  "unavailable_from_opencode": [
+    "completion: opencode run emits no terminal session event (no session.deleted/idle observed; trace ends on message/part updates)"
+  ],
+  "causal_roles": [
+    {
+      "role": "research_a",
+      "description": "Evaluation of Approach A (read APPROACH_A.md).",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "APPROACH_A.md",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "research_b",
+      "description": "Evaluation of Approach B (read APPROACH_B.md).",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "APPROACH_B.md",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "implement_edit",
+      "description": "Agent implements parse_entry in parser.py.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before",
+          "event:file.edited"
+        ],
+        "path_suffix": "parser.py",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "test_run",
+      "description": "Final test_parser.py execution.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "parser tests pass",
+        "pick": "last",
+        "tool": "bash"
+      }
+    }
+  ],
+  "failure_selector": {
+    "any": [
+      {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "parser tests pass",
+        "pick": "last",
+        "tool": "bash"
+      },
+      {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "AssertionError",
+        "pick": "last",
+        "tool": "bash"
+      }
+    ]
+  },
+  "expected_structural_roles": [
+    "research_a",
+    "research_b",
+    "implement_edit",
+    "test_run"
+  ],
+  "expected_resources": [
+    "APPROACH_A.md",
+    "APPROACH_B.md",
+    "parser.py"
+  ],
+  "expected_edges": [],
+  "expected_interactions": [
+    [
+      "research_a",
+      "research_b"
+    ]
+  ],
+  "excluded_roles": [],
+  "explanation_must_mention": [
+    "APPROACH_A.md",
+    "APPROACH_B.md"
+  ]
+}

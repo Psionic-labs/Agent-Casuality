@@ -1,0 +1,103 @@
+{
+  "trace": "stale_research",
+  "session_id": "rec-stale-1",
+  "envelopes": [
+    {
+      "kind": "event:session.created",
+      "timestamp": 1000,
+      "payload": { "info": { "id": "rec-stale-1", "title": "recorded stale" } }
+    },
+    {
+      "kind": "event:message.updated",
+      "timestamp": 1100,
+      "payload": {
+        "info": {
+          "id": "rec-msg-1",
+          "sessionID": "rec-stale-1",
+          "role": "assistant",
+          "modelID": "recorded-model",
+          "providerID": "recorded"
+        }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.before",
+      "timestamp": 1200,
+      "session_id": "rec-stale-1",
+      "payload": {
+        "sessionID": "rec-stale-1",
+        "callID": "rec-call-1",
+        "tool": "read",
+        "args": { "filePath": "RESEARCH.md" }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.after",
+      "timestamp": 1300,
+      "session_id": "rec-stale-1",
+      "payload": {
+        "sessionID": "rec-stale-1",
+        "callID": "rec-call-1",
+        "tool": "read",
+        "output": "Use legacy_sort() from legacy.py for all ordering tasks.",
+        "metadata": {}
+      }
+    },
+    {
+      "kind": "hook:tool.execute.before",
+      "timestamp": 1400,
+      "session_id": "rec-stale-1",
+      "payload": {
+        "sessionID": "rec-stale-1",
+        "callID": "rec-call-2",
+        "tool": "edit",
+        "args": { "filePath": "task.py", "newText": "from legacy import legacy_sort" }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.after",
+      "timestamp": 1500,
+      "session_id": "rec-stale-1",
+      "payload": {
+        "sessionID": "rec-stale-1",
+        "callID": "rec-call-2",
+        "tool": "edit",
+        "output": "edited task.py",
+        "metadata": {}
+      }
+    },
+    {
+      "kind": "event:file.edited",
+      "timestamp": 1600,
+      "payload": { "file": "task.py" }
+    },
+    {
+      "kind": "hook:tool.execute.before",
+      "timestamp": 1700,
+      "session_id": "rec-stale-1",
+      "payload": {
+        "sessionID": "rec-stale-1",
+        "callID": "rec-call-3",
+        "tool": "bash",
+        "args": { "command": "python test_task.py" }
+      }
+    },
+    {
+      "kind": "hook:tool.execute.after",
+      "timestamp": 1800,
+      "session_id": "rec-stale-1",
+      "payload": {
+        "sessionID": "rec-stale-1",
+        "callID": "rec-call-3",
+        "tool": "bash",
+        "output": "Traceback (most recent call last):\nAssertionError: [3, 2, 1]",
+        "metadata": {}
+      }
+    },
+    {
+      "kind": "event:session.deleted",
+      "timestamp": 1900,
+      "payload": { "info": { "id": "rec-stale-1" } }
+    }
+  ]
+}

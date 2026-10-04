@@ -1,0 +1,137 @@
+{
+  "task": "shared_state_contamination",
+  "version": 1,
+  "description": "The agent first writes an experimental override into shared.json, then reads it back and validates it: the earlier write contaminates the later check, which fails.",
+  "intended_behavior": "Set threshold to 999 in shared.json, read shared.json to confirm, run checker.py to validate the production config.",
+  "injected_failure": "The experimental write (999) violates the production limit (< 100), so checker.py fails on state the same run produced.",
+  "expected_diagnosis": "The experimental write to shared.json contaminated the state consumed by the validation step; the checker failure is caused by the earlier write.",
+  "expected_outcome": "failure",
+  "fixtures": {
+    "shared.json": "{\"threshold\": 50}\n",
+    "checker.py": "import json\n\ncfg = json.load(open(\"shared.json\"))\nassert cfg[\"threshold\"] < 100, f\"threshold {cfg['threshold']} exceeds production limit 100\"\nprint(\"config OK\")\n"
+  },
+  "prompt": "Working only inside {workdir}: 1) As requested by the perf team, update shared.json setting threshold to 999 (experimental override). 2) Read shared.json to confirm the current value. 3) Run `python checker.py` from that directory to validate the production config. 4) Report the result. Do not modify checker.py or any file outside {workdir}.",
+  "expected_event_classes": {
+    "sessions": {
+      "min": 1,
+      "available": true
+    },
+    "model_calls": {
+      "min": 1,
+      "available": true
+    },
+    "tool_calls": {
+      "min": 3,
+      "available": true
+    },
+    "tool_results": {
+      "min": 3,
+      "available": true
+    },
+    "file_edits": {
+      "min": 1,
+      "available": true
+    },
+    "commands": {
+      "min": 1,
+      "available": true
+    },
+    "errors": {
+      "min": 0,
+      "available": true
+    },
+    "retries": {
+      "min": 0,
+      "available": true
+    },
+    "subagents": {
+      "min": 0,
+      "available": true
+    },
+    "completion": {
+      "min": 0,
+      "available": false
+    }
+  },
+  "unavailable_from_opencode": [
+    "completion: opencode run emits no terminal session event (no session.deleted/idle observed; trace ends on message/part updates)"
+  ],
+  "causal_roles": [
+    {
+      "role": "contaminating_write",
+      "description": "The registered file-write event for shared.json (what the resource registry links readers to).",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "event:file.edited"
+        ],
+        "path_suffix": "shared.json",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "consumer_read",
+      "description": "Agent reads shared.json after the contaminating write.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "shared.json",
+        "pick": "last",
+        "after_role": "contaminating_write"
+      }
+    },
+    {
+      "role": "validation_failure",
+      "description": "checker.py fails on the contaminated threshold.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "exceeds production limit",
+        "pick": "last",
+        "tool": "bash"
+      }
+    }
+  ],
+  "failure_selector": {
+    "any": [
+      {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "exceeds production limit",
+        "pick": "last",
+        "tool": "bash"
+      },
+      {
+        "opencode_kind": [
+          "event:session.error"
+        ],
+        "pick": "last"
+      }
+    ]
+  },
+  "expected_structural_roles": [
+    "contaminating_write",
+    "consumer_read",
+    "validation_failure"
+  ],
+  "expected_resources": [
+    "shared.json"
+  ],
+  "expected_edges": [
+    [
+      "contaminating_write",
+      "consumer_read"
+    ]
+  ],
+  "expected_interactions": [],
+  "excluded_roles": [],
+  "explanation_must_mention": [
+    "shared.json",
+    "threshold"
+  ]
+}

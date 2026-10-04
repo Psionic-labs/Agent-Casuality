@@ -171,6 +171,7 @@ benchmark/benchmark/
 benchmark/results/model-cache.jsonl
 benchmark/results/validation/
 benchmark/results/fastino-validation-*/
+benchmark/results/opencode/runs/
 
 # Spyder project settings
 .spyderproject

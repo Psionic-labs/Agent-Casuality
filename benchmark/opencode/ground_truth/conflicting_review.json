@@ -1,0 +1,163 @@
+{
+  "task": "conflicting_review",
+  "version": 1,
+  "description": "Two review notes recommend incompatible conventions; the agent applies them to handler.py and the outcome follows the merged conflict.",
+  "intended_behavior": "Read both REVIEW_A.md and REVIEW_B.md, apply the recommendations to handler.py, run check.py.",
+  "injected_failure": "The reviews conflict (tabs+processData vs spaces+process_data); both feed the final edit, so the outcome is causally downstream of a true branch interaction.",
+  "expected_diagnosis": "Conflicting review feedback jointly caused the outcome; both REVIEW_A.md and REVIEW_B.md are ancestors of the applied edit.",
+  "expected_outcome": "completed",
+  "fixtures": {
+    "REVIEW_A.md": "# Review A\n\nConvention A: indent with tabs; the handler function must be named `processData`.\n",
+    "REVIEW_B.md": "# Review B\n\nConvention B: indent with 4 spaces; the handler function must be named `process_data`.\n",
+    "handler.py": "def handle(event):\n    return None\n",
+    "check.py": "import pathlib\nsrc = pathlib.Path('handler.py').read_text()\nprint('HAS_TABS' if '\\t' in src else 'NO_TABS')\nprint('HAS_SPACES_INDENT' if '\\n    ' in src else 'NO_SPACES_INDENT')\nprint('HAS_processData' if 'processData' in src else 'NO_processData')\nprint('HAS_process_data' if 'process_data' in src else 'NO_process_data')\nprint('check done')\n",
+    "notes.txt": "Unrelated reminder: water the plants.\n"
+  },
+  "prompt": "Working only inside {workdir}: 1) Read REVIEW_A.md and REVIEW_B.md. 2) Apply the recommendations to handler.py. 3) Run `python check.py` from that directory. 4) Report which conventions the file now follows. Do not modify check.py or any file outside {workdir}.",
+  "expected_event_classes": {
+    "sessions": {
+      "min": 1,
+      "available": true
+    },
+    "model_calls": {
+      "min": 1,
+      "available": true
+    },
+    "tool_calls": {
+      "min": 4,
+      "available": true
+    },
+    "tool_results": {
+      "min": 4,
+      "available": true
+    },
+    "file_edits": {
+      "min": 1,
+      "available": true
+    },
+    "commands": {
+      "min": 1,
+      "available": true
+    },
+    "errors": {
+      "min": 0,
+      "available": true
+    },
+    "retries": {
+      "min": 0,
+      "available": true
+    },
+    "subagents": {
+      "min": 0,
+      "available": true
+    },
+    "completion": {
+      "min": 0,
+      "available": false
+    }
+  },
+  "unavailable_from_opencode": [
+    "completion: opencode run emits no terminal session event (no session.deleted/idle observed; trace ends on message/part updates)"
+  ],
+  "causal_roles": [
+    {
+      "role": "review_a_read",
+      "description": "Agent reads REVIEW_A.md (tabs + processData).",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "REVIEW_A.md",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "review_b_read",
+      "description": "Agent reads REVIEW_B.md (spaces + process_data).",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "REVIEW_B.md",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "apply_edit",
+      "description": "Agent edits handler.py applying review feedback.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before",
+          "event:file.edited"
+        ],
+        "path_suffix": "handler.py",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "check_run",
+      "description": "Final check.py execution reporting the outcome.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "check done",
+        "pick": "last",
+        "tool": "bash"
+      }
+    },
+    {
+      "role": "distractor_read",
+      "description": "Reading the unrelated notes.txt.",
+      "required": false,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before"
+        ],
+        "path_suffix": "notes.txt",
+        "pick": "first"
+      }
+    }
+  ],
+  "failure_selector": {
+    "any": [
+      {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "check done",
+        "pick": "last",
+        "tool": "bash"
+      }
+    ]
+  },
+  "expected_structural_roles": [
+    "review_a_read",
+    "review_b_read",
+    "apply_edit",
+    "check_run"
+  ],
+  "expected_resources": [
+    "REVIEW_A.md",
+    "REVIEW_B.md",
+    "handler.py"
+  ],
+  "expected_edges": [],
+  "expected_interactions": [
+    [
+      "review_a_read",
+      "review_b_read"
+    ]
+  ],
+  "excluded_roles": [
+    "distractor_read"
+  ],
+  "explanation_must_mention": [
+    "REVIEW_A.md",
+    "REVIEW_B.md"
+  ]
+}
