@@ -57,18 +57,78 @@ def _timestamp(value: Any) -> datetime:
 
 
 def _source_id(payload: dict[str, Any], fallback: str) -> str:
+    base: str | None = None
     for key in ("event_id", "id", "callID", "messageID", "permissionID", "partID"):
         value = payload.get(key)
         if value:
-            return str(value)
+            base = str(value)
+            break
+    # Real OpenCode event shapes nest IDs (info.id, part.id, message.id).
+    if base is None:
+        info = payload.get("info")
+        if isinstance(info, dict):
+            for key in ("id", "messageID", "sessionID"):
+                value = info.get(key)
+                if value:
+                    base = str(value)
+                    break
+    if base is None:
+        part = payload.get("part")
+        if isinstance(part, dict):
+            for key in ("id", "partID", "messageID", "sessionID"):
+                value = part.get(key)
+                if value:
+                    base = str(value)
+                    break
+    if base is None:
+        message = payload.get("message")
+        if isinstance(message, dict):
+            for key in ("id", "messageID"):
+                value = message.get(key)
+                if value:
+                    base = str(value)
+                    break
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode()
-    ).hexdigest()[:24]
-    return digest or fallback
+    ).hexdigest()
+    if base is None:
+        return digest[:24] or fallback
+    # messageID is shared by every event in a message (commands, parts), so a
+    # bare messageID would collapse distinct executions via the idempotency key.
+    # Suffixing with a short payload hash preserves the original ID for
+    # correlation while keeping distinct payloads (exitCode, timestamps)
+    # distinct and identical HTTP retries deduplicated.
+    return f"{base}:{digest[:8]}"
 
 
-def _session_id(payload: dict[str, Any]) -> str:
-    return str(payload.get("session_id") or payload.get("sessionID") or "unknown")
+def _session_id(payload: dict[str, Any], kind: str = "") -> str:
+    direct = payload.get("session_id") or payload.get("sessionID")
+    if direct:
+        return str(direct)
+    # Real OpenCode global events nest the session (info.sessionID, part.sessionID).
+    info = payload.get("info")
+    if isinstance(info, dict):
+        nested = info.get("sessionID") or info.get("session_id")
+        if nested:
+            return str(nested)
+        # Session lifecycle events carry only info.id as the session identity.
+        if kind in {
+            "event:session.created",
+            "session.created",
+            "event:session.updated",
+            "session.updated",
+            "event:session.deleted",
+            "session.deleted",
+        }:
+            info_id = info.get("id")
+            if info_id:
+                return str(info_id)
+    part = payload.get("part")
+    if isinstance(part, dict):
+        nested = part.get("sessionID") or part.get("session_id")
+        if nested:
+            return str(nested)
+    return "unknown"
 
 
 @dataclass
@@ -146,7 +206,7 @@ class OpenCodeEventMapper:
             payload = envelope.get("payload")
             if not isinstance(payload, dict):
                 payload = {"value": payload}
-            session_id = _session_id(envelope | payload)
+            session_id = _session_id(envelope | payload, kind)
             source_id = _source_id(envelope | payload, kind)
             timestamp = _timestamp(envelope.get("timestamp") or payload.get("timestamp"))
             state = self._state(session_id)
@@ -213,8 +273,10 @@ class OpenCodeEventMapper:
             elif kind in {
                 "hook:permission.ask",
                 "event:permission.asked",
+                "event:permission.updated",
                 "event:permission.replied",
                 "permission.asked",
+                "permission.updated",
                 "permission.replied",
             }:
                 event_type = "tool_call"

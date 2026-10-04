@@ -21,9 +21,31 @@ const queue: Envelope[] = []
 let draining = false
 
 // Helper to extract session ID across OpenCode payload variants
-function sessionID(payload: Record<string, unknown>): string | undefined {
-  const value = payload.sessionID ?? payload.session_id
-  return typeof value === "string" ? value : undefined
+// Covers top-level fields plus nested info/session (session.created,
+// message.updated) and part (message.part.updated) shapes.
+function sessionID(kind: string, payload: Record<string, unknown>): string | undefined {
+  const direct = payload.sessionID ?? payload.session_id
+  if (typeof direct === "string") return direct
+  const info = payload.info as Record<string, unknown> | undefined
+  if (info && typeof info === "object") {
+    const nested = info.sessionID ?? info.session_id
+    if (typeof nested === "string") return nested
+    // Session lifecycle events carry only info.id as the session identity.
+    if (
+      (kind === "event:session.created" ||
+        kind === "event:session.updated" ||
+        kind === "event:session.deleted") &&
+      typeof info.id === "string"
+    ) {
+      return info.id
+    }
+  }
+  const part = payload.part as Record<string, unknown> | undefined
+  if (part && typeof part === "object") {
+    const nested = part.sessionID ?? part.session_id
+    if (typeof nested === "string") return nested
+  }
+  return undefined
 }
 
 // Push event to queue and trigger asynchronous drain (drops oldest if full)
@@ -32,7 +54,7 @@ function enqueue(kind: string, payload: unknown): void {
   queue.push({
     kind,
     timestamp: Date.now(),
-    session_id: sessionID(payload as Record<string, unknown>),
+    session_id: sessionID(kind, payload as Record<string, unknown>),
     payload: payload as Record<string, unknown>,
   })
   if (queue.length > 256) queue.shift()
