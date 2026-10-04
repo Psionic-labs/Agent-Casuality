@@ -208,6 +208,47 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
 `scripts/check.ps1` loads `.env` before testing. If `DATABASE_URL` is present,
 database-aware tests may run against that configured database.
 
+## OpenCode runtime adapter testing
+
+### 1. Automated adapter tests
+
+Run the unit, privacy redaction, fail-open, timestamp round-trip, and simulated end-to-end session tests:
+
+```powershell
+uv run pytest tests/test_opencode_adapter.py -v
+```
+
+### 2. Live OpenCode runtime smoke test
+
+OpenCode `1.18.32` loads the project plugin from
+`.opencode/plugins/agent-casuality.ts`. Start the Agent-Casuality receiver in
+one terminal:
+
+```powershell
+uv run casuality-opencode-ingest --db .casuality/opencode.db
+```
+
+In a second terminal, from this repository, run a real OpenCode session:
+
+```powershell
+$env:CASUALITY_OPENCODE_INGEST_URL = "http://127.0.0.1:8765/v1/opencode/events"
+opencode run "Inspect the repository, make a small testable change, and run pytest"
+```
+
+The plugin uses OpenCode's V1 `event` hook and tool/permission/message hooks;
+it does not scrape terminal output. Verify captured events and causal DAG in
+`.casuality/opencode.db`:
+
+```powershell
+# Inspect captured events, kinds, and resource URIs
+uv run python -c "from storage.sqlite import SQLiteEventStore; store = SQLiteEventStore('.casuality/opencode.db'); print([(e.event_type, e.payload.get('opencode_kind'), e.payload.get('resource_uri')) for e in store.events()])"
+
+# Verify causal graph ancestor traversal
+uv run python -c "from storage.sqlite import SQLiteEventStore; store = SQLiteEventStore('.casuality/opencode.db'); latest = store.events()[-1]; print('Causal ancestors count:', len(store.ancestors(latest.id)))"
+```
+
+Telemetry delivery is fail-open and the smoke test is not part of CI.
+
 ## Current boundaries
 
 - Merge replay evaluates a registered decision function in recorded-output mode;

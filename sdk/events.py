@@ -127,12 +127,19 @@ def record_event(
     auto_chain: bool = False,
     redactor: Any = None,
     event_id: str | None = None,
+    wall_time: datetime | None = None,
 ) -> tuple[Event, bool]:
     """Allocate and append an event while preserving its causal metadata.
 
     Args:
         redactor: Optional PayloadRedactor to redact sensitive keys before storage.
                   If provided, redactor.redact(payload) is applied.
+        wall_time: Optional event timestamp supplied by the caller. When given it is
+                  attached to the Event *before* persistence, so the stored record and
+                  the returned Event agree. Adapters that receive timestamps from an
+                  external runtime (e.g. OpenCode) should pass them here rather than
+                  reconstructing the Event afterwards, which would leave the persisted
+                  copy with the default wall time. Defaults to now(UTC).
 
     Returns:
         Tuple of (event, was_stored) where was_stored indicates if persistence succeeded.
@@ -176,6 +183,7 @@ def record_event(
             causal_parent_ids=parent_ids,
             idempotency_key=idempotency_key,
             run_id=run_id,
+            wall_time=wall_time if wall_time is not None else datetime.now(UTC),
         ),
     )
     # Only update clock if the event was actually stored

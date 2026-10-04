@@ -15,12 +15,13 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["benchmark*", "casuality*", "cli*", "core*", "sdk*", "storage*", "examples*"]
+include = ["benchmark*", "casuality*", "cli*", "core*", "sdk*", "storage*", "examples*", "opencode_adapter*"]
 
 [project.scripts]
 casuality = "cli.main:main"
 agent-casuality = "cli.main:main"
 casuality-benchmark = "benchmark.runner:main"
+casuality-opencode-ingest = "opencode_adapter.server:main"
 
 [dependency-groups]
 dev = [

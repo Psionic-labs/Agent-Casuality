@@ -977,4 +977,53 @@ uv run casuality explain <failure-event-uuid>
 - [ ] **Interaction Isolation**: In joint failure modes, the interaction index $I_{ij} \gg 0$ identifies a combination effect rather than attributing the recorded outcome to one input alone.
 - [ ] **Explanation Grounding**: The generated diagnosis names semantic inputs, uses readable event IDs when available, avoids unrecorded claims, and explains the joint interaction.
 
+---
+
+## 28. Verify OpenCode Runtime Adapter
+
+Purpose: confirms that the OpenCode plugin adapter captures coding-agent sessions, translates them into the canonical event model without terminal scraping, feeds file reads/writes into the Resource-Version machinery, redacts sensitive tokens, and recovers causal graph ancestors.
+
+### Automated Test Suite Execution
+
+```powershell
+uv run pytest tests/test_opencode_adapter.py -v
+```
+
+Expected result: all 11 adapter tests pass, verifying:
+- **Event Mappings**: Translates `session.created` → `run_start`, `session.deleted` → `run_finish`, `session.error` → `agent_error`, `session.status`/`diff` → `context_update`, `message.updated` → `model_call`, `file.edited` → `tool_result`, `command.executed` → `tool_call`, `tool.execute.before/after` → `tool_call`/`tool_result`, `permission.ask` → `tool_call`.
+- **Fail-Open Resilience**: Disk/storage exceptions in the event log or malformed HTTP payloads to `/v1/opencode/events` return HTTP 202 without crashing or interrupting OpenCode.
+- **Resource Causality**: File writes registered via `file.edited` establish versioning in `ResourceRegistry`; subsequent tool calls reading the file auto-inject the writer event ID as causal parent.
+- **Privacy Redaction**: Recursively strips `authorization`, `Bearer`, `sk-*`, `api_key`, `token`, and `password` values from headers, payloads, and nested arrays before persistence.
+- **Timestamp Fidelity**: External OpenCode timestamps persist directly through SQLite rather than being overwritten with ingestion wall times.
+- **Deterministic End-to-End Session**: 12-event simulated lifecycle executes through a live HTTP server, persists to SQLite, and produces an unbroken causal ancestor tree from `run_finish` back to `run_start`.
+
+### Real Runtime Smoke Test Procedure
+
+1. Launch receiver daemon in one terminal:
+```powershell
+uv run casuality-opencode-ingest --db .casuality/opencode.db
+```
+
+2. Run real OpenCode session in a second terminal:
+```powershell
+$env:CASUALITY_OPENCODE_INGEST_URL = "http://127.0.0.1:8765/v1/opencode/events"
+opencode run "Inspect the repository, make a small testable change, and run pytest"
+```
+
+3. Validate persisted events and DAG connectivity:
+```powershell
+uv run python -c "
+from storage.sqlite import SQLiteEventStore
+store = SQLiteEventStore('.casuality/opencode.db')
+events = store.events()
+print(f'Total captured events: {len(events)}')
+tools = [e for e in events if e.event_type in ('tool_call', 'tool_result')]
+print(f'Captured tool events: {len(tools)}')
+latest = events[-1]
+ancestors = store.ancestors(latest.id)
+print(f'Causal ancestors leading to latest event ({latest.id}): {len(ancestors)}')
+"
+```
+
+
 

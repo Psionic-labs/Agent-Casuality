@@ -224,3 +224,32 @@ disabled. `fastino/GLiNER-2.5-Decide` is the only decision-oriented model, but
 its live response is a single `intent` classification and not an independent
 `good`/`bad` branch decision. The provider rejects that response; the external
 Experiment 1 is therefore blocked, while the offline benchmark remains valid.
+
+### OpenCode runtime capture
+
+The repository includes a current OpenCode V1 plugin at
+[.opencode/plugins/agent-casuality.ts](.opencode/plugins/agent-casuality.ts).
+It uses OpenCode's global `event` hook plus
+`tool.execute.before/after`, `permission.ask`, `command.execute.before`,
+`chat.message`, and `chat.params` hooks. The plugin buffers up to 256
+envelopes, retries delivery three times, and drops telemetry rather than
+interrupting OpenCode.
+
+Start the local receiver in one terminal:
+
+```powershell
+uv run casuality-opencode-ingest --db .casuality/opencode.db
+```
+
+Run OpenCode in the repository in another terminal. The plugin posts to
+`http://127.0.0.1:8765/v1/opencode/events` by default. Override it with
+`CASUALITY_OPENCODE_INGEST_URL`; an optional
+`CASUALITY_OPENCODE_INGEST_TOKEN` adds a bearer header. The receiver maps
+events through `record_event`, persists them with `SQLiteEventStore`, updates
+`ResourceRegistry` for `file.edited`, and applies the existing privacy
+redaction before storage.
+
+The captured event payload preserves session/message/tool/call IDs, model and
+agent metadata, file resources, command and permission data, correlation
+parents, and session errors/statuses. The deterministic adapter test is in
+[tests/test_opencode_adapter.py](tests/test_opencode_adapter.py).
