@@ -2,15 +2,15 @@
 
 ## Methodology
 
-Each task runs a real OpenCode coding-agent session with the Agent-Casuality plugin enabled. The trace is captured through the validated /v1/opencode/events receiver into SQLite, then scored for capture completeness (expected vs captured event classes) and diagnosis quality (cause, slice, minimal slice, provenance, interaction, distractors, explanation grounding). Capture failures and diagnosis failures are reported separately.
+Each task runs a real OpenCode coding-agent session with the Agent-Casuality plugin enabled. The trace is captured through the validated /v1/opencode/events receiver into SQLite, then scored for minimum expected event-class coverage (captured / expected minimum per class; NOT general precision/recall) and diagnosis quality (cause, structural slice, required-cause preservation proxy, provenance, joint-branch ancestry, distractors, summary-citation grounding). Minimal-slice results are a required-cause preservation proxy and are NOT causal minimality (not measurable: no DecisionContract or observable failure predicate on live traces). Interaction results are joint-branch ancestry detection and are NOT causal interaction (unsupported: no counterfactual intervention). Capture failures, diagnosis failures, and agent deviations are reported separately; capture shows micro- and macro-averages across task types.
 
 OpenCode version: `1.18.34`
 
 Platform: `Windows-11-10.0.26200-SP0`
 
-Timestamp: `2026-10-04T22:39:16.541095+00:00`
+Timestamp: `2026-10-06T22:08:18.602159+00:00`
 
-Repository head: `9b2450d5eec0f431b1943ca9d5c18f9717533d45`
+Repository head: `b9234ae95344eed56ea1d1e856a54f46dc629eeb`
 
 ## Task descriptions
 
@@ -66,25 +66,37 @@ Expected diagnosis: The experimental write to shared.json contaminated the state
 
 ## Capture completeness
 
-Overall recall: `0.928`
+Metric: minimum expected event-class coverage (captured / expected minimum; NOT general precision/recall; `available=false` classes excluded from the denominator).
 
-| Task | Runs | Statuses | Mean capture recall |
-| --- | --- | --- | --- |
-| conflicting_review | 1 | completed | 1.0 |
-| failed_test_retry | 1 | completed | 1.0 |
-| shared_state_contamination | 3 | completed,completed,completed | 0.833 |
-| stale_research | 1 | completed | 1.0 |
-| subagent_disagreement | 1 | completed | 1.0 |
+Micro-average (all runs): `0.928`
+
+Macro-average (mean of per-task means): `0.967`
+
+| Task | Runs | Statuses | Mean capture coverage | Deviated |
+| --- | --- | --- | --- | --- |
+| conflicting_review | 1 | completed | 1.0 | 0 |
+| failed_test_retry | 1 | completed | 1.0 | 0 |
+| shared_state_contamination | 3 | completed,completed,completed | 0.833 | 3 |
+| stale_research | 1 | completed | 1.0 | 0 |
+| subagent_disagreement | 1 | completed | 1.0 | 0 |
 
 ## Diagnosis quality
 
-- cause_identification: mean score `0.571` (scored runs: 7)
-- causal_slice: mean score `0.571` (scored runs: 7)
-- minimal_slice: mean score `0.571` (scored runs: 7)
-- provenance: mean score `1.0` (scored runs: 7)
-- interaction: mean score `1.0` (scored runs: 2)
-- distractors: mean score `1.0` (scored runs: 2)
-- explanation_grounding: mean score `1.0` (scored runs: 7)
+No single opaque score. `mean_score` excludes agent-deviation runs (no ground-truth evidence to find); `mean_score_all_runs` includes them for traceability. True causal minimality is not measurable; true causal interaction is unsupported.
+
+- cause_identification (cause identification (ground-truth causal event in slice)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
+- causal_slice (structural slice presence (extra events reported via precision, not ignored)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
+- minimal_slice (required-cause preservation proxy (NOT causal minimality)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
+- provenance (provenance resource recall (edges reported separately)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.786` over 7)
+- interaction (joint-branch ancestry detection (NOT causal interaction)): measured mean `1.0` (measured runs: 2; all-runs mean: `1.0` over 2)
+- distractors (distractor exclusion (explicit expected distractors absent)): measured mean `1.0` (measured runs: 2; all-runs mean: `1.0` over 2)
+- explanation_grounding (explanation grounding (summary cites real event IDs)): measured mean `0.0` (measured runs: 4; all-runs mean: `0.0` over 7)
+- joint_ancestry (joint-branch ancestry detection (NOT causal interaction)): measured mean `1.0` (measured runs: 2; all-runs mean: `1.0` over 2)
+- causal_interaction: `unsupported` (no counterfactual intervention available from live OpenCode traces; see joint_ancestry)
+- minimality_proxy (required-cause preservation proxy (NOT causal minimality)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
+- causal_minimality: `not_measurable` (live OpenCode traces carry no DecisionContract or observable failure predicate; minimal_slice is required-cause preservation)
+
+Agent deviations: `3` (shared_state_contamination-0bb78d63, shared_state_contamination-2f1a1f64, shared_state_contamination-a3c550c7)
 
 ## Per-scenario results
 
@@ -143,10 +155,13 @@ Runs where the intended causal structure did not materialize (agent deviation, n
 ## Limitations
 
 - Real agent behavior is nondeterministic; prompts steer but do not guarantee exact tool sequences.
-- OpenCode does not expose every desired observable (e.g. permission flows appear only when the agent triggers them); such classes are reported per task, not penalized when unavailable.
+- OpenCode does not expose every desired observable (e.g. permission flows appear only when the agent triggers them); such classes are reported per task, not penalized when unavailable (available=false excluded from denominator).
 - file.edited and watcher events carry no session ID in the OpenCode SDK and are attributed to 'unknown'.
-- Minimal slices use a structural membership test (failure + required roles) since live traces carry no DecisionContract.
-- Interaction detection verifies joint ancestry of both branches in the failure; the receiver chains telemetry linearly, so branch independence is reported separately.
+- Minimal slices are a required-cause preservation proxy (ddmin with a ground-truth membership predicate), NOT causal minimality; true causal minimality is not measurable from live traces (no DecisionContract / observable failure predicate). Do not report 100% causal accuracy.
+- Joint-ancestry detection verifies both branches are ancestors of the failure; it is NOT causal interaction. True causal interaction (counterfactual/Shapley) is unsupported from live traces; branch independence is reported separately and the receiver chains telemetry linearly.
+- Provenance resource recall is file-presence evidence, not a causal-edge proof; expected_edges are checked separately.
+- Explanation grounding requires summary-level event-ID citation; package-level evidence presence alone does not pass.
+- Agent deviations (e.g. refusing the unsafe shared.json override) are reported as agent deviation, not benchmark passes or adapter failures.
 - No payload contents or secrets are stored in these artifacts.
 
 ## Reproduction

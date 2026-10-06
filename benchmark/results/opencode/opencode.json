@@ -1,11 +1,11 @@
 {
   "kind": "opencode",
-  "methodology": "Each task runs a real OpenCode coding-agent session with the Agent-Casuality plugin enabled. The trace is captured through the validated /v1/opencode/events receiver into SQLite, then scored for capture completeness (expected vs captured event classes) and diagnosis quality (cause, slice, minimal slice, provenance, interaction, distractors, explanation grounding). Capture failures and diagnosis failures are reported separately.",
+  "methodology": "Each task runs a real OpenCode coding-agent session with the Agent-Casuality plugin enabled. The trace is captured through the validated /v1/opencode/events receiver into SQLite, then scored for minimum expected event-class coverage (captured / expected minimum per class; NOT general precision/recall) and diagnosis quality (cause, structural slice, required-cause preservation proxy, provenance, joint-branch ancestry, distractors, summary-citation grounding). Minimal-slice results are a required-cause preservation proxy and are NOT causal minimality (not measurable: no DecisionContract or observable failure predicate on live traces). Interaction results are joint-branch ancestry detection and are NOT causal interaction (unsupported: no counterfactual intervention). Capture failures, diagnosis failures, and agent deviations are reported separately; capture shows micro- and macro-averages across task types.",
   "opencode_version": "1.18.34",
   "platform": "Windows-11-10.0.26200-SP0",
   "python": "3.12.13 (main, Jun 23 2026, 15:23:43) [MSC v.1944 64 bit (AMD64)]",
-  "repository_head": "9b2450d5eec0f431b1943ca9d5c18f9717533d45",
-  "timestamp": "2026-10-04T22:39:16.541095+00:00",
+  "repository_head": "b9234ae95344eed56ea1d1e856a54f46dc629eeb",
+  "timestamp": "2026-10-06T22:08:18.602159+00:00",
   "runs": [
     {
       "task": "conflicting_review",
@@ -33,6 +33,7 @@
       "event_count": 268,
       "receiver_errors": [],
       "capture": {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": {
           "sessions": {
             "expected_min": 1,
@@ -111,6 +112,7 @@
           "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-61b58f2b\\handler.py"
         ],
         "overall_recall": 1.0,
+        "overall_coverage": 1.0,
         "scored_classes": 6
       },
       "roles_resolved": {
@@ -138,8 +140,12 @@
       },
       "diagnosis": {
         "failure_event_id": "5457280b-030a-5b45-be9a-197608281b11",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
           "size": 107,
           "roles": [
             "apply_edit",
@@ -172,6 +178,34 @@
         },
         "minimal_slice": {
           "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 4,
+          "structural_size": 107,
+          "reduction_ratio": 0.963,
+          "roles": [
+            "apply_edit",
+            "check_run",
+            "review_a_read",
+            "review_b_read"
+          ],
+          "required_recall": 1.0,
+          "distractors_leaked": [],
+          "distractors_occurred": [
+            "distractor_read"
+          ],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
           "size": 4,
           "structural_size": 107,
           "reduction_ratio": 0.963,
@@ -208,6 +242,10 @@
         },
         "interaction": {
           "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
           "expected": [
             [
               "review_a_read",
@@ -241,6 +279,49 @@
           "unexpected": [],
           "false_interaction_rate": 0.0
         },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [
+            [
+              "review_a_read",
+              "review_b_read"
+            ]
+          ],
+          "detected": [
+            [
+              "review_a_read",
+              "review_b_read"
+            ]
+          ],
+          "pairs": [
+            {
+              "pair": [
+                "review_a_read",
+                "review_b_read"
+              ],
+              "detected": true,
+              "both_ancestors_of_failure": true,
+              "mutually_independent": false
+            }
+          ],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 1,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
         "distractors": {
           "status": "ok",
           "roles": [
@@ -259,6 +340,8 @@
           "summary_cites_ids": [],
           "summary_cites_count": 0,
           "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
           "required_mentions": [
             "REVIEW_A.md",
             "REVIEW_B.md"
@@ -295,6 +378,7 @@
       "event_count": 208,
       "receiver_errors": [],
       "capture": {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": {
           "sessions": {
             "expected_min": 1,
@@ -373,6 +457,7 @@
           "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c\\app.py"
         ],
         "overall_recall": 1.0,
+        "overall_coverage": 1.0,
         "scored_classes": 7
       },
       "roles_resolved": {
@@ -394,8 +479,12 @@
       },
       "diagnosis": {
         "failure_event_id": "78cab5aa-8d65-5ba9-939b-3d6112c2c825",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
           "size": 96,
           "roles": [
             "first_test_failure",
@@ -423,6 +512,31 @@
         },
         "minimal_slice": {
           "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 3,
+          "structural_size": 96,
+          "reduction_ratio": 0.969,
+          "roles": [
+            "first_test_failure",
+            "fix_edit",
+            "retry_success"
+          ],
+          "required_recall": 1.0,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
           "size": 3,
           "structural_size": 96,
           "reduction_ratio": 0.969,
@@ -452,6 +566,10 @@
         },
         "interaction": {
           "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
           "expected": [],
           "detected": [],
           "pairs": [],
@@ -465,6 +583,29 @@
           "unexpected": [],
           "false_interaction_rate": 0.0
         },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
         "distractors": {
           "status": "ok",
           "roles": [],
@@ -477,6 +618,8 @@
           "summary_cites_ids": [],
           "summary_cites_count": 0,
           "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
           "required_mentions": [
             "app.py",
             "test_app.py"
@@ -513,6 +656,7 @@
       "event_count": 168,
       "receiver_errors": [],
       "capture": {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": {
           "sessions": {
             "expected_min": 1,
@@ -589,6 +733,7 @@
         "repeat_command_retries": 1,
         "file_edit_resources": [],
         "overall_recall": 0.833,
+        "overall_coverage": 0.833,
         "scored_classes": 6
       },
       "roles_resolved": {
@@ -608,8 +753,12 @@
       },
       "diagnosis": {
         "failure_event_id": "98984131-9d26-5e6f-bc6e-4852f4c58112",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
           "size": 112,
           "roles": [],
           "precision": 0.0,
@@ -637,6 +786,27 @@
         },
         "minimal_slice": {
           "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 1,
+          "structural_size": 112,
+          "reduction_ratio": 0.991,
+          "roles": [],
+          "required_recall": 0.0,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 0.0,
+          "recall": 0.0,
+          "exact_match": false
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
           "size": 1,
           "structural_size": 112,
           "reduction_ratio": 0.991,
@@ -670,6 +840,10 @@
         },
         "interaction": {
           "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
           "expected": [],
           "detected": [],
           "pairs": [],
@@ -683,6 +857,29 @@
           "unexpected": [],
           "false_interaction_rate": 0.0
         },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
         "distractors": {
           "status": "ok",
           "roles": [],
@@ -695,6 +892,8 @@
           "summary_cites_ids": [],
           "summary_cites_count": 0,
           "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
           "required_mentions": [
             "shared.json",
             "threshold"
@@ -731,6 +930,7 @@
       "event_count": 181,
       "receiver_errors": [],
       "capture": {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": {
           "sessions": {
             "expected_min": 1,
@@ -807,6 +1007,7 @@
         "repeat_command_retries": 1,
         "file_edit_resources": [],
         "overall_recall": 0.833,
+        "overall_coverage": 0.833,
         "scored_classes": 6
       },
       "roles_resolved": {
@@ -826,8 +1027,12 @@
       },
       "diagnosis": {
         "failure_event_id": "875d3505-3699-5b4b-ab7a-ad8cf0909951",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
           "size": 125,
           "roles": [],
           "precision": 0.0,
@@ -855,6 +1060,27 @@
         },
         "minimal_slice": {
           "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 1,
+          "structural_size": 125,
+          "reduction_ratio": 0.992,
+          "roles": [],
+          "required_recall": 0.0,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 0.0,
+          "recall": 0.0,
+          "exact_match": false
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
           "size": 1,
           "structural_size": 125,
           "reduction_ratio": 0.992,
@@ -888,6 +1114,10 @@
         },
         "interaction": {
           "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
           "expected": [],
           "detected": [],
           "pairs": [],
@@ -901,6 +1131,29 @@
           "unexpected": [],
           "false_interaction_rate": 0.0
         },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
         "distractors": {
           "status": "ok",
           "roles": [],
@@ -913,6 +1166,8 @@
           "summary_cites_ids": [],
           "summary_cites_count": 0,
           "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
           "required_mentions": [
             "shared.json",
             "threshold"
@@ -949,6 +1204,7 @@
       "event_count": 180,
       "receiver_errors": [],
       "capture": {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": {
           "sessions": {
             "expected_min": 1,
@@ -1025,6 +1281,7 @@
         "repeat_command_retries": 1,
         "file_edit_resources": [],
         "overall_recall": 0.833,
+        "overall_coverage": 0.833,
         "scored_classes": 6
       },
       "roles_resolved": {
@@ -1044,8 +1301,12 @@
       },
       "diagnosis": {
         "failure_event_id": "e9b7dc9d-5cfd-505d-a74f-954aec83b3a8",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
           "size": 122,
           "roles": [],
           "precision": 0.0,
@@ -1073,6 +1334,27 @@
         },
         "minimal_slice": {
           "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 1,
+          "structural_size": 122,
+          "reduction_ratio": 0.992,
+          "roles": [],
+          "required_recall": 0.0,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 0.0,
+          "recall": 0.0,
+          "exact_match": false
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
           "size": 1,
           "structural_size": 122,
           "reduction_ratio": 0.992,
@@ -1106,6 +1388,10 @@
         },
         "interaction": {
           "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
           "expected": [],
           "detected": [],
           "pairs": [],
@@ -1119,6 +1405,29 @@
           "unexpected": [],
           "false_interaction_rate": 0.0
         },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
         "distractors": {
           "status": "ok",
           "roles": [],
@@ -1131,6 +1440,8 @@
           "summary_cites_ids": [],
           "summary_cites_count": 0,
           "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
           "required_mentions": [
             "shared.json",
             "threshold"
@@ -1167,6 +1478,7 @@
       "event_count": 211,
       "receiver_errors": [],
       "capture": {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": {
           "sessions": {
             "expected_min": 1,
@@ -1245,6 +1557,7 @@
           "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee\\task.py"
         ],
         "overall_recall": 1.0,
+        "overall_coverage": 1.0,
         "scored_classes": 6
       },
       "roles_resolved": {
@@ -1269,8 +1582,12 @@
       },
       "diagnosis": {
         "failure_event_id": "0e784580-3627-5f7d-bd64-031295e7b93e",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
           "size": 90,
           "roles": [
             "distractor_read",
@@ -1301,6 +1618,33 @@
         },
         "minimal_slice": {
           "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 3,
+          "structural_size": 90,
+          "reduction_ratio": 0.967,
+          "roles": [
+            "stale_read",
+            "test_failure",
+            "wrong_edit"
+          ],
+          "required_recall": 1.0,
+          "distractors_leaked": [],
+          "distractors_occurred": [
+            "distractor_read"
+          ],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
           "size": 3,
           "structural_size": 90,
           "reduction_ratio": 0.967,
@@ -1334,6 +1678,10 @@
         },
         "interaction": {
           "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
           "expected": [],
           "detected": [],
           "pairs": [],
@@ -1346,6 +1694,29 @@
           "missing": [],
           "unexpected": [],
           "false_interaction_rate": 0.0
+        },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
         },
         "distractors": {
           "status": "ok",
@@ -1365,6 +1736,8 @@
           "summary_cites_ids": [],
           "summary_cites_count": 0,
           "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
           "required_mentions": [
             "RESEARCH.md",
             "legacy_sort"
@@ -1401,6 +1774,7 @@
       "event_count": 578,
       "receiver_errors": [],
       "capture": {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": {
           "sessions": {
             "expected_min": 1,
@@ -1479,6 +1853,7 @@
           "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-dad8b32f\\parser.py"
         ],
         "overall_recall": 1.0,
+        "overall_coverage": 1.0,
         "scored_classes": 6
       },
       "roles_resolved": {
@@ -1503,8 +1878,12 @@
       },
       "diagnosis": {
         "failure_event_id": "f155f512-fcc0-5fe2-ab2e-78d2e392306f",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
           "size": 111,
           "roles": [
             "implement_edit",
@@ -1534,6 +1913,32 @@
         },
         "minimal_slice": {
           "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 4,
+          "structural_size": 111,
+          "reduction_ratio": 0.964,
+          "roles": [
+            "implement_edit",
+            "research_a",
+            "research_b",
+            "test_run"
+          ],
+          "required_recall": 1.0,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
           "size": 4,
           "structural_size": 111,
           "reduction_ratio": 0.964,
@@ -1568,6 +1973,10 @@
         },
         "interaction": {
           "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
           "expected": [
             [
               "research_a",
@@ -1601,6 +2010,49 @@
           "unexpected": [],
           "false_interaction_rate": 0.0
         },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [
+            [
+              "research_a",
+              "research_b"
+            ]
+          ],
+          "detected": [
+            [
+              "research_a",
+              "research_b"
+            ]
+          ],
+          "pairs": [
+            {
+              "pair": [
+                "research_a",
+                "research_b"
+              ],
+              "detected": true,
+              "both_ancestors_of_failure": true,
+              "mutually_independent": false
+            }
+          ],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 1,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
         "distractors": {
           "status": "ok",
           "roles": [],
@@ -1613,6 +2065,8 @@
           "summary_cites_ids": [],
           "summary_cites_count": 0,
           "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
           "required_mentions": [
             "APPROACH_A.md",
             "APPROACH_B.md"
@@ -1626,35 +2080,81 @@
   ],
   "aggregate": {
     "run_count": 7,
+    "capture_metric": "minimum_expected_event_class_coverage",
     "capture_overall_recall": 0.928,
+    "capture_micro_recall": 0.928,
+    "capture_macro_recall": 0.967,
     "diagnosis_dimensions": {
       "cause_identification": {
-        "mean_score": 0.571,
-        "scored_runs": 7
+        "mean_score": 1.0,
+        "mean_score_all_runs": 0.571,
+        "scored_runs": 4,
+        "scored_runs_all": 7
       },
       "causal_slice": {
-        "mean_score": 0.571,
-        "scored_runs": 7
+        "mean_score": 1.0,
+        "mean_score_all_runs": 0.571,
+        "scored_runs": 4,
+        "scored_runs_all": 7
       },
       "minimal_slice": {
-        "mean_score": 0.571,
-        "scored_runs": 7
+        "mean_score": 1.0,
+        "mean_score_all_runs": 0.571,
+        "scored_runs": 4,
+        "scored_runs_all": 7,
+        "metric": "required_cause_preservation_proxy",
+        "causal_minimality": "not_measurable"
       },
       "provenance": {
         "mean_score": 1.0,
-        "scored_runs": 7
+        "mean_score_all_runs": 0.786,
+        "scored_runs": 4,
+        "scored_runs_all": 7
       },
       "interaction": {
         "mean_score": 1.0,
-        "scored_runs": 2
+        "mean_score_all_runs": 1.0,
+        "scored_runs": 2,
+        "scored_runs_all": 2,
+        "metric": "joint_ancestry",
+        "causal_interaction": "unsupported"
       },
       "distractors": {
         "mean_score": 1.0,
-        "scored_runs": 2
+        "mean_score_all_runs": 1.0,
+        "scored_runs": 2,
+        "scored_runs_all": 2
       },
       "explanation_grounding": {
+        "mean_score": 0.0,
+        "mean_score_all_runs": 0.0,
+        "scored_runs": 4,
+        "scored_runs_all": 7,
+        "metric": "summary_citation_grounding"
+      },
+      "joint_ancestry": {
+        "metric": "joint_ancestry",
+        "causal_interaction": "unsupported",
         "mean_score": 1.0,
-        "scored_runs": 7
+        "mean_score_all_runs": 1.0,
+        "scored_runs": 2,
+        "scored_runs_all": 2
+      },
+      "causal_interaction": {
+        "status": "unsupported",
+        "reason": "no counterfactual intervention available from live OpenCode traces; see joint_ancestry"
+      },
+      "minimality_proxy": {
+        "mean_score": 1.0,
+        "mean_score_all_runs": 0.571,
+        "scored_runs": 4,
+        "scored_runs_all": 7,
+        "metric": "required_cause_preservation_proxy",
+        "causal_minimality": "not_measurable"
+      },
+      "causal_minimality": {
+        "status": "not_measurable",
+        "reason": "live OpenCode traces carry no DecisionContract or observable failure predicate; minimal_slice is required-cause preservation"
       }
     },
     "tasks": {
@@ -1663,14 +2163,26 @@
         "statuses": [
           "completed"
         ],
-        "mean_capture_recall": 1.0
+        "mean_capture_recall": 1.0,
+        "mean_capture_coverage": 1.0,
+        "mean_cause_recall_all_runs": 1.0,
+        "deviated_runs": 0,
+        "run_ids": [
+          "conflicting_review-61b58f2b"
+        ]
       },
       "failed_test_retry": {
         "runs": 1,
         "statuses": [
           "completed"
         ],
-        "mean_capture_recall": 1.0
+        "mean_capture_recall": 1.0,
+        "mean_capture_coverage": 1.0,
+        "mean_cause_recall_all_runs": 1.0,
+        "deviated_runs": 0,
+        "run_ids": [
+          "failed_test_retry-30b1611c"
+        ]
       },
       "shared_state_contamination": {
         "runs": 3,
@@ -1679,30 +2191,66 @@
           "completed",
           "completed"
         ],
-        "mean_capture_recall": 0.833
+        "mean_capture_recall": 0.833,
+        "mean_capture_coverage": 0.833,
+        "mean_cause_recall_all_runs": 0.0,
+        "deviated_runs": 3,
+        "run_ids": [
+          "shared_state_contamination-0bb78d63",
+          "shared_state_contamination-2f1a1f64",
+          "shared_state_contamination-a3c550c7"
+        ]
       },
       "stale_research": {
         "runs": 1,
         "statuses": [
           "completed"
         ],
-        "mean_capture_recall": 1.0
+        "mean_capture_recall": 1.0,
+        "mean_capture_coverage": 1.0,
+        "mean_cause_recall_all_runs": 1.0,
+        "deviated_runs": 0,
+        "run_ids": [
+          "stale_research-cfbdcbee"
+        ]
       },
       "subagent_disagreement": {
         "runs": 1,
         "statuses": [
           "completed"
         ],
-        "mean_capture_recall": 1.0
+        "mean_capture_recall": 1.0,
+        "mean_capture_coverage": 1.0,
+        "mean_cause_recall_all_runs": 1.0,
+        "deviated_runs": 0,
+        "run_ids": [
+          "subagent_disagreement-dad8b32f"
+        ]
       }
-    }
+    },
+    "agent_deviation": {
+      "runs": 3,
+      "run_ids": [
+        "shared_state_contamination-0bb78d63",
+        "shared_state_contamination-2f1a1f64",
+        "shared_state_contamination-a3c550c7"
+      ],
+      "note": "agent deviation: intended injected scenario did not materialize (e.g. refused unsafe override); diagnosis has no ground-truth evidence to find"
+    },
+    "unsupported": [
+      "causal_interaction",
+      "causal_minimality"
+    ]
   },
   "limitations": [
     "Real agent behavior is nondeterministic; prompts steer but do not guarantee exact tool sequences.",
-    "OpenCode does not expose every desired observable (e.g. permission flows appear only when the agent triggers them); such classes are reported per task, not penalized when unavailable.",
+    "OpenCode does not expose every desired observable (e.g. permission flows appear only when the agent triggers them); such classes are reported per task, not penalized when unavailable (available=false excluded from denominator).",
     "file.edited and watcher events carry no session ID in the OpenCode SDK and are attributed to 'unknown'.",
-    "Minimal slices use a structural membership test (failure + required roles) since live traces carry no DecisionContract.",
-    "Interaction detection verifies joint ancestry of both branches in the failure; the receiver chains telemetry linearly, so branch independence is reported separately.",
+    "Minimal slices are a required-cause preservation proxy (ddmin with a ground-truth membership predicate), NOT causal minimality; true causal minimality is not measurable from live traces (no DecisionContract / observable failure predicate). Do not report 100% causal accuracy.",
+    "Joint-ancestry detection verifies both branches are ancestors of the failure; it is NOT causal interaction. True causal interaction (counterfactual/Shapley) is unsupported from live traces; branch independence is reported separately and the receiver chains telemetry linearly.",
+    "Provenance resource recall is file-presence evidence, not a causal-edge proof; expected_edges are checked separately.",
+    "Explanation grounding requires summary-level event-ID citation; package-level evidence presence alone does not pass.",
+    "Agent deviations (e.g. refusing the unsafe shared.json override) are reported as agent deviation, not benchmark passes or adapter failures.",
     "No payload contents or secrets are stored in these artifacts."
   ]
 }

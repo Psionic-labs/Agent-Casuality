@@ -117,13 +117,25 @@ live under `<output-dir>/runs/<run-id>/trace.db` and are git-ignored;
 `opencode.json` records each trace location plus run ID, OpenCode version,
 model/provider, workdir, timestamps, and ground-truth version.
 
-Reading the results: capture recall is averaged only over event classes
-OpenCode actually exposes (terminal `completion` events are documented as
-unavailable in `run` mode, not penalized). Diagnosis is reported per
-dimension with no single opaque score; a run whose agent skips the injected
-actions shows unresolved roles and zero cause recall, which is agent
-deviation — not an adapter or engine failure — and is listed under
-"Failures / missing data".
+Reading the results: capture is minimum expected event-class coverage
+(captured / expected minimum; NOT general precision/recall), averaged only
+over event classes OpenCode actually exposes (terminal `completion` events
+are documented as unavailable in `run` mode, not penalized). Both the
+micro-average (all runs) and the macro-average (mean of per-task means) are
+reported so repeated runs of one scenario cannot dominate silently.
+Diagnosis is reported per dimension with no single opaque score.
+`minimal_slice` is a required-cause preservation proxy (ddmin with a
+ground-truth membership predicate), NOT causal minimality (not measurable:
+live traces carry no DecisionContract or observable failure predicate).
+`interaction` is joint-branch ancestry detection (both branches ancestors of
+the failure), NOT causal interaction (unsupported: no counterfactual
+intervention from live traces). Explanation grounding requires
+summary-level event-ID citation; package presence alone does not pass. A run
+whose agent skips the injected actions (e.g. refusing the unsafe
+`shared_state_contamination` override) shows unresolved roles and fallback
+failure resolution, which is agent deviation — not a benchmark pass and not
+an adapter or engine failure — and is listed under "Failures / missing
+data" with diagnosis means reported both measured-only and all-runs.
 
 Offline coverage without OpenCode: `tests/test_opencode_benchmark.py`
 replays hand-recorded traces from `benchmark/opencode/recorded/` through

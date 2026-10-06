@@ -130,11 +130,16 @@ def _command_signature(event: Any) -> str | None:
 def capture_completeness(
     events: list[Any], expected: dict[str, Any]
 ) -> dict[str, Any]:
-    """Score capture completeness per observable event class.
+    """Score minimum expected event-class coverage per observable class.
 
+    This is NOT general event precision/recall. Each class contributes
+    ``min(1, captured / expected_min)`` and the overall figure is the mean
+    over classes with ``available == True`` and ``min > 0`` only.
     Classes with min == 0 are reported informationally and excluded from
-    the overall recall average. Repeat executions of the same command
-    count as retries (in addition to explicit retry parts).
+    the overall average, as are classes marked unavailable from OpenCode
+    (e.g. terminal ``completion`` events in ``run`` mode). Repeat
+    executions of the same command count as retries (in addition to
+    explicit retry parts).
     """
     counts: dict[str, int] = {name: 0 for name in EVENT_CLASSES}
     file_edit_files: list[str] = []
@@ -180,11 +185,13 @@ def capture_completeness(
         }
     overall = round(sum(recalls) / len(recalls), 3) if recalls else 1.0
     return {
+        "metric": "minimum_expected_event_class_coverage",
         "per_class": per_class,
         "command_count": command_events,
         "repeat_command_retries": repeat_commands,
         "file_edit_resources": file_edit_files,
         "overall_recall": overall,
+        "overall_coverage": overall,
         "scored_classes": len(recalls),
     }
 
@@ -342,7 +349,11 @@ def score_diagnosis(
     expected_structural = [str(r) for r in spec.get("expected_structural_roles", [])]
     excluded_roles = [str(r) for r in spec.get("excluded_roles", [])]
 
-    result: dict[str, Any] = {"failure_event_id": failure_event_id}
+    result: dict[str, Any] = {
+        "failure_event_id": failure_event_id,
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
+    }
 
     try:
         structural = structural_slice(failure_event_id, log)
@@ -352,6 +363,11 @@ def score_diagnosis(
         )
         result["causal_slice"] = {
             "status": "ok",
+            "metric": "structural_ancestor_recall",
+            "label": (
+                "structural ancestor presence (declared-dependency "
+                "evidence; influence not proven; extra events not ignored)"
+            ),
             "size": len(slice_ids),
             "roles": slice_roles,
             **set_metrics(slice_roles, expected_structural),
@@ -374,6 +390,10 @@ def score_diagnosis(
         result["cause_identification"] = {"status": "error", "error": str(exc)}
 
     try:
+        # NOTE: live OpenCode traces carry no DecisionContract, so there is
+        # no observable failure/decision predicate to re-evaluate after
+        # removing events. The predicate below preserves ground-truth event
+        # membership only. It must NOT be reported as causal minimality.
         must_keep = {failure_event_id, *required_ids}
 
         def membership(subset: list[str]) -> bool:
@@ -393,6 +413,10 @@ def score_diagnosis(
         )
         result["minimal_slice"] = {
             "status": "ok",
+            "metric": "required_cause_preservation_proxy",
+            "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+            "method": "ddmin_with_ground_truth_membership_predicate",
+            "causal_minimality": "not_measurable",
             "size": len(minimal),
             "structural_size": len(slice_ids),
             "reduction_ratio": round(1.0 - (len(minimal) / max(1, len(slice_ids))), 3),
@@ -410,6 +434,9 @@ def score_diagnosis(
                 if k in ("precision", "recall", "exact_match")
             },
         }
+        # Explicit alias so consumers do not mistake the legacy key for a
+        # causal-minimality claim.
+        result["minimality_proxy"] = result["minimal_slice"]
     except Exception as exc:
         result["minimal_slice"] = {"status": "error", "error": str(exc)}
 
@@ -481,12 +508,30 @@ def score_diagnosis(
                     "mutually_independent": independent,
                 }
             )
+        # NOTE: this checks joint ancestry (both branches reachable from
+        # the failure via declared causal parents). It performs no
+        # counterfactual intervention and no Shapley computation, so it
+        # must NOT be reported as causal interaction. True causal
+        # interaction is not measurable from a live OpenCode trace.
         result["interaction"] = {
             "status": "ok",
+            "metric": "joint_ancestry",
+            "label": "joint-branch ancestry detection (NOT causal interaction)",
+            "method": "joint_ancestry_check",
+            "causal_interaction": "not_measurable",
             "expected": expected_pairs,
             "detected": sorted(detected),
             "pairs": pair_details,
             **pair_metrics(detected, expected_pairs),
+        }
+        result["joint_ancestry"] = result["interaction"]
+        result["causal_interaction"] = {
+            "status": "unsupported",
+            "reason": (
+                "live OpenCode traces support no counterfactual "
+                "intervention; joint ancestry is reported separately and "
+                "must not be called causal interaction"
+            ),
         }
     except Exception as exc:
         result["interaction"] = {"status": "error", "error": str(exc)}
@@ -532,13 +577,19 @@ def score_diagnosis(
             for m in spec.get("explanation_must_mention", [])
             if str(m).lower() in summary.lower()
         ]
+        summary_grounded = len(summary_cites) > 0
         result["explanation_grounding"] = {
             "status": "ok",
             "event_ids_in_evidence": len(package_refs),
             "evidence_ids_valid": len(package_refs) > 0,
             "summary_cites_ids": sorted(summary_cites)[:10],
             "summary_cites_count": len(summary_cites),
+            # Package-level grounding (structural evidence exists) is weak:
+            # the offline summary rarely cites event IDs. A pass on the
+            # explanation itself requires summary-level citation.
             "grounded": len(package_refs) > 0,
+            "package_grounded": len(package_refs) > 0,
+            "summary_grounded": summary_grounded,
             "required_mentions": spec.get("explanation_must_mention", []),
             "mentions_found": mentions,
             "mentions_recall": round(

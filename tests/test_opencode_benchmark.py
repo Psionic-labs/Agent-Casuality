@@ -370,3 +370,264 @@ def test_setup_workdir_and_binary_resolution(tmp_path: Any) -> None:
     assert (workdir / "test_app.py").exists()
     assert resolve_opencode_binary("custom-bin") == "custom-bin"
     assert isinstance(resolve_opencode_binary(None), str)
+
+
+def _scored_retry() -> dict[str, Any]:
+    recorded = _load_recorded("failed_test_retry")
+    log, _ = _ingest(recorded["envelopes"])
+    spec = load_spec("failed_test_retry")
+    resolved = resolve_roles(log.events(), spec["causal_roles"])
+    failure = resolve_failure(log.events(), spec["failure_selector"])
+    return score_diagnosis(
+        log, log.events(), spec, resolved["resolved"], failure["failure_event_id"]
+    )
+
+
+def test_minimality_proxy_is_not_causal_minimality() -> None:
+    diagnosis = _scored_retry()
+    proxy = diagnosis["minimal_slice"]
+    assert proxy["metric"] == "required_cause_preservation_proxy"
+    assert proxy["causal_minimality"] == "not_measurable"
+    assert "membership" in proxy["method"]
+    assert "NOT causal minimality" in proxy["label"]
+    assert diagnosis["minimality_proxy"] is proxy
+    assert diagnosis["causal_minimality_overall"] == "not_measurable"
+    # The membership predicate preserves ground-truth events by construction:
+    # ddmin must return exactly {failure + required} regardless of replay.
+    assert proxy["size"] == 3  # failure + first_test_failure/fix_edit/ retry
+    assert proxy["required_recall"] == 1.0
+
+
+def test_joint_ancestry_is_not_causal_interaction() -> None:
+    diagnosis = _scored_retry()
+    joint = diagnosis["interaction"]
+    assert joint["metric"] == "joint_ancestry"
+    assert joint["causal_interaction"] == "not_measurable"
+    assert "NOT causal interaction" in joint["label"]
+    assert diagnosis["joint_ancestry"] is joint
+    assert diagnosis["causal_interaction"]["status"] == "unsupported"
+    assert diagnosis["causal_interaction_overall"] == "unsupported"
+
+
+def test_joint_ancestry_linear_chain_is_not_independence() -> None:
+    # Both branches resolve as ancestors because the receiver chains
+    # telemetry linearly; independence is reported separately and is False.
+    base = _load_recorded("stale_research")["envelopes"][:2]
+    read_a = {
+        "kind": "hook:tool.execute.before",
+        "timestamp": 1200,
+        "session_id": "s",
+        "payload": {"sessionID": "s", "callID": "a", "tool": "read", "args": {"filePath": "A.md"}},
+    }
+    read_b = {
+        "kind": "hook:tool.execute.before",
+        "timestamp": 1300,
+        "session_id": "s",
+        "payload": {"sessionID": "s", "callID": "b", "tool": "read", "args": {"filePath": "B.md"}},
+    }
+    finish = {"kind": "event:session.deleted", "timestamp": 1400, "payload": {"info": {"id": "s"}}}
+    log, _ = _ingest(list(base) + [read_a, read_b, finish])
+    roles = [
+        {"role": "branch_a", "required": True, "selector": {"path_suffix": "A.md"}},
+        {"role": "branch_b", "required": True, "selector": {"path_suffix": "B.md"}},
+    ]
+    resolved = resolve_roles(log.events(), roles)
+    failure = log.events()[-1].id
+    spec = {
+        "causal_roles": roles,
+        "expected_structural_roles": ["branch_a", "branch_b"],
+        "expected_resources": [],
+        "expected_edges": [],
+        "expected_interactions": [["branch_a", "branch_b"]],
+        "excluded_roles": [],
+        "explanation_must_mention": [],
+    }
+    score = score_diagnosis(log, log.events(), spec, resolved["resolved"], failure)
+    pair = score["interaction"]["pairs"][0]
+    assert pair["detected"] is True
+    assert pair["both_ancestors_of_failure"] is True
+    assert pair["mutually_independent"] is False  # linear chaining, not independence
+    assert score["interaction"]["metric"] == "joint_ancestry"
+
+
+def test_capture_is_minimum_coverage_and_excludes_unavailable() -> None:
+    from benchmark.opencode.runner import aggregate
+
+    recorded = _load_recorded("failed_test_retry")
+    log, _ = _ingest(recorded["envelopes"])
+    spec = load_spec("failed_test_retry")
+    capture = capture_completeness(log.events(), spec["expected_event_classes"])
+    assert capture["metric"] == "minimum_expected_event_class_coverage"
+    assert capture["overall_coverage"] == capture["overall_recall"]
+    # completion is available=false: excluded from denominator even though min=0.
+    assert capture["per_class"]["completion"]["available"] is False
+    assert capture["scored_classes"] == 7  # only available min>0 classes
+    # A class with available=false never accrues missing mass.
+    missing_only = capture_completeness(log.events(), {"ghost": {"min": 5, "available": False}})
+    assert missing_only["per_class"]["ghost"]["missing"] == 0
+    assert missing_only["scored_classes"] == 0
+    void = aggregate([])
+    assert void["capture_macro_recall"] == 0.0
+
+
+def test_capture_macro_average_not_dominated_by_repeats() -> None:
+    from benchmark.opencode.runner import aggregate
+
+    def _rec(task: str, run_id: str, recall: float) -> dict[str, Any]:
+        return {
+            "task": task,
+            "run_id": run_id,
+            "status": "completed",
+            "agent_exit_code": 0,
+            "capture": {"overall_recall": recall},
+            "roles_unresolved": [],
+            "failure": {"status": "resolved"},
+            "diagnosis_status": "blocked_no_events",
+            "diagnosis": {},
+            "event_count": 1,
+        }
+
+    records = [
+        _rec("a", "a-1", 1.0),
+        _rec("b", "b-1", 1.0),
+        _rec("b", "b-2", 1.0),
+        _rec("b", "b-3", 1.0),  # repeated scenario must not dominate macro
+    ]
+    agg = aggregate(records)
+    assert agg["capture_micro_recall"] == 1.0
+    assert agg["capture_macro_recall"] == 1.0
+    skewed = [
+        _rec("a", "a-1", 1.0),
+        _rec("b", "b-1", 0.0),
+        _rec("b", "b-2", 0.0),
+        _rec("b", "b-3", 0.0),
+    ]
+    agg2 = aggregate(skewed)
+    assert agg2["capture_micro_recall"] == 0.25  # 3 of 4 runs dominate micro
+    assert agg2["capture_macro_recall"] == 0.5  # mean of {1.0, 0.0}
+    assert agg2["tasks"]["b"]["runs"] == 3
+
+
+def test_agent_deviation_handling() -> None:
+    from benchmark.opencode.runner import aggregate, is_agent_deviation
+
+    deviated = {
+        "task": "shared_state_contamination",
+        "run_id": "dev-1",
+        "status": "completed",
+        "agent_exit_code": 0,
+        "capture": {"overall_recall": 0.833},
+        "roles_unresolved": ["contaminating_write"],
+        "failure": {"status": "fallback_last_event"},
+        "diagnosis_status": "scored",
+        "diagnosis": {
+            "cause_identification": {"status": "ok", "recall": 0.0},
+            "causal_slice": {"status": "ok", "recall": 0.0},
+            "minimal_slice": {"status": "ok", "required_recall": 0.0},
+            "provenance": {"status": "ok", "resource_recall": 1.0, "expected_edges": []},
+            "interaction": {"status": "ok", "recall": 1.0, "expected": []},
+            "distractors": {"status": "ok", "leaked": 0, "roles": []},
+            "explanation_grounding": {"status": "ok", "summary_grounded": False, "grounded": True},
+        },
+        "event_count": 10,
+    }
+    measured = {
+        "task": "stale_research",
+        "run_id": "ok-1",
+        "status": "completed",
+        "agent_exit_code": 0,
+        "capture": {"overall_recall": 1.0},
+        "roles_unresolved": [],
+        "failure": {"status": "resolved"},
+        "diagnosis_status": "scored",
+        "diagnosis": {
+            "cause_identification": {"status": "ok", "recall": 1.0},
+            "causal_slice": {"status": "ok", "recall": 1.0},
+            "minimal_slice": {"status": "ok", "required_recall": 1.0},
+            "provenance": {"status": "ok", "resource_recall": 1.0, "expected_edges": []},
+            "interaction": {"status": "ok", "recall": 1.0, "expected": []},
+            "distractors": {"status": "ok", "leaked": 0, "roles": []},
+            "explanation_grounding": {"status": "ok", "summary_grounded": False, "grounded": True},
+        },
+        "event_count": 10,
+    }
+    assert is_agent_deviation(deviated) is True
+    assert is_agent_deviation(measured) is False
+    # The task prompt must not be altered to force the unsafe write.
+    spec = load_spec("shared_state_contamination")
+    assert "999" in spec["prompt"]  # intended scenario preserved
+    agg = aggregate([measured, deviated])
+    assert agg["agent_deviation"]["runs"] == 1
+    assert agg["agent_deviation"]["run_ids"] == ["dev-1"]
+    # Measured-only mean excludes the deviation; all-runs mean keeps it traceably.
+    assert agg["diagnosis_dimensions"]["cause_identification"]["mean_score"] == 1.0
+    assert agg["diagnosis_dimensions"]["cause_identification"]["mean_score_all_runs"] == 0.5
+
+
+def test_evidence_grounding_requires_summary_citation() -> None:
+    from benchmark.opencode.runner import _dimension_values, aggregate
+
+    diagnosis = _scored_retry()
+    grounding = diagnosis["explanation_grounding"]
+    # Package contains structural evidence, but the offline summary cites no IDs.
+    assert grounding["package_grounded"] is True
+    assert grounding["summary_cites_count"] == 0
+    assert grounding["summary_grounded"] is False
+    assert grounding["mentions_recall"] == 0.0
+    record = {
+        "task": "failed_test_retry",
+        "run_id": "r1",
+        "status": "completed",
+        "agent_exit_code": 0,
+        "capture": {"overall_recall": 1.0},
+        "roles_unresolved": [],
+        "failure": {"status": "resolved"},
+        "diagnosis_status": "scored",
+        "diagnosis": {"explanation_grounding": grounding},
+        "event_count": 10,
+    }
+    # Aggregate grounding must not pass on package presence alone.
+    assert _dimension_values([record], "explanation_grounding") == [0.0]
+    assert _dimension_values([record], "explanation_grounding_package") == [1.0]
+    assert aggregate([record])["diagnosis_dimensions"]["explanation_grounding"]["mean_score"] == 0.0
+
+
+def test_per_run_to_aggregate_consistency() -> None:
+    from benchmark.opencode.runner import aggregate
+
+    records: list[dict[str, Any]] = []
+    for name in ("stale_research", "failed_test_retry"):
+        recorded = _load_recorded(name)
+        log, _ = _ingest(recorded["envelopes"])
+        spec = load_spec(name)
+        resolved = resolve_roles(log.events(), spec["causal_roles"])
+        failure = resolve_failure(log.events(), spec["failure_selector"])
+        capture = capture_completeness(log.events(), spec["expected_event_classes"])
+        diagnosis = score_diagnosis(
+            log, log.events(), spec, resolved["resolved"], failure["failure_event_id"]
+        )
+        records.append(
+            {
+                "task": name,
+                "run_id": name,
+                "status": "completed",
+                "agent_exit_code": 0,
+                "capture": capture,
+                "roles_unresolved": [],
+                "failure": failure,
+                "diagnosis_status": "scored",
+                "diagnosis": diagnosis,
+                "event_count": len(log.events()),
+            }
+        )
+    agg = aggregate(records)
+    assert agg["run_count"] == 2
+    micros: list[float] = [float(r["capture"]["overall_recall"]) for r in records]
+    assert agg["capture_micro_recall"] == round(sum(micros) / len(micros), 3)
+    per_task = [agg["tasks"][r["task"]]["mean_capture_recall"] for r in records]
+    assert agg["capture_macro_recall"] == round(sum(per_task) / len(per_task), 3)
+    for task in ("stale_research", "failed_test_retry"):
+        assert agg["tasks"][task]["run_ids"] == [task]
+    assert agg["unsupported"] == ["causal_interaction", "causal_minimality"]
+    assert agg["diagnosis_dimensions"]["causal_interaction"]["status"] == "unsupported"
+    assert agg["diagnosis_dimensions"]["causal_minimality"]["status"] == "not_measurable"
