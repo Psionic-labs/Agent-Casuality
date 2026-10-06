@@ -2,8 +2,14 @@
 name = "agent-casuality"
 version = "0.1.0"
 description = "Causal capture SDK for branching multi-agent systems"
+readme = "README.md"
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.11"
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Psionic-labs/Agent-Casuality"
+Repository = "https://github.com/Psionic-labs/Agent-Casuality"
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2.0"]
@@ -16,6 +22,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["benchmark*", "casuality*", "cli*", "core*", "sdk*", "storage*", "examples*", "opencode_adapter*"]
+
+[tool.setuptools.package-data]
+benchmark = ["ground_truth/*.json"]
+"benchmark.opencode" = ["ground_truth/*.json"]
 
 [project.scripts]
 casuality = "cli.main:main"
