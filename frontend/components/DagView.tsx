@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import {
   clickSuppressed,
+  fitZoomMax,
   layoutPositions,
   panBy,
   resetView,
@@ -15,6 +16,7 @@ import {
 } from "../lib/viewport.ts";
 import { nodeClassNames } from "../lib/render.ts";
 import { selectEvent } from "../lib/use-selection.ts";
+import { Legend } from "./Legend.tsx";
 import type { GraphOverview } from "../lib/types.ts";
 
 export interface ViewApi {
@@ -77,7 +79,10 @@ export function DagView({ overview, selectedId, lit, apiRef }: Props) {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const [px, py] = toContent(e.clientX, e.clientY);
-      viewRef.current = zoomAt(viewRef.current, px, py, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+      // Upper clamp scales with content width so labels stay reachable in
+      // traces of any size; k = 1 always fits (viewBox spans the bounds).
+      const max = fitZoomMax(boxRef.current.w);
+      viewRef.current = zoomAt(viewRef.current, px, py, e.deltaY < 0 ? 1.2 : 1 / 1.2, 0.2, max);
       applyView();
     };
     let drag: { x: number; y: number } | null = null;
@@ -131,57 +136,62 @@ export function DagView({ overview, selectedId, lit, apiRef }: Props) {
 
   const { ordered, pos, bounds } = layout;
   return (
-    <svg
-      id="dag"
-      role="img"
-      aria-label="causal DAG"
-      ref={svgRef}
-      viewBox={`0 0 ${bounds.w} ${bounds.h}`}
-    >
-      <g id="viewport" ref={gRef}>
-        {overview.edges.map((e, i) => {
-          const a = pos[e.parent];
-          const b = pos[e.child];
-          if (!a || !b) return null;
-          const mx = (a.x + b.x) / 2;
-          const on = !!lit && lit.has(e.parent) && lit.has(e.child);
-          return (
-            <path
-              key={`${e.parent}→${e.child}#${i}`}
-              d={`M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`}
-              className={`edge${on ? " lit" : ""}${lit && !on ? " dim" : ""}`}
-            />
-          );
-        })}
-        {ordered.map((n) => {
-          const p = pos[n.id];
-          const onClick = () => {
-            if (suppressRef.current) {
-              suppressRef.current = false;
-              return;
-            }
-            selectEvent(n.id);
-          };
-          return (
-            <g
-              key={n.id}
-              className={nodeClassNames(n, {
-                selectedId,
-                failureId: overview.failure_event_id,
-                litSet: lit,
-              })}
-              transform={`translate(${p.x} ${p.y})`}
-              onClick={onClick}
-            >
-              <circle r={13} />
-              <text x={17} y={4}>
-                {n.logical_seq}: {n.event_type}
-              </text>
-              <title>{n.label + (n.role ? ` [role: ${n.role}]` : "")}</title>
-            </g>
-          );
-        })}
-      </g>
-    </svg>
+    <div className="dag-wrap">
+      <svg
+        id="dag"
+        role="img"
+        aria-label="causal DAG"
+        ref={svgRef}
+        viewBox={`0 0 ${bounds.w} ${bounds.h}`}
+      >
+        <g id="viewport" ref={gRef}>
+          {overview.edges.map((e, i) => {
+            const a = pos[e.parent];
+            const b = pos[e.child];
+            if (!a || !b) return null;
+            const mx = (a.x + b.x) / 2;
+            const on = !!lit && lit.has(e.parent) && lit.has(e.child);
+            return (
+              <path
+                key={`${e.parent}→${e.child}#${i}`}
+                d={`M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`}
+                className={`edge${on ? " lit" : ""}${lit && !on ? " dim" : ""}`}
+              />
+            );
+          })}
+          {ordered.map((n) => {
+            const p = pos[n.id];
+            const onClick = () => {
+              if (suppressRef.current) {
+                suppressRef.current = false;
+                return;
+              }
+              selectEvent(n.id);
+            };
+            return (
+              <g
+                key={n.id}
+                className={nodeClassNames(n, {
+                  selectedId,
+                  failureId: overview.failure_event_id,
+                  litSet: lit,
+                })}
+                transform={`translate(${p.x} ${p.y})`}
+                onClick={onClick}
+              >
+                <circle r={13} />
+                <text x={17} y={4}>
+                  {n.logical_seq}: {n.event_type}
+                </text>
+                <title>{n.label + (n.role ? ` [role: ${n.role}]` : "")}</title>
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+      <div className="dag-foot">
+        <Legend />
+      </div>
+    </div>
   );
 }

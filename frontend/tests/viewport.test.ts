@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   FIT_VIEW,
+  fitZoomMax,
   layoutBounds,
   layoutPositions,
   resetView,
@@ -112,3 +113,23 @@ describe("layoutPositions", () => {
     assert.ok(Number.isFinite(cyclic.pos["a"].x) && Number.isFinite(cyclic.pos["a"].y));
   });
 });
+
+
+describe("content-aware max zoom", () => {
+  it("keeps the historic 10x floor for small graphs", () => {
+    assert.equal(fitZoomMax(600), 10);
+    assert.equal(fitZoomMax(2460), 10);
+  });
+
+  it("scales up so labels stay reachable in huge traces", () => {
+    assert.equal(fitZoomMax(179000), 179000 / 600);
+    assert.ok(fitZoomMax(179000) > 10);
+  });
+
+  it("degrades safely on non-positive widths", () => {
+    assert.equal(fitZoomMax(0), 10);
+    assert.equal(fitZoomMax(-5), 10);
+    assert.equal(fitZoomMax(NaN), 10);
+  });
+});
+

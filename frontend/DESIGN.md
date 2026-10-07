@@ -38,8 +38,9 @@ causal path, so the layout follows that workflow top-to-bottom.
   `python -m explorer.server` remains the single run command. The only
   backend touch is `FRONTEND_DIR` pointing at `frontend/out`; the five
   endpoints are byte-for-byte unchanged.
-- Pure logic lives in framework-free `lib/` modules (`store`, `viewport`,
-  `render`, `timeline`, `api`) with explicit `.ts` relative imports, so the
+- Pure logic lives in framework-free `lib/` modules (`store`,
+  `use-selection`, `viewport`, `render`, `timeline`, `filter`, `api`) with
+  explicit `.ts` relative imports, so the
   same files load in Next.js and directly under `node --test`.
 
 **Why:** the explorer must never be able to corrupt a trace or diverge from
@@ -63,6 +64,10 @@ Tab bar + panels: Causal chain · Provenance · Interaction · Evidence · Metri
 minimal scrolling. The two-column grid gives the DAG most of the visual
 space (it is the main focus) while keeping the inspector one click away.
 Research detail lives behind tabs/collapsibles, never in the first viewport.
+Both columns share one height budget (46vh, min 300px): the inspector
+scrolls internally rather than stretching the grid row, so the tab bar
+always sits directly under the views instead of dropping into dead space
+below a long inspector dump.
 
 ## 4. Diagnosis section
 
@@ -96,8 +101,13 @@ navigable. Never invent causes — every word comes from the API.
 - Viewport: fit-all on load (bounds padded for labels), Reset restores fit,
   drag-to-pan, cursor-anchored scroll zoom (0.2–10x). A 6px movement
   threshold separates drags from clicks so panning never selects nodes.
-- Pure helpers (`viewport.js`, `render.js`) hold all math/class logic so
-  behavior is unit-testable without a DOM.
+- Pure helpers (`lib/viewport.ts`, `lib/render.ts`, `lib/timeline.ts`,
+  `lib/filter.ts`) hold all math/class/filter logic so behavior is
+  unit-testable without a DOM.
+- Node clicks must reach the store: `DagView` never calls
+  `setPointerCapture` (capturing the pointer to the `<svg>` retargets the
+  click to the svg and node `onClick` never fires — this was a real bug).
+  Pan tracks move/up on the window instead. Locked by a contract test.
 
 **Why:** a debugging graph must be trustworthy (only backend-declared
 edges), explorable (pan/zoom/fit), and unambiguous (one selection
@@ -184,25 +194,26 @@ instead of hiding them. Real branching exists only in the live
 ## 12. Validation contract
 
 - `npm test` (node:test, zero test dependencies): contract checks (IDs,
-  endpoints, demo shape) + unit tests for selection, viewport, render,
-  inspector, and timeline — all in TypeScript, run directly by Node's type
-  stripping.
+  endpoints, demo shape, pointer-capture ban, shared legend) + unit tests
+  for selection, viewport, render, inspector, timeline, and filter — all in
+  TypeScript, run directly by Node's type stripping.
 - `npx tsc --noEmit` (strict) and `npm run build` (static export) must pass.
 - `uv run ruff check .`, `uv run ty check .`, `uv run pytest -q`
   (194 passed, 1 postgres skip).
 - Live-server smoke: static 200s (including `/_next/*` assets with correct
-  MIME), demo slice/diagnosis/provenance values, live 934-event overview.
+  MIME), demo slice/diagnosis/provenance values, live 1625-event overview.
 
 ## 13. Ideas for a future redesign (not yet built)
 
-Worth considering, in rough priority order:
+Worth considering, in rough priority order (done items stay listed with
+their § reference so nobody rebuilds them):
 
-- **Run selector**: pick `run_id`/session when a DB holds many runs
-  (today: single dataset per server start).
+- **Run selector**: ~~pick `run_id`/session when a DB holds many runs~~ —
+  DONE as the session picker (§14.3).
 - **Branching demo**: bundle a recorded trace with real fan-out/merge so
   the DAG demonstrates `Branch A ─┐ ├──→ merge → failure` instead of a
   line. (Requires capturing such a trace; never synthesize one.)
-- **SVG virtualization / canvas renderer**: the 934-node live DAG still
+- **SVG virtualization / canvas renderer**: the 1625-node live DAG still
   mounts every node (only the timeline clips are culled); cap, window, or
   switch renderers.
 - **Chain-tab pagination**: beyond the 80-row cap, page instead of
@@ -211,8 +222,10 @@ Worth considering, in rough priority order:
   (explicitly labeled as manual, not ground truth).
 - **Diff view for file edits**: render before/after payloads of `edit`
   events side by side.
-- **Search/filter**: by event type, tool, role, resource, or free text,
-  with non-matching nodes dimmed.
+- **Search/filter**: ~~by event type, tool, role, resource, or free text,
+  with non-matching nodes dimmed~~ — PARTLY DONE: event-type filter with
+  per-type chips + session picker (§14.2, §14.3). Still open: tool, role,
+  resource, and free-text search.
 - **Export**: download the evidence package / diagnosis JSON from the UI.
 - **Light theme + density toggle** for screenshots vs. deep debugging.
 - **Deep links**: URL hash carrying dataset + selected event for sharing.
@@ -220,8 +233,10 @@ Worth considering, in rough priority order:
   with several failures need a target switcher.
 - **WebSocket/live tail**: stream new events as the agent runs (backend
   work; keep the read-only contract).
-- **Accessibility pass**: focus states, ARIA live regions for selection,
-  sufficient-contrast audit of the dimmed states.
+- **Accessibility pass**: focus states ~~and ARIA live regions for
+  selection~~ (live region DONE — `role="status"` announces selection;
+  2px accent focus rings DONE per §14.1), remaining: sufficient-contrast
+  audit of the dimmed states.
 
 Constraints any redesign must keep: read-only backend, zero invented
 causality, exact honesty vocabulary from §8, demo byte-identical.
@@ -257,7 +272,7 @@ lanes; both views share the selection, inspector, and highlight classes.
   ends), Enter activates the focused clip natively, an ARIA live region
   announces each selection.
 - **Large traces:** only clips intersecting the visible window mount (plus
-  one clip of margin); the 934-event live trace renders a ~15-clip slice.
+  one clip of margin); the 1625-event live trace renders a ~15-clip slice.
 
 ### 14.1 Visual tokens (whole UI, not just Timeline)
 
@@ -309,6 +324,61 @@ layout hides, and sequence order is the one axis every trace has — even when
 timestamps are synthetic. Everything else (shared store, declared edges
 only, §8 wording, the "influence is not proven" note) is deliberately the
 same as the DAG so the two views can never disagree.
+
+### 14.2 Event-type filter (both views)
+
+Live captures are 75–80% streaming noise: every message-part update is a
+`context_update` (161 of 216 events in the `sort_items` session) plus one
+`model_call` per turn. A filter bar under the Graph | Timeline header keeps
+both views legible: a `Key events` preset (default — hides `context_update`
+and `model_call`), an `All events` preset, and per-type chips with live
+counts, plus an honest `showing X of N events · Y hidden by filter` line.
+Pure logic lives in `lib/filter.ts` (`filterOverview`, `countByType`,
+`DEFAULT_HIDDEN_TYPES`) with `node:test` coverage in
+ `tests/filter.test.ts`. Rules: filtering hides nodes from the *views* only —
+ edges touching a hidden endpoint are dropped, never rewired; dataset counts
+ and the failure target are preserved; highlight, inspector, and tabs keep
+ the full dataset so chains and details stay truthful. One exception to
+ type-only hiding: the failure node itself is always pinned visible
+ (`filterOverview` takes the dataset's `failure_event_id`). Fallback
+ datasets point at the last captured event — often a trailing
+ `context_update` part — so without pinning, Key events would remove the
+ very node the diagnosis is about. Edges into the pinned node from visible
+ neighbours survive; nothing is rewired.
+
+### 14.3 Session scope + zoom that copes with any size
+
+The overview endpoint returns *every* captured session at once (1625 events
+after the live `sort_items` run), so "All events" meant all sessions mashed
+into one unnavigable view. Two changes, both frontend-only:
+- **Session picker:** a `Session` select in the filter bar, defaulting to
+  the latest activity and listing each session as `short id (count)` with
+  an opt-in `All sessions (N)`. Pure logic in `lib/filter.ts`
+  (`listSessions` latest-first, `filterSession`, `shortSessionId`); grouping
+  is by the declared `agent_id` capture fact, so nothing is invented. The
+  type filter then applies *within* the session, and the counter reads
+  `showing X of Y events`.
+- **Zoom limits that scale:** the DAG's historic 0.2–10x clamp made labels
+  unreachable once content exceeded ~10 screenfuls (1625 nodes squeeze
+  ~179,000 content units into ~1000px). The ceiling is now content-aware
+  (`fitZoomMax`: at max zoom ~600 units fill the screen, never below 10x —
+  small graphs behave exactly as before; k = 1 still always fits because
+  the viewBox spans the bounds). The Timeline's zoom-out floor is now its
+  fit-all scale instead of 0.2, so zooming out stops at fit rather than
+  jumping. Both are pure helpers with `node:test` coverage; no endpoint,
+   engine, or storage changes.
+
+### 14.4 Shared Graph/Timeline legend
+
+The Timeline's color key (normal / in failure slice / failure target /
+terminal / selected) now also sits under the Graph view, as a `.dag-foot`
+row beneath the DAG. Both views render one shared `components/Legend.tsx`
+— the swatch classes (`.sw.*`) live once in `globals.css` next to the
+node/clip rules, so the key and the marks can never drift apart. Same
+colors by construction: normal `clip-fill`, slice `slice-fill`, failure
+`fail-fill`, terminal dashed `terminal` outline, selected 2px `#fff`.
+`tests/api_contract.test.ts` locks it: Legend defines all five swatches,
+both views render `<Legend`, neither keeps an inline copy.
 
 ## 15. Stack change log (do not silently regress)
 

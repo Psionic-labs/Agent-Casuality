@@ -18,6 +18,7 @@ const inspector = readFileSync(join(frontendDir, "components", "Inspector.tsx"),
 const header = readFileSync(join(frontendDir, "components", "Header.tsx"), "utf-8");
 const whystrip = readFileSync(join(frontendDir, "components", "WhyStrip.tsx"), "utf-8");
 const tabs = readFileSync(join(frontendDir, "components", "TabsPanels.tsx"), "utf-8");
+const legend = readFileSync(join(frontendDir, "components", "Legend.tsx"), "utf-8");
 const trace = JSON.parse(
   readFileSync(resolve(repoRoot, "explorer/demo/failed_test_retry_trace.json"), "utf-8"),
 );
@@ -87,12 +88,30 @@ describe("demo dataset behind the explorer", () => {
   });
 });
 
-describe("graph node clicks reach the selection store", () => {
-  it("DagView never captures the pointer (capture retargets clicks to the svg, so node onClick would never fire)", () => {
+describe("graph node clicks reach the selection store", () => {  it("DagView never captures the pointer (capture retargets clicks to the svg, so node onClick would never fire)", () => {
     assert.ok(!dag.includes("setPointerCapture"), "DagView calls setPointerCapture: node clicks are swallowed");
   });
   it("node clicks call selectEvent", () => {
     assert.ok(dag.includes("onClick={onClick}"), "DAG nodes lack click wiring");
     assert.ok(dag.includes("selectEvent(n.id)"), "DAG node clicks do not select");
+  });
+});
+
+describe("graph and timeline share one legend", () => {
+  it("Legend defines all five node states", () => {
+    for (const sw of ["sw normal", "sw slice", "sw failure", "sw terminal", "sw selected"]) {
+      assert.ok(legend.includes(sw), `Legend missing swatch ${sw}`);
+    }
+    for (const label of ["normal", "in failure slice", "failure target", "terminal", "selected"]) {
+      assert.ok(legend.includes(label), `Legend missing label ${label}`);
+    }
+  });
+  it("both views render the shared Legend component", () => {
+    assert.ok(dag.includes("<Legend"), "DagView does not render <Legend>");
+    assert.ok(timeline.includes("<Legend"), "TimelineView does not render <Legend>");
+  });
+  it("no view keeps its own copy of the legend markup", () => {
+    assert.ok(!timeline.includes("sw slice"), "TimelineView still has an inline legend copy");
+    assert.ok(!dag.includes("sw slice"), "DagView has an inline legend copy");
   });
 });

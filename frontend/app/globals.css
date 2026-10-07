@@ -166,6 +166,41 @@ button:focus-visible, .clip:focus-visible {
 }
 .view-toggle button.active { color: var(--text); border-bottom-color: var(--accent); }
 
+/* Event-type filter row under the Graph/Timeline header: preset tabs reuse
+ * the flat view-toggle style; per-type chips are small bordered toggles
+ * (muted when that type is hidden). */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.filter-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1px 8px;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.chip.off { border-color: #1c1c1c; color: var(--muted); }
+.filter-bar .hint { margin-left: auto; }
+
+/* Session picker: plain label + dark native select, same 2px radius. */
+.session-pick { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.session-pick select {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  padding: 1px 6px;
+  max-width: 240px;
+}
+
 #dag {
   width: 100%;
   height: 46vh;
@@ -302,6 +337,8 @@ button:focus-visible, .clip:focus-visible {
   pointer-events: none;
 }
 .minimap-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+/* Graph view color key: same shared <Legend /> component as the Timeline. */
+.dag-foot { display: flex; align-items: center; gap: 10px; padding: 6px 12px 10px; }
 .legend { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 0; margin-right: 3px; }
 .sw.normal { background: var(--clip-fill); }
@@ -311,7 +348,10 @@ button:focus-visible, .clip:focus-visible {
 .sw.selected { background: transparent; border: 2px solid #fff; }
 .tl-note { padding: 0 12px 10px; }
 
-.inspector-card { max-height: calc(46vh + 120px); overflow-y: auto; }
+/* Capped to the same 46vh budget as the timeline/DAG column so the grid
+ * row never grows taller than the view next to it (which would push the
+ * tab bar down into dead space). Overflow scrolls inside the card. */
+.inspector-card { max-height: 46vh; min-height: 300px; overflow-y: auto; }
 /* Inspector: a plain label/value list with 1px dividers. */
 #event-detail dl { margin: 0 0 6px; font-size: 12px; }
 #event-detail .field-row {

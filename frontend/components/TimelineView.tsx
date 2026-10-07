@@ -21,6 +21,7 @@ import {
 } from "../lib/timeline.ts";
 import type { GraphOverview } from "../lib/types.ts";
 import type { ViewApi } from "./DagView.tsx";
+import { Legend } from "./Legend.tsx";
 
 const BASE_UNIT = 120;
 const GAP = 8;
@@ -41,6 +42,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
   const suppressRef = useRef(false);
   const anchorRef = useRef<{ viewportX: number; contentX: number; step: number } | null>(null);
   const fittedRef = useRef(false);
+  const fitRef = useRef(1);
   const [k, setK] = useState(1);
   const [toolById, setToolById] = useState<Map<string, string>>(new Map());
   const [lanesPending, setLanesPending] = useState(true);
@@ -91,7 +93,9 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
   const reset = () => {
     const scroller = scrollRef.current;
     const w = scroller ? scroller.clientWidth - HEADER_W : 0;
-    setK(fitScale(w, contentWidth(ordered.length, BASE_UNIT, GAP)));
+    const kFit = fitScale(w, contentWidth(ordered.length, BASE_UNIT, GAP));
+    fitRef.current = kFit;
+    setK(kFit);
     if (scroller) scroller.scrollLeft = 0;
   };
 
@@ -109,6 +113,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
     const scroller = scrollRef.current;
     const w = scroller ? scroller.clientWidth - HEADER_W : 0;
     const kFit = fitScale(w, contentWidth(ordered.length, BASE_UNIT, GAP));
+    fitRef.current = kFit;
     setK(kFit);
     const sel = selectedId ? (indexOf.get(selectedId) ?? -1) : -1;
     if (scroller && sel >= 0) {
@@ -148,7 +153,8 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
     return () => window.removeEventListener("resize", readScroll);
   });
 
-  // Cursor-anchored scroll zoom (reuses the 0.2–10 clamp from viewport.js).
+  // Cursor-anchored scroll zoom. The floor is the fit-all scale (zooming
+  // out stops at fit, so the trace can never be lost); the ceiling stays 10x.
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;
@@ -161,7 +167,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
         contentX: viewportX + scroller.scrollLeft,
         step: unit + GAP,
       };
-      const next = zoomAt({ k, tx: 0, ty: 0 }, 0, 0, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+      const next = zoomAt({ k, tx: 0, ty: 0 }, 0, 0, e.deltaY < 0 ? 1.2 : 1 / 1.2, fitRef.current, 10);
       setK(next.k);
     };
     scroller.addEventListener("wheel", onWheel, { passive: false });
@@ -410,28 +416,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
           />
         </div>
         <div className="minimap-foot">
-          <span className="legend">
-            <span>
-              <span className="sw normal" />
-              normal
-            </span>
-            <span>
-              <span className="sw slice" />
-              in failure slice
-            </span>
-            <span>
-              <span className="sw failure" />
-              failure target
-            </span>
-            <span>
-              <span className="sw terminal" />
-              terminal
-            </span>
-            <span>
-              <span className="sw selected" />
-              selected
-            </span>
-          </span>
+          <Legend />
         </div>
       </div>
       <p className="hint tl-note">

@@ -21,11 +21,11 @@
         "caused_by_step_number": null,
         "input": {
           "causal_parent_ids": [],
-          "event_id": "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
+          "event_id": "242171c9-2f47-4ca8-91cf-62118773f6f0",
           "event_type": "tool_result"
         },
         "metadata": {
-          "agent_casuality_event_id": "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
+          "agent_casuality_event_id": "242171c9-2f47-4ca8-91cf-62118773f6f0",
           "agent_id": "left",
           "causal_parent_ids": [],
           "run_id": "benchmark"
@@ -42,11 +42,11 @@
         "caused_by_step_number": null,
         "input": {
           "causal_parent_ids": [],
-          "event_id": "08c9b0eb-209c-415e-82e3-1056ce9d15cd",
+          "event_id": "f1af973b-5fd3-42dd-bf5b-81837ec3de0f",
           "event_type": "tool_result"
         },
         "metadata": {
-          "agent_casuality_event_id": "08c9b0eb-209c-415e-82e3-1056ce9d15cd",
+          "agent_casuality_event_id": "f1af973b-5fd3-42dd-bf5b-81837ec3de0f",
           "agent_id": "right",
           "causal_parent_ids": [],
           "run_id": "benchmark"
@@ -63,18 +63,18 @@
         "caused_by_step_number": 1,
         "input": {
           "causal_parent_ids": [
-            "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
-            "08c9b0eb-209c-415e-82e3-1056ce9d15cd"
+            "242171c9-2f47-4ca8-91cf-62118773f6f0",
+            "f1af973b-5fd3-42dd-bf5b-81837ec3de0f"
           ],
-          "event_id": "259b8613-2397-4bd5-a3ec-47d3bdb18bf3",
+          "event_id": "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc",
           "event_type": "model_call"
         },
         "metadata": {
-          "agent_casuality_event_id": "259b8613-2397-4bd5-a3ec-47d3bdb18bf3",
+          "agent_casuality_event_id": "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc",
           "agent_id": "merge",
           "causal_parent_ids": [
-            "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
-            "08c9b0eb-209c-415e-82e3-1056ce9d15cd"
+            "242171c9-2f47-4ca8-91cf-62118773f6f0",
+            "f1af973b-5fd3-42dd-bf5b-81837ec3de0f"
           ],
           "run_id": "benchmark"
         },
@@ -82,8 +82,8 @@
         "output": {
           "decision_contract": {
             "agent_id": "merge",
-            "decision_event_id": "259b8613-2397-4bd5-a3ec-47d3bdb18bf3",
-            "decision_id": "c94be905-da16-414e-b4eb-70df3b36b6d8",
+            "decision_event_id": "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc",
+            "decision_id": "1d8b82bf-f789-4f7a-98b2-7fb15d9e2837",
             "decision_type": "benchmark.multiple_parents",
             "is_side_effecting": false,
             "metadata": {
@@ -98,7 +98,7 @@
                 "field_path": "output",
                 "port_id": "left",
                 "recorded_value": "bad",
-                "source_event_id": "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
+                "source_event_id": "242171c9-2f47-4ca8-91cf-62118773f6f0",
                 "strategy": "canonical_baseline"
               },
               {
@@ -107,7 +107,7 @@
                 "field_path": "output",
                 "port_id": "right",
                 "recorded_value": "bad",
-                "source_event_id": "08c9b0eb-209c-415e-82e3-1056ce9d15cd",
+                "source_event_id": "f1af973b-5fd3-42dd-bf5b-81837ec3de0f",
                 "strategy": "canonical_baseline"
               }
             ],
@@ -123,16 +123,16 @@
         "caused_by_step_number": 3,
         "input": {
           "causal_parent_ids": [
-            "259b8613-2397-4bd5-a3ec-47d3bdb18bf3"
+            "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc"
           ],
-          "event_id": "3fd91900-80c1-4400-b9ca-02e254e4b4b3",
+          "event_id": "d5ffa16e-3002-47e1-86a2-8850f6ecd513",
           "event_type": "agent_finish"
         },
         "metadata": {
-          "agent_casuality_event_id": "3fd91900-80c1-4400-b9ca-02e254e4b4b3",
+          "agent_casuality_event_id": "d5ffa16e-3002-47e1-86a2-8850f6ecd513",
           "agent_id": "terminal",
           "causal_parent_ids": [
-            "259b8613-2397-4bd5-a3ec-47d3bdb18bf3"
+            "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc"
           ],
           "run_id": "benchmark"
         },
@@ -176,11 +176,11 @@
         "caused_by_step_number": null,
         "input": {
           "causal_parent_ids": [],
-          "event_id": "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
+          "event_id": "242171c9-2f47-4ca8-91cf-62118773f6f0",
           "event_type": "tool_result"
         },
         "metadata": {
-          "agent_casuality_event_id": "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
+          "agent_casuality_event_id": "242171c9-2f47-4ca8-91cf-62118773f6f0",
           "agent_id": "left",
           "causal_parent_ids": [],
           "run_id": "benchmark"
@@ -197,11 +197,11 @@
         "caused_by_step_number": null,
         "input": {
           "causal_parent_ids": [],
-          "event_id": "08c9b0eb-209c-415e-82e3-1056ce9d15cd",
+          "event_id": "f1af973b-5fd3-42dd-bf5b-81837ec3de0f",
           "event_type": "tool_result"
         },
         "metadata": {
-          "agent_casuality_event_id": "08c9b0eb-209c-415e-82e3-1056ce9d15cd",
+          "agent_casuality_event_id": "f1af973b-5fd3-42dd-bf5b-81837ec3de0f",
           "agent_id": "right",
           "causal_parent_ids": [],
           "run_id": "benchmark"
@@ -218,18 +218,18 @@
         "caused_by_step_number": 1,
         "input": {
           "causal_parent_ids": [
-            "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
-            "08c9b0eb-209c-415e-82e3-1056ce9d15cd"
+            "242171c9-2f47-4ca8-91cf-62118773f6f0",
+            "f1af973b-5fd3-42dd-bf5b-81837ec3de0f"
           ],
-          "event_id": "259b8613-2397-4bd5-a3ec-47d3bdb18bf3",
+          "event_id": "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc",
           "event_type": "model_call"
         },
         "metadata": {
-          "agent_casuality_event_id": "259b8613-2397-4bd5-a3ec-47d3bdb18bf3",
+          "agent_casuality_event_id": "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc",
           "agent_id": "merge",
           "causal_parent_ids": [
-            "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
-            "08c9b0eb-209c-415e-82e3-1056ce9d15cd"
+            "242171c9-2f47-4ca8-91cf-62118773f6f0",
+            "f1af973b-5fd3-42dd-bf5b-81837ec3de0f"
           ],
           "run_id": "benchmark"
         },
@@ -237,8 +237,8 @@
         "output": {
           "decision_contract": {
             "agent_id": "merge",
-            "decision_event_id": "259b8613-2397-4bd5-a3ec-47d3bdb18bf3",
-            "decision_id": "c94be905-da16-414e-b4eb-70df3b36b6d8",
+            "decision_event_id": "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc",
+            "decision_id": "1d8b82bf-f789-4f7a-98b2-7fb15d9e2837",
             "decision_type": "benchmark.multiple_parents",
             "is_side_effecting": false,
             "metadata": {
@@ -253,7 +253,7 @@
                 "field_path": "output",
                 "port_id": "left",
                 "recorded_value": "bad",
-                "source_event_id": "b7c0cab2-3521-4e7d-87a2-f639eab97e4b",
+                "source_event_id": "242171c9-2f47-4ca8-91cf-62118773f6f0",
                 "strategy": "canonical_baseline"
               },
               {
@@ -262,7 +262,7 @@
                 "field_path": "output",
                 "port_id": "right",
                 "recorded_value": "bad",
-                "source_event_id": "08c9b0eb-209c-415e-82e3-1056ce9d15cd",
+                "source_event_id": "f1af973b-5fd3-42dd-bf5b-81837ec3de0f",
                 "strategy": "canonical_baseline"
               }
             ],
@@ -278,16 +278,16 @@
         "caused_by_step_number": 3,
         "input": {
           "causal_parent_ids": [
-            "259b8613-2397-4bd5-a3ec-47d3bdb18bf3"
+            "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc"
           ],
-          "event_id": "3fd91900-80c1-4400-b9ca-02e254e4b4b3",
+          "event_id": "d5ffa16e-3002-47e1-86a2-8850f6ecd513",
           "event_type": "agent_finish"
         },
         "metadata": {
-          "agent_casuality_event_id": "3fd91900-80c1-4400-b9ca-02e254e4b4b3",
+          "agent_casuality_event_id": "d5ffa16e-3002-47e1-86a2-8850f6ecd513",
           "agent_id": "terminal",
           "causal_parent_ids": [
-            "259b8613-2397-4bd5-a3ec-47d3bdb18bf3"
+            "9d7c32e8-d5f0-4b3d-bc90-3eaa6a1a7ffc"
           ],
           "run_id": "benchmark"
         },
