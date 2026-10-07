@@ -7,15 +7,19 @@ import threading
 import urllib.error
 import urllib.request
 
+import pytest
+
+from explorer import queries as _queries_module
 from explorer.loader import load_demo
 from explorer.queries import (
+    ai_diagnosis_report,
     diagnosis_report,
     event_detail,
     evidence_report,
     failure_report,
     graph_overview,
 )
-from explorer.server import create_server
+from explorer.server import FRONTEND_DIR, create_server
 
 
 def _demo():
@@ -86,6 +90,8 @@ def test_evidence_report_summarizes_failure() -> None:
 
 
 def test_server_serves_api_and_static() -> None:
+    if not (FRONTEND_DIR / "index.html").is_file():
+        pytest.skip("frontend not built; run `npm run build` in frontend/ first")
     server = create_server(_demo())
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -113,3 +119,70 @@ def test_server_serves_api_and_static() -> None:
     finally:
         server.shutdown()
         thread.join()
+
+
+_VALID_AI_TEXT = """Diagnosis: The retry passed because the fix edit
+corrected the code after the first test failure.
+Evidence:
+- The first test failure event shows the failing run.
+- The fix edit event shows the correction.
+Limitations: the evidence does not establish why the first version was wrong."""
+
+
+def _clear_ai_cache() -> None:
+    with _queries_module._ai_cache_lock:
+        _queries_module._ai_cache.clear()
+
+
+def test_ai_diagnosis_sections_valid_model_text() -> None:
+    _clear_ai_cache()
+    calls = []
+
+    def stub(package: dict) -> str:
+        calls.append(package)
+        return _VALID_AI_TEXT
+
+    status, payload = ai_diagnosis_report(_demo(), explain_fn=stub)
+    assert status == 200
+    assert payload["status"] == "ok"
+    assert payload["model"]
+    assert payload["generated_at"]
+    sections = payload["sections"]
+    assert "fix edit" in sections["diagnosis"]
+    assert len(sections["evidence"]) == 2
+    assert sections["limitations"]
+    json.dumps(payload)  # must survive the API boundary
+    # Second call is served from the per-dataset cache: no second model call.
+    status2, payload2 = ai_diagnosis_report(_demo(), explain_fn=stub)
+    assert status2 == 200 and payload2 == payload and len(calls) == 1
+
+
+def test_ai_diagnosis_rejects_contract_violations() -> None:
+    _clear_ai_cache()
+    status, payload = ai_diagnosis_report(
+        _demo(), explain_fn=lambda package: "the tests failed, probably"
+    )
+    assert status == 502
+    assert payload["status"] == "format_rejected"
+
+
+def test_ai_diagnosis_reports_missing_key_as_503() -> None:
+    _clear_ai_cache()
+
+    def no_key(package: dict) -> str:
+        raise ValueError("OPENROUTER_API_KEY is not set")
+
+    status, payload = ai_diagnosis_report(_demo(), explain_fn=no_key)
+    assert status == 503
+    assert payload["status"] == "ai_unavailable"
+
+
+def test_ai_diagnosis_reports_provider_errors_as_502() -> None:
+    _clear_ai_cache()
+
+    def boom(package: dict) -> str:
+        raise RuntimeError("OpenRouter request failed with status 500")
+
+    status, payload = ai_diagnosis_report(_demo(), explain_fn=boom)
+    assert status == 502
+    assert payload["status"] == "ai_error"
