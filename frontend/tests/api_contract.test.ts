@@ -97,8 +97,7 @@ describe("graph node clicks reach the selection store", () => {  it("DagView nev
   });
 });
 
-describe("graph and timeline share one legend", () => {
-  it("Legend defines all five node states", () => {
+describe("graph and timeline share one legend", () => {  it("Legend defines all five node states", () => {
     for (const sw of ["sw normal", "sw slice", "sw failure", "sw terminal", "sw selected"]) {
       assert.ok(legend.includes(sw), `Legend missing swatch ${sw}`);
     }
@@ -113,5 +112,26 @@ describe("graph and timeline share one legend", () => {
   it("no view keeps its own copy of the legend markup", () => {
     assert.ok(!timeline.includes("sw slice"), "TimelineView still has an inline legend copy");
     assert.ok(!dag.includes("sw slice"), "DagView has an inline legend copy");
+  });
+});
+
+describe("analysis tabs lead with trace facts, scoring stays collapsed", () => {
+  it("interaction, evidence and metrics tabs receive the overview", () => {
+    assert.ok(tabs.includes("<InteractionTab overview"), "InteractionTab lacks overview");
+    assert.ok(tabs.includes("<EvidenceTab overview"), "EvidenceTab lacks overview");
+    assert.ok(tabs.includes("<MetricsTab overview"), "MetricsTab lacks overview");
+  });
+  it("tab bodies use pure trace-fact helpers, not inline logic", () => {
+    for (const fn of ["toolStory", "branchPoints", "mergePoints", "traceCensus", "resourcesInDetails", "nodesForResource"]) {
+      assert.ok(tabs.includes(fn), `TabsPanels does not use ${fn}`);
+    }
+  });
+  it("benchmark scoring is collapsed and discovery sections exist", () => {
+    assert.ok(tabs.includes("Benchmark scoring"), "no collapsed scoring sections");
+    assert.ok(tabs.includes("Discovered in this trace"), "no discovered-resources section");
+  });
+  it("honest empty states survive (no invented content)", () => {
+    assert.ok(tabs.includes("linear chain"), "interaction loses its linear-trace note");
+    assert.ok(tabs.includes("No tool calls or results"), "evidence loses its empty note");
   });
 });

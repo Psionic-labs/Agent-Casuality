@@ -157,15 +157,38 @@ counterfactuals on live traces). The UI repeats the exact backend
 
 ## 9. Tabs
 
-Causal chain (slice in order, capped at 80 rows), Provenance (per-resource
-vertical chains + honest "no graded provenance" note when the evidence
-package has none + expected edges collapsed), Interaction (joint-ancestry
-framed as NOT causal), Evidence (summary + grounding), Metrics (plain
-summary list first, raw metric fields collapsed).
+Causal chain (slice in order, capped at 80 rows). The other four lead with
+**trace facts** — ground-truth-free bodies built only from capture facts —
+and keep benchmark scoring collapsed:
+- Provenance: expected-resource chains (when ground truth names them) plus
+  a "Discovered in this trace" section for resources named in recorded
+  capture metadata that no ground truth expected; graded entries and
+  expected edges stay collapsed. Honest "no graded provenance" note when
+  the evidence package has none.
+- Interaction: recorded fan-out/fan-in (branch/merge points from declared
+  edges, clickable), with a linear-chain note when there is none; joint
+  ancestry and the unsupported-interaction flag stay under "Benchmark
+  scoring". Edge shape only — never called causal interaction.
+- Evidence: the run's tool story (slice tool calls/results in order with
+  recorded commands, click to inspect); the backend summary and grounding
+  stay under "Backend evidence summary".
+- Metrics: a capture census (dataset/slice counts plus per-type slice
+  counts); the metric summary list and raw dimensions stay under
+  "Benchmark scoring".
 
-**Why:** the first four tabs are human-readable; Metrics owns the research
-vocabulary. Provenance chains are built only from slice events referencing
-the resource via capture metadata — no invented edges.
+Pure logic lives in `lib/tracefacts.ts` (`sliceNodes`, `branchPoints`,
+`mergePoints`, `traceCensus`, `resourcesInDetails`, `nodesForResource`,
+`toolStory`) with `node:test` coverage in `tests/tracefacts.test.ts`.
+Command borrowing follows declared parents only (a result borrows its
+call's command; borrowing downhill from children would misattribute).
+Detail fetching reuses the shared `fetchEventDetail` cache with the same
+150-cap + truncation note as before.
+
+**Why:** benchmark scorecards compare against ground truth, which live
+traces don't have — so those tabs read empty. Trace facts (what ran, what
+branched, what files were touched, in what counts) need no answer key.
+Provenance chains are built only from slice events referencing the
+resource via capture metadata — no invented edges.
 
 ## 10. Event-sequence minimap
 
@@ -194,8 +217,9 @@ instead of hiding them. Real branching exists only in the live
 ## 12. Validation contract
 
 - `npm test` (node:test, zero test dependencies): contract checks (IDs,
-  endpoints, demo shape, pointer-capture ban, shared legend) + unit tests
-  for selection, viewport, render, inspector, timeline, and filter — all in
+  endpoints, demo shape, pointer-capture ban, shared legend, trace-fact tab
+  bodies) + unit tests
+  for selection, viewport, render, inspector, timeline, filter, and tracefacts — all in
   TypeScript, run directly by Node's type stripping.
 - `npx tsc --noEmit` (strict) and `npm run build` (static export) must pass.
 - `uv run ruff check .`, `uv run ty check .`, `uv run pytest -q`
