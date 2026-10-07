@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from typing import Any
@@ -17,6 +16,11 @@ from sdk.events import AgentClock, Event, record_event
 from sdk.lifecycle import spawn_agent
 from sdk.tools import capture_tool
 from storage.postgres import PostgresEventStore
+from tests.conftest import (
+    postgres_connect_or_skip,
+    postgres_dsn_or_skip,
+    skip_on_postgres_unavailable,
+)
 
 
 class FakeResponse:
@@ -36,13 +40,14 @@ class FakeAnthropic:
 
 @pytest.mark.integration
 def test_real_postgres_planner_two_workers_tools_and_merge() -> None:
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        pytest.skip("set DATABASE_URL to run the real Postgres integration test")
+    database_url = postgres_dsn_or_skip()
     psycopg = pytest.importorskip("psycopg")
     run_id = str(uuid4())
     planner_id = str(uuid4())
-    with psycopg.connect(database_url) as connection:
+    with (
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, database_url) as connection,
+    ):
         store = PostgresEventStore(connection, lock_dsn=database_url)
         store.create_schema()
         with connection.cursor() as cursor:
@@ -134,13 +139,14 @@ def test_real_postgres_planner_two_workers_tools_and_merge() -> None:
 
 @pytest.mark.integration
 def test_postgres_allocates_agent_sequences_across_connections() -> None:
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        pytest.skip("set DATABASE_URL to run the real Postgres integration test")
+    database_url = postgres_dsn_or_skip()
     psycopg = pytest.importorskip("psycopg")
     run_id = str(uuid4())
     agent_id = str(uuid4())
-    with psycopg.connect(database_url) as setup_connection:
+    with (
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, database_url) as setup_connection,
+    ):
         setup_store = PostgresEventStore(setup_connection, lock_dsn=database_url)
         setup_store.create_schema()
         with setup_connection.cursor() as cursor:
@@ -152,8 +158,9 @@ def test_postgres_allocates_agent_sequences_across_connections() -> None:
         setup_connection.commit()
 
     with (
-        psycopg.connect(database_url) as connection_one,
-        psycopg.connect(database_url) as connection_two,
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, database_url) as connection_one,
+        postgres_connect_or_skip(psycopg, database_url) as connection_two,
     ):
         store_one = PostgresEventStore(connection_one, lock_dsn=database_url)
         store_two = PostgresEventStore(connection_two, lock_dsn=database_url)
@@ -187,13 +194,14 @@ def test_postgres_allocates_agent_sequences_across_connections() -> None:
 
 @pytest.mark.integration
 def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        pytest.skip("set DATABASE_URL to run the real Postgres integration test")
+    database_url = postgres_dsn_or_skip()
     psycopg = pytest.importorskip("psycopg")
     run_id = str(uuid4())
     agent_id = str(uuid4())
-    with psycopg.connect(database_url) as connection:
+    with (
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, database_url) as connection,
+    ):
         store = PostgresEventStore(connection, lock_dsn=database_url)
         store.create_schema()
         with connection.cursor() as cursor:
@@ -258,15 +266,16 @@ def test_postgres_sequence_allocation_rolls_back_with_failed_append() -> None:
 
 @pytest.mark.integration
 def test_postgres_graph_rejects_and_isolates_cross_run_parents() -> None:
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        pytest.skip("set DATABASE_URL to run the real Postgres integration test")
+    database_url = postgres_dsn_or_skip()
     psycopg = pytest.importorskip("psycopg")
     from psycopg.types.json import Jsonb
 
     run_a, run_b = str(uuid4()), str(uuid4())
     agent_a, agent_b = str(uuid4()), str(uuid4())
-    with psycopg.connect(database_url) as connection:
+    with (
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, database_url) as connection,
+    ):
         store = PostgresEventStore(connection, lock_dsn=database_url)
         store.create_schema()
         with connection.cursor() as cursor:
@@ -352,14 +361,15 @@ def _event_ids(connection: Any, agent_id: str) -> list[str]:
 
 @pytest.mark.integration
 def test_phase3_reconstruction_snapshots_and_sql_slice_against_postgres() -> None:
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        pytest.skip("set DATABASE_URL to run the real Postgres integration test")
+    database_url = postgres_dsn_or_skip()
     psycopg = pytest.importorskip("psycopg")
     run_id = str(uuid4())
     worker_id = str(uuid4())
     outsider_id = str(uuid4())
-    with psycopg.connect(database_url) as connection:
+    with (
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, database_url) as connection,
+    ):
         store = PostgresEventStore(connection, lock_dsn=database_url)
         store.create_schema()
         with connection.cursor() as cursor:

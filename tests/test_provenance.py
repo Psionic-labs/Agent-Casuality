@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
 from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -365,87 +364,91 @@ def test_cli_provenance_command_renders_grades() -> None:
 # ============================================================================
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DATABASE_URL"),
-    reason="PostgreSQL DATABASE_URL not set",
-)
+@pytest.mark.integration
 def test_postgres_provenance_storage_and_recursive_query() -> None:
     import psycopg
 
     from storage.postgres import PostgresEventStore
+    from tests.conftest import (
+        postgres_connect_or_skip,
+        postgres_dsn_or_skip,
+        skip_on_postgres_unavailable,
+    )
 
-    dsn = os.environ["DATABASE_URL"]
-    conn = psycopg.connect(dsn)
-    store = PostgresEventStore(conn)
-    store.create_schema()
+    dsn = postgres_dsn_or_skip()
+    with (
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, dsn) as conn,
+    ):
+        store = PostgresEventStore(conn)
+        store.create_schema()
 
-    run_id = str(uuid4())
-    agent_id = str(uuid4())
-    clock = AgentClock()
+        run_id = str(uuid4())
+        agent_id = str(uuid4())
+        clock = AgentClock()
 
-    # Seed run & agent
-    with conn.cursor() as cur:
-        cur.execute(
-            "INSERT INTO runs (id, name) VALUES (%s, %s)",
-            (run_id, "test_provenance_run"),
+        # Seed run & agent
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO runs (id, name) VALUES (%s, %s)",
+                (run_id, "test_provenance_run"),
+            )
+            cur.execute(
+                "INSERT INTO agents (id, run_id, role) VALUES (%s, %s, %s)",
+                (agent_id, run_id, "test_agent"),
+            )
+        conn.commit()
+
+        # Record two events
+        e1, _ = record_event(
+            agent_id=agent_id,
+            clock=clock,
+            log=store,
+            event_type="tool_call",
+            payload={"task": "init"},
+            run_id=run_id,
         )
-        cur.execute(
-            "INSERT INTO agents (id, run_id, role) VALUES (%s, %s, %s)",
-            (agent_id, run_id, "test_agent"),
+        e2, _ = record_event(
+            agent_id=agent_id,
+            clock=clock,
+            log=store,
+            event_type="tool_result",
+            payload={"output": {"score": 42}},
+            causal_parent_ids=[e1.id],
+            run_id=run_id,
         )
-    conn.commit()
 
+        edge1 = ProvenanceEdge(
+            run_id=run_id,
+            field_path="agent.decision.output",
+            source_event_id=e2.id,
+            source_path="agent.tool.result",
+            grade="exact",
+            transform="filter",
+        )
+        edge2 = ProvenanceEdge(
+            run_id=run_id,
+            field_path="agent.tool.result",
+            source_event_id=e1.id,
+            source_path=None,
+            grade="coarse",
+        )
 
-    # Record two events
-    e1, _ = record_event(
-        agent_id=agent_id,
-        clock=clock,
-        log=store,
-        event_type="tool_call",
-        payload={"task": "init"},
-        run_id=run_id,
-    )
-    e2, _ = record_event(
-        agent_id=agent_id,
-        clock=clock,
-        log=store,
-        event_type="tool_result",
-        payload={"output": {"score": 42}},
-        causal_parent_ids=[e1.id],
-        run_id=run_id,
-    )
+        stored_edge1 = store.record_provenance_edge(edge1)
+        stored_edge2 = store.record_provenance_edge(edge2)
 
-    edge1 = ProvenanceEdge(
-        run_id=run_id,
-        field_path="agent.decision.output",
-        source_event_id=e2.id,
-        source_path="agent.tool.result",
-        grade="exact",
-        transform="filter",
-    )
-    edge2 = ProvenanceEdge(
-        run_id=run_id,
-        field_path="agent.tool.result",
-        source_event_id=e1.id,
-        source_path=None,
-        grade="coarse",
-    )
+        assert stored_edge1.field_path == "agent.decision.output"
+        assert stored_edge2.grade == "coarse"
 
-    stored_edge1 = store.record_provenance_edge(edge1)
-    stored_edge2 = store.record_provenance_edge(edge2)
+        # Query chain via PostgresEventStore
+        chain_edges = store.query_provenance_chain("agent.decision.output", run_id=run_id)
+        assert len(chain_edges) >= 2
+        field_paths = {e.field_path for e in chain_edges}
+        assert "agent.decision.output" in field_paths
+        assert "agent.tool.result" in field_paths
 
-    assert stored_edge1.field_path == "agent.decision.output"
-    assert stored_edge2.grade == "coarse"
-
-    # Query chain via PostgresEventStore
-    chain_edges = store.query_provenance_chain("agent.decision.output", run_id=run_id)
-    assert len(chain_edges) >= 2
-    field_paths = {e.field_path for e in chain_edges}
-    assert "agent.decision.output" in field_paths
-    assert "agent.tool.result" in field_paths
-
-    # Walk with provenance() traversal function
-    chain = provenance("agent.decision.output", store, run_id=run_id)
-    assert len(chain) == 2
-    assert chain.edges[0].grade == "exact"
-    assert chain.edges[1].grade == "coarse"
+        # Walk with provenance() traversal function
+        chain = provenance("agent.decision.output", store, run_id=run_id)
+        assert len(chain) == 2
+        assert chain.edges[0].grade == "exact"
+        assert chain.edges[1].grade == "coarse"

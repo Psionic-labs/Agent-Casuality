@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,11 @@ from sdk.events import AgentClock, Event, InMemoryEventLog, record_event
 from sdk.lifecycle import spawn_agent
 from sdk.tools import capture_tool
 from storage.postgres import PostgresEventStore
+from tests.conftest import (
+    postgres_connect_or_skip,
+    postgres_dsn_or_skip,
+    skip_on_postgres_unavailable,
+)
 
 
 def test_assign_causal_parents_uses_parent_sequences_not_wall_time() -> None:
@@ -173,14 +177,15 @@ class _Anthropic:
 
 @pytest.mark.integration
 def test_phase2_schema_and_real_three_agent_graph() -> None:
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        pytest.skip("set DATABASE_URL to run the real PostgreSQL integration test")
+    database_url = postgres_dsn_or_skip()
     psycopg = pytest.importorskip("psycopg")
 
     run_id = str(uuid4())
     planner_id = str(uuid4())
-    with psycopg.connect(database_url) as connection:
+    with (
+        skip_on_postgres_unavailable(psycopg),
+        postgres_connect_or_skip(psycopg, database_url) as connection,
+    ):
         store = PostgresEventStore(connection, lock_dsn=database_url)
         store.create_schema()
         _assert_phase2_schema(connection)
