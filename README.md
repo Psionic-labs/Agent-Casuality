@@ -22,6 +22,9 @@ Agent execution → event capture → causal graph → slice / provenance / inte
 
 ## Install
 
+Published as `agent-casuality==0.1.0` (PyPI) and
+`@psionic-labs/opencode-agent-casuality==0.1.0` (npm).
+
 Requires Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
@@ -30,6 +33,7 @@ uv init
 
 ```bash
 uv add agent-casuality
+opencode plugin add @psionic-labs/opencode-agent-casuality
 ```
 
 ## Try it in 30 seconds
@@ -72,9 +76,39 @@ complete runnable example.
 
 ## Works with OpenCode
 
-Capture live coding-agent sessions with the OpenCode plugin. Telemetry is
-fail-open: it never interrupts your agent. On the committed OpenCode benchmark, the ground-truth cause was recovered on every non-deviated run.
-[Setup guide →](docs/opencode.md)
+Capture live coding-agent sessions. Telemetry is fail-open: it never
+interrupts your agent.
+
+```powershell
+# Terminal 1: receiver
+uv run casuality-opencode-ingest --db .casuality/opencode.db
+# Terminal 2: agent (plugin posts automatically)
+opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script."
+```
+
+Representative committed result (`stale_research`, OpenCode `1.18.34`):
+`completed (exit 0), 211 events, capture coverage 1.0, diagnosis scored`
+(see `benchmark/results/opencode/opencode.md`). No video artifact ships
+with this release. [Setup guide →](docs/opencode.md)
+
+## Benchmarks
+
+Offline, provider-neutral suite (`uv run casuality-benchmark ...`) plus a
+real OpenCode coding-agent benchmark. Full results in
+[`docs/benchmarks.md`](docs/benchmarks.md) and `benchmark/results/`.
+
+- Five deterministic scenarios: 5/5 pass.
+- Experiment 2 (shared-state recovery): 100/100.
+- Experiment 3 (semantic-port vs raw deletion): 20/20 semantic-port
+  successes; raw-deletion failure rate met target.
+- Experiment 1 (offline): passes; external Fastino run is
+  provider-blocked/deferred (no structured-output capability).
+- Real OpenCode benchmark (7 runs / 5 tasks): capture micro-average `0.928`,
+  macro-average `0.967`; cause identification `1.0` on non-deviated runs.
+
+Terminology is precise: live-trace branch results are reported as
+`joint ancestry` (not causal interaction), and minimal slices as a
+`required-cause preservation proxy` (not causal minimality).
 
 ## Documentation
 

@@ -89,8 +89,11 @@ First public release. Published to PyPI as `agent-casuality==0.1.0`.
   (causal minimality not measurable); live-trace branch results are joint
   ancestry (causal interaction unsupported).
 
-### PyPI availability
+### Availability
 
-- Install with `uv add agent-casuality` or `uv pip install agent-casuality`.
+- Python: install with `uv add agent-casuality` or `uv pip install agent-casuality`
+  (`agent-casuality==0.1.0` on PyPI).
+- OpenCode plugin: `opencode plugin add @psionic-labs/opencode-agent-casuality`
+  (`@psionic-labs/opencode-agent-casuality==0.1.0` on npm).
 - Ground-truth JSONs ship inside the distribution (`benchmark/ground_truth`,
   `benchmark/opencode/ground_truth`).
