@@ -9,6 +9,7 @@ __pycache__/
 # stuff
 conversation-summary.md
 NEXT.md
+node_modules/
 
 # Distribution / packaging
 .Python
@@ -159,6 +160,7 @@ activemq-data/
 .envrc
 benchmark/.env
 benchmark/.env.*
+!benchmark/.env.example
 .venv
 env/
 venv/
