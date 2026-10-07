@@ -21,11 +21,12 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["benchmark*", "casuality*", "cli*", "core*", "sdk*", "storage*", "examples*", "opencode_adapter*"]
+include = ["benchmark*", "casuality*", "cli*", "core*", "explorer*", "sdk*", "storage*", "examples*", "opencode_adapter*"]
 
 [tool.setuptools.package-data]
 benchmark = ["ground_truth/*.json"]
 "benchmark.opencode" = ["ground_truth/*.json"]
+explorer = ["demo/*.json"]
 
 [project.scripts]
 casuality = "cli.main:main"

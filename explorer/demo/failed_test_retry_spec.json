@@ -1,0 +1,127 @@
+{
+  "task": "failed_test_retry",
+  "version": 1,
+  "description": "The agent runs a failing test, fixes the bug, and re-runs until green: first attempt causes failure, the retry changes the result.",
+  "intended_behavior": "Run test_app.py, fix app.py on failure, re-run until passing.",
+  "injected_failure": "app.py concatenates instead of adding, so the first test run fails with an AssertionError.",
+  "expected_diagnosis": "The initial buggy implementation caused the first test failure; the fix edit caused the retry to pass.",
+  "expected_outcome": "recovered",
+  "fixtures": {
+    "app.py": "def add(a, b):\n    return str(a) + str(b)\n",
+    "test_app.py": "from app import add\n\nassert add(2, 3) == 5, add(2, 3)\nprint(\"app tests pass\")\n"
+  },
+  "prompt": "Working only inside {workdir}: 1) Run `python test_app.py` from that directory. 2) If it fails, fix app.py so the test passes. 3) Re-run `python test_app.py` until it passes. 4) Report the final result. Do not modify test_app.py or any file outside {workdir}.",
+  "expected_event_classes": {
+    "sessions": {
+      "min": 1,
+      "available": true
+    },
+    "model_calls": {
+      "min": 1,
+      "available": true
+    },
+    "tool_calls": {
+      "min": 3,
+      "available": true
+    },
+    "tool_results": {
+      "min": 3,
+      "available": true
+    },
+    "file_edits": {
+      "min": 1,
+      "available": true
+    },
+    "commands": {
+      "min": 2,
+      "available": true
+    },
+    "errors": {
+      "min": 0,
+      "available": true
+    },
+    "retries": {
+      "min": 1,
+      "available": true
+    },
+    "subagents": {
+      "min": 0,
+      "available": true
+    },
+    "completion": {
+      "min": 0,
+      "available": false
+    }
+  },
+  "unavailable_from_opencode": [
+    "completion: opencode run emits no terminal session event (no session.deleted/idle observed; trace ends on message/part updates)"
+  ],
+  "causal_roles": [
+    {
+      "role": "first_test_failure",
+      "description": "First test execution fails.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "AssertionError",
+        "pick": "first",
+        "tool": "bash"
+      }
+    },
+    {
+      "role": "fix_edit",
+      "description": "Agent edits app.py to fix the bug.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.before",
+          "event:file.edited"
+        ],
+        "path_suffix": "app.py",
+        "pick": "first"
+      }
+    },
+    {
+      "role": "retry_success",
+      "description": "A later test execution passes.",
+      "required": true,
+      "selector": {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "app tests pass",
+        "pick": "last",
+        "tool": "bash"
+      }
+    }
+  ],
+  "failure_selector": {
+    "any": [
+      {
+        "opencode_kind": [
+          "hook:tool.execute.after"
+        ],
+        "text_contains": "app tests pass",
+        "pick": "last",
+        "tool": "bash"
+      }
+    ]
+  },
+  "expected_structural_roles": [
+    "first_test_failure",
+    "fix_edit",
+    "retry_success"
+  ],
+  "expected_resources": [
+    "app.py"
+  ],
+  "expected_edges": [],
+  "expected_interactions": [],
+  "excluded_roles": [],
+  "explanation_must_mention": [
+    "app.py",
+    "test_app.py"
+  ]
+}

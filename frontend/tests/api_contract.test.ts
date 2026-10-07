@@ -1,0 +1,98 @@
+// Contract checks between the Next.js frontend and the explorer API + demo
+// dataset. Run with `npm test` (node --test, zero dependencies).
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const frontendDir = dirname(here);
+const repoRoot = dirname(frontendDir);
+
+const api = readFileSync(join(frontendDir, "lib", "api.ts"), "utf-8");
+const page = readFileSync(join(frontendDir, "app", "page.tsx"), "utf-8");
+const dag = readFileSync(join(frontendDir, "components", "DagView.tsx"), "utf-8");
+const timeline = readFileSync(join(frontendDir, "components", "TimelineView.tsx"), "utf-8");
+const inspector = readFileSync(join(frontendDir, "components", "Inspector.tsx"), "utf-8");
+const header = readFileSync(join(frontendDir, "components", "Header.tsx"), "utf-8");
+const whystrip = readFileSync(join(frontendDir, "components", "WhyStrip.tsx"), "utf-8");
+const tabs = readFileSync(join(frontendDir, "components", "TabsPanels.tsx"), "utf-8");
+const trace = JSON.parse(
+  readFileSync(resolve(repoRoot, "explorer/demo/failed_test_retry_trace.json"), "utf-8"),
+);
+const spec = JSON.parse(
+  readFileSync(resolve(repoRoot, "explorer/demo/failed_test_retry_spec.json"), "utf-8"),
+);
+
+describe("frontend api usage matches explorer server endpoints", () => {
+  const endpoints = ["/api/overview", "/api/failure", "/api/diagnosis", "/api/evidence", "/api/event"];
+  for (const endpoint of endpoints) {
+    it(`lib/api.ts calls ${endpoint}`, () => {
+      assert.ok(api.includes(endpoint), `lib/api.ts missing fetch of ${endpoint}`);
+    });
+  }
+  it("exactly five endpoints are declared", () => {
+    const matches = api.match(/\/api\/[a-z]+/g) ?? [];
+    assert.deepEqual([...new Set(matches)].sort(), [...endpoints].sort());
+  });
+});
+
+describe("shared element ids across views", () => {
+  const ids: Array<[string, string[]]> = [
+    ["dag", [dag]],
+    ["timeline", [timeline]],
+    ["event-detail", [inspector]],
+    ["failure-banner", [page, header]],
+    ["failure-info", [page, whystrip]],
+    ["diagnosis", [tabs]],
+    ["evidence", [tabs]],
+    ["dataset-line", [page]],
+  ];
+  for (const [id, sources] of ids) {
+    it(`#${id} rendered`, () => {
+      assert.ok(
+        sources.some((s) => s.includes(`id="${id}"`)),
+        `no component renders #${id}`,
+      );
+    });
+  }
+});
+
+describe("timeline view hooks exist", () => {
+  const hooks = ["tl-ruler", "tl-lane", "tl-playhead", "tl-edges", "tl-knob", "minimap-track", "mm-view", "mm-seg", "view-toggle"];
+  for (const hook of hooks) {
+    it(`.${hook} present`, () => {
+      assert.ok(
+        timeline.includes(hook) || page.includes(hook),
+        `missing timeline hook ${hook}`,
+      );
+    });
+  }
+  it("clips are buttons with event aria-labels", () => {
+    assert.ok(timeline.includes("aria-label={`Event"), "clips lack Event N type labels");
+  });
+  it("selection is announced via a live region", () => {
+    assert.ok(page.includes('role="status"'), "no ARIA live region for selection");
+  });
+});
+
+describe("demo dataset behind the explorer", () => {
+  it("trace has envelopes", () => {
+    assert.ok(Array.isArray(trace.envelopes) && trace.envelopes.length > 0);
+  });
+  it("spec has causal roles and a failure selector", () => {
+    assert.ok(Array.isArray(spec.causal_roles) && spec.causal_roles.length > 0);
+    assert.ok(spec.failure_selector && Array.isArray(spec.failure_selector.any));
+  });
+});
+
+describe("graph node clicks reach the selection store", () => {
+  it("DagView never captures the pointer (capture retargets clicks to the svg, so node onClick would never fire)", () => {
+    assert.ok(!dag.includes("setPointerCapture"), "DagView calls setPointerCapture: node clicks are swallowed");
+  });
+  it("node clicks call selectEvent", () => {
+    assert.ok(dag.includes("onClick={onClick}"), "DAG nodes lack click wiring");
+    assert.ok(dag.includes("selectEvent(n.id)"), "DAG node clicks do not select");
+  });
+});
