@@ -27,15 +27,37 @@ const spec = JSON.parse(
 );
 
 describe("frontend api usage matches explorer server endpoints", () => {
-  const endpoints = ["/api/overview", "/api/failure", "/api/diagnosis", "/api/evidence", "/api/event"];
+  const endpoints = ["/api/overview", "/api/failure", "/api/diagnosis", "/api/evidence", "/api/event", "/api/ai-diagnosis"];
   for (const endpoint of endpoints) {
     it(`lib/api.ts calls ${endpoint}`, () => {
       assert.ok(api.includes(endpoint), `lib/api.ts missing fetch of ${endpoint}`);
     });
   }
-  it("exactly five endpoints are declared", () => {
-    const matches = api.match(/\/api\/[a-z]+/g) ?? [];
+  it("exactly six endpoints are declared", () => {
+    const matches = api.match(/\/api\/[a-z-]+/g) ?? [];
     assert.deepEqual([...new Set(matches)].sort(), [...endpoints].sort());
+  });
+});
+
+describe("opt-in AI analysis stays quarantined", () => {
+  it("WhyStrip renders an explicit generate button", () => {
+    assert.ok(whystrip.includes("Generate AI analysis"), "no explicit AI trigger button");
+  });
+  it("the interpretation block is labeled as not evidence", () => {
+    assert.ok(
+      whystrip.includes("Model interpretation — not evidence"),
+      "AI block lacks the quarantine label",
+    );
+  });
+  it("AI is never fetched on load (button click only)", () => {
+    assert.ok(!whystrip.includes("useEffect"), "WhyStrip auto-fires AI on mount");
+    assert.ok(
+      whystrip.includes("onClick={generateAiAnalysis}"),
+      "AI fetch is not wired to the button",
+    );
+  });
+  it("model identity travels with the interpretation", () => {
+    assert.ok(whystrip.includes("aiReport.model"), "model name not shown with AI text");
   });
 });
 

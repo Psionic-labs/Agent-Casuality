@@ -103,7 +103,7 @@ def test_explain_with_mock_transport() -> None:
     def mock_handler(request: httpx.Request) -> httpx.Response:
         captured_requests.append(request)
         req_json = json.loads(request.content)
-        assert req_json["model"] == "qwen/qwen3.8-27b:free"
+        assert req_json["model"] == "nvidia/nemotron-3-ultra-550b-a55b:free"
         assert req_json["messages"][0]["role"] == "system"
         assert "strictly grounded" in req_json["messages"][0]["content"]
         assert "counterfactual comparison" in req_json["messages"][0]["content"]

@@ -1,6 +1,6 @@
 /* API shapes returned by the read-only explorer backend (explorer/queries.py).
  * The frontend never invents fields: every property here mirrors one the
- * five /api endpoints already return. */
+ * six /api endpoints already return. */
 
 export interface OverviewNode {
   id: string;
@@ -92,4 +92,21 @@ export interface EvidenceReport {
     provenance?: Array<{ target?: string; edges?: Array<{ grade?: string }> }>;
     [key: string]: unknown;
   };
+}
+
+/** Validated model interpretation from /api/ai-diagnosis (opt-in, quarantined
+ * from evidence: the backend guarantees this text passed the format contract,
+ * never the local template). */
+export interface AiDiagnosisSections {
+  diagnosis: string;
+  evidence: string[];
+  limitations: string;
+}
+
+export interface AiDiagnosisReport {
+  status: string;
+  model?: string;
+  generated_at?: string;
+  sections?: AiDiagnosisSections;
+  error?: string;
 }

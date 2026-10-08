@@ -29,7 +29,7 @@ from core.replay import compute_shapley_interaction, ddmin, test_fn_from
 from core.slicing import structural_slice
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "qwen/qwen3.8-27b:free"
+DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 EXPLAIN_SYSTEM_PROMPT = """You are an expert causal debugging assistant analyzing a
 multi-agent system failure. Your explanation MUST be strictly grounded in the supplied

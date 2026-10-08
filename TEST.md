@@ -1025,5 +1025,76 @@ print(f'Causal ancestors leading to latest event ({latest.id}): {len(ancestors)}
 "
 ```
 
+## 29. Verify the Visual DAG Explorer
+
+Purpose: confirms the read-only explorer (`explorer/`, five evidence endpoints plus opt-in `/api/ai-diagnosis`) and the Next.js frontend render captured traces truthfully — declared edges only, no invented causality — and that all automated gates pass.
+
+### Automated Test Suite Execution
+
+Backend (from repo root):
+```powershell
+uv run pytest tests/test_explorer.py -q
+```
+
+Expected result: all 11 explorer tests pass (endpoint shape, demo byte-identity, AI-diagnosis sections/cache/502/503 mapping).
+
+Frontend (from `frontend/`):
+```powershell
+npm test
+npx tsc --noEmit
+npm run build
+```
+
+Expected result: `npm test` 130/130 (contract checks for IDs, endpoints, demo shape, pointer-capture ban, shared legend, trace-fact tab bodies, AI quarantine, plus unit tests for selection, viewport, render, inspector, timeline, filter, tracefacts); `tsc` strict clean; `next build` static export succeeds into `frontend/out/`.
+
+Repo-wide gates (from repo root):
+```powershell
+uv run ruff check .
+uv run ty check .
+uv run pytest -q
+```
+
+Expected result: ruff and ty clean; full suite green (192 passed, 7 skipped — skips are postgres-integration).
+
+### Live-Server Smoke Test Procedure
+
+1. Start the explorer (default serves the bundled 10-envelope demo trace; `--db` points at a live capture):
+```powershell
+uv run python -m explorer.server --db .casuality/opencode.db --port 8797
+```
+
+2. Verify the evidence endpoints (replace `$port` if different):
+```powershell
+(Invoke-WebRequest http://127.0.0.1:8797/ -UseBasicParsing).StatusCode
+(Invoke-RestMethod http://127.0.0.1:8797/api/overview).event_count
+(Invoke-RestMethod http://127.0.0.1:8797/api/failure) | Select-Object status, method, is_fallback
+(Invoke-RestMethod http://127.0.0.1:8797/api/evidence).status
+```
+
+Expected result: index `200`; overview returns the dataset event count; failure reports `resolved` (demo, selector matched) or `fallback_last_event` (live captures without ground truth — shown honestly as "Fallback target", never as a causal claim); evidence `ok`.
+
+3. Verify the opt-in AI endpoint (requires `OPENROUTER_API_KEY` in the environment or repo `.env`; model via `OPENROUTER_MODEL`, otherwise the backend default):
+```powershell
+(Invoke-RestMethod http://127.0.0.1:8797/api/ai-diagnosis | ConvertTo-Json -Depth 4).Substring(0, 400)
+```
+
+Expected result: HTTP `200` with `{status: "ok", model, generated_at, sections: {diagnosis, evidence[], limitations}}`; the interpretation names the failure-relevant tool activity with honest limitations. Without a key expect HTTP `503 ai_unavailable`; on model/format failure expect HTTP `502` (the local template is never passed off as AI output). Repeats are instant (per-dataset in-memory cache).
+
+### Manual UI Checklist (http://127.0.0.1:8797)
+
+1. Header pill reads "Resolved" (demo) or "Fallback target" (live, amber) with an explanatory title — never "failure resolved".
+2. "Why did it fail?" shows the one-sentence lede plus clickable role chips (demo) or the slice-size note (live, no ground-truth roles).
+3. Graph|Timeline toggle: DAG shows depth-lane nodes with gold ancestor highlight on selection; Timeline shows run/model/context/tool lanes, ruler scrub, playhead, and minimap with viewport rectangle.
+4. Filter bar: Key-events preset hides `context_update`/`model_call` streaming noise; the failure node stays pinned visible even when its type is hidden; session picker defaults to latest activity; counter reads "showing X of Y events".
+5. Clicking any node/clip updates the inspector (Command + Result heroes for tool events, full field list, copy buttons) — Graph clicks must select, never misfire after a drag (6px drag-vs-click threshold).
+6. Tabs: Causal chain lists slice events; Provenance shows per-resource chains (grounded grades when recorded, "Discovered in this trace" chains otherwise); Interaction shows recorded fan-out/fan-in or an honest linear-chain note; Evidence leads with the tool story; Metrics leads with the capture census — benchmark scoring stays collapsed under "Benchmark scoring"/"Technical metric details".
+7. "Generate AI analysis" renders a dashed "Model interpretation — not evidence" block with model name and timestamp; nothing AI-related fetches on page load.
+
+Reference states (live 1625-event capture, `ses_ee839702` session, Key events):
+
+![Timeline view with Metrics census](docs/screenshots/explorer-timeline-metrics.png)
+
+![Graph view with fallback target](docs/screenshots/explorer-graph-fallback.png)
+
 
 

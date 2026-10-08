@@ -121,6 +121,19 @@ button:focus-visible, .clip:focus-visible {
   max-height: 220px;
   overflow-y: auto;
 }
+/* Quarantined model interpretation: dashed outline marks it as NOT evidence.
+ * Rendered only after an explicit button click, never on load. */
+.ai-block {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  max-width: 110ch;
+}
+.ai-block > h3 { margin: 0 0 2px; font-size: 12px; }
+.ai-block ul { margin: 4px 0; padding-left: 18px; }
+.ai-block li { margin-bottom: 2px; }
 .path-label { display: inline; font-size: 12px; color: var(--muted); }
 .causal-path { display: inline; font-size: 12px; }
 .path-step {

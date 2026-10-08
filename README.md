@@ -57,6 +57,35 @@ Evidence:
 Limitations: the evidence does not establish why the upstream tools produced these values.
 ```
 
+## See it: Visual DAG Explorer
+
+Open the capture as an interactive causal graph — no API key needed:
+
+```bash
+uv run python -m explorer.server
+```
+
+Then open <http://127.0.0.1:8766>. The bundled demo trace loads:
+a failing test, the fix edit, and the passing retry, with the failure
+path highlighted.
+
+![Visual DAG Explorer — graph view with the failure path highlighted](docs/screenshots/explorer-graph-fallback.png)
+
+- **Graph + Timeline views** of the declared causal parents — every edge
+  was recorded at capture time, none inferred.
+- **Event inspector** — click any node for its command, result, parents,
+  and children.
+- **Analysis tabs** (chain, provenance, interaction, evidence, metrics)
+  stay informative even with no ground truth, built from capture facts.
+- **Your own runs**: point it at a live capture —
+  `uv run python -m explorer.server --db .casuality/opencode.db`.
+- **Optional AI interpretation**: set `OPENROUTER_API_KEY` (and optionally
+  `OPENROUTER_MODEL`), then click *Generate AI analysis* in the
+  "Why did it fail?" strip. The model text lives in its own labeled
+  block — never mixed with the evidence.
+
+Full acceptance procedure: [TEST.md §29](TEST.md).
+
 ## Use it with your agents
 
 ```python

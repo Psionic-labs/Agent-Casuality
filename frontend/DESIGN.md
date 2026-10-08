@@ -30,14 +30,16 @@ causal path, so the layout follows that workflow top-to-bottom.
   events (bundled demo trace via the real `OpenCodeEventMapper`, or a live
   SQLite file via `SQLiteEventStore`) and reuses existing analysis functions
   (`structural_slice`, `score_diagnosis`, `build_evidence_package`).
-- It serves **five JSON endpoints** (`/api/overview|failure|diagnosis|
-  event|evidence`) plus the static frontend. Nothing is ever written.
+- It serves **six JSON endpoints** (`/api/overview|failure|diagnosis|
+  event|evidence` plus opt-in `/api/ai-diagnosis`) plus the static frontend.
+  Nothing is ever written.
 - Frontend: Next.js (TypeScript, App Router) with `output: 'export'`.
   `npm run build` emits plain HTML/CSS/JS into `frontend/out/`, which the
   Python backend serves at `/` — no Node server in production, and
   `python -m explorer.server` remains the single run command. The only
-  backend touch is `FRONTEND_DIR` pointing at `frontend/out`; the five
-  endpoints are byte-for-byte unchanged.
+  backend touches are `FRONTEND_DIR` pointing at `frontend/out` and the
+  additive `/api/ai-diagnosis` route; the five evidence endpoints are
+  byte-for-byte unchanged.
 - Pure logic lives in framework-free `lib/` modules (`store`,
   `use-selection`, `viewport`, `render`, `timeline`, `filter`, `api`) with
   explicit `.ts` relative imports, so the
@@ -81,10 +83,18 @@ below a long inspector dump.
   first/last slice labels instead of a fake path.
 - The verbatim backend summary sits collapsed under "Full technical
   explanation".
+- An opt-in **"Generate AI analysis"** button calls `/api/ai-diagnosis`
+  (per-dataset cached, key stays server-side) and renders the validated
+  reply in a dashed **"Model interpretation — not evidence"** block showing
+  the model name and timestamp. Never auto-fetched; on 502/503 the error
+  is shown plainly and the local template is never passed off as the model.
 
 **Why:** lead with a human sentence, keep the machine evidence one click
 away. Role names (not raw IDs) make the path readable; chips keep it
-navigable. Never invent causes — every word comes from the API.
+navigable. Never invent causes — every word comes from the API. The AI
+block is quarantined by label, style, and trigger precisely because model
+text is interpretation: same-section placement would let it borrow the
+evidence's authority.
 
 ## 5. Causal DAG
 
@@ -218,14 +228,15 @@ instead of hiding them. Real branching exists only in the live
 
 - `npm test` (node:test, zero test dependencies): contract checks (IDs,
   endpoints, demo shape, pointer-capture ban, shared legend, trace-fact tab
-  bodies) + unit tests
+  bodies, AI quarantine) + unit tests
   for selection, viewport, render, inspector, timeline, filter, and tracefacts — all in
   TypeScript, run directly by Node's type stripping.
 - `npx tsc --noEmit` (strict) and `npm run build` (static export) must pass.
 - `uv run ruff check .`, `uv run ty check .`, `uv run pytest -q`
-  (194 passed, 1 postgres skip).
+  (192 passed, 7 postgres/env skips).
 - Live-server smoke: static 200s (including `/_next/*` assets with correct
   MIME), demo slice/diagnosis/provenance values, live 1625-event overview.
+- Manual acceptance procedure with reference screenshots: TEST.md §29.
 
 ## 13. Ideas for a future redesign (not yet built)
 
@@ -412,6 +423,7 @@ both views render `<Legend`, neither keeps an inline copy.
   verbatim: the selection store, viewport math, and all render helpers
   (ported to `lib/*.ts`), the token set and component styling, the status
   language, and every §8 term.
-- `explorer/server.py` gained one line (`FRONTEND_DIR` → `frontend/out`);
-  the five endpoints, the causal engine, the benchmark, the adapter, and
+- `explorer/server.py` gained one line (`FRONTEND_DIR` → `frontend/out`)
+  plus the additive `/api/ai-diagnosis` route;
+  the five evidence endpoints, the causal engine, the benchmark, the adapter, and
   storage are untouched, and the demo dataset is byte-identical.

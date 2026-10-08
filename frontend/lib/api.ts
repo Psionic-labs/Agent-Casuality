@@ -1,10 +1,10 @@
-/* Typed fetchers for the five read-only /api endpoints. Same origin in
+/* Typed fetchers for the six read-only /api endpoints. Same origin in
  * production (the Python backend serves the exported app); in `npm run dev`
  * next.config.ts rewrites /api/* to the backend. Includes one shared
  * detail cache so the inspector, timeline lanes, and provenance chains never
  * refetch the same event. */
 
-import type { DiagnosisReport, EventDetail, EvidenceReport, FailureReport, GraphOverview } from "./types.ts";
+import type { AiDiagnosisReport, DiagnosisReport, EventDetail, EvidenceReport, FailureReport, GraphOverview } from "./types.ts";
 
 export const ENDPOINTS = [
   "/api/overview",
@@ -12,6 +12,7 @@ export const ENDPOINTS = [
   "/api/diagnosis",
   "/api/evidence",
   "/api/event",
+  "/api/ai-diagnosis",
 ] as const;
 
 async function getJson<T>(path: string): Promise<T> {
@@ -34,6 +35,14 @@ export function fetchDiagnosis(): Promise<DiagnosisReport> {
 
 export function fetchEvidence(): Promise<EvidenceReport> {
   return getJson<EvidenceReport>("/api/evidence");
+}
+
+/** Opt-in model interpretation of the evidence package. Never auto-called:
+ * only the WhyStrip "Generate AI analysis" button triggers it. Throws on
+ * non-OK (503 no key, 502 model/format failure) — callers must surface the
+ * error, never the local template, as the reply. */
+export function fetchAiDiagnosis(): Promise<AiDiagnosisReport> {
+  return getJson<AiDiagnosisReport>("/api/ai-diagnosis");
 }
 
 const detailCache = new Map<string, Promise<EventDetail>>();
