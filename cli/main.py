@@ -139,7 +139,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--api-key", default=None, help="OpenRouter API key (or set OPENROUTER_API_KEY)"
     )
     p_exp.add_argument(
-        "--model", default=None, help="OpenRouter model (default: nvidia/nemotron-3-ultra-550b-a55b:free)"
+        "--model",
+        default=None,
+        help="OpenRouter model (default: "
+        "nvidia/nemotron-3-ultra-550b-a55b:free)",
     )
     p_exp.add_argument(
         "--raw-evidence", action="store_true", help="output JSON evidence package"
