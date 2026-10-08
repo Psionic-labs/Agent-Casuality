@@ -8,6 +8,10 @@ JSON-serializable dicts. Nothing here writes to any store.
 from __future__ import annotations
 
 import json
+import os
+import threading
+import time
+from collections.abc import Callable
 from typing import Any
 
 from benchmark.opencode.scoring import score_diagnosis
@@ -178,3 +182,77 @@ def evidence_report(dataset: Any) -> dict[str, Any]:
     return jsonable(
         {"status": "ok", "summary": render_evidence_summary(package), "package": package}
     )
+
+
+_ai_cache: dict[tuple[str, str], dict[str, Any]] = {}
+_ai_cache_lock = threading.Lock()
+
+
+def _split_explanation(text: str) -> dict[str, Any]:
+    """Split validated model text into its three enforced sections."""
+    diagnosis, _, rest = text.partition("Evidence:")
+    evidence, _, limitations = rest.partition("Limitations:")
+    bullets = [
+        line.strip()[1:].strip()
+        for line in evidence.strip().splitlines()
+        if line.strip().startswith("-")
+    ]
+    return {
+        "diagnosis": diagnosis.replace("Diagnosis:", "", 1).strip(),
+        "evidence": bullets,
+        "limitations": limitations.strip(),
+    }
+
+
+def ai_diagnosis_report(
+    dataset: Any,
+    explain_fn: Callable[[dict[str, Any]], str] | None = None,
+) -> tuple[int, dict[str, Any]]:
+    """Model interpretation of the failure, quarantined from recorded facts.
+
+    Returns an (HTTP status, payload) pair. The payload is either the
+    sectioned interpretation or a machine-readable error (ai_unavailable /
+    format_rejected / ai_error). Anything the model says stays labeled as
+    interpretation; recorded evidence keeps coming from /api/evidence.
+    """
+    failure_id = dataset.failure.get("failure_event_id")
+    if not failure_id:
+        return 200, {"status": "no_events", "sections": {}, "model": None}
+    try:
+        from core.explain import DEFAULT_MODEL, explain, explanation_matches_format
+    except ImportError:
+        return 503, {
+            "status": "ai_unavailable",
+            "hint": "httpx is not installed; install the explain extra to enable AI analysis.",
+        }
+    cache_key = (str(dataset.source), str(failure_id))
+    with _ai_cache_lock:
+        hit = _ai_cache.get(cache_key)
+    if hit is not None:
+        return 200, hit
+    package = build_evidence_package(failure_id, dataset.log)
+    try:
+        text = (explain_fn or explain)(jsonable(package))
+    except ValueError:
+        return 503, {
+            "status": "ai_unavailable",
+            "hint": "set OPENROUTER_API_KEY (or OPENROUTER_MODEL) to enable AI analysis.",
+        }
+    except RuntimeError as exc:
+        return 502, {"status": "ai_error", "error": str(exc)}
+    if not explanation_matches_format(text, package):
+        return 502, {
+            "status": "format_rejected",
+            "error": "model output violated the Diagnosis/Evidence/Limitations contract.",
+        }
+    payload = jsonable(
+        {
+            "status": "ok",
+            "model": os.environ.get("OPENROUTER_MODEL", DEFAULT_MODEL),
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "sections": _split_explanation(text),
+        }
+    )
+    with _ai_cache_lock:
+        _ai_cache[cache_key] = payload
+    return 200, payload

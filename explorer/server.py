@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlparse
 
 from explorer import loader
 from explorer.queries import (
+    ai_diagnosis_report,
     diagnosis_report,
     event_detail,
     evidence_report,
@@ -72,6 +73,9 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_json(200, diagnosis_report(dataset))
             elif parsed.path == "/api/evidence":
                 self._send_json(200, evidence_report(dataset))
+            elif parsed.path == "/api/ai-diagnosis":
+                status, payload = ai_diagnosis_report(dataset)
+                self._send_json(status, payload)
             elif parsed.path == "/api/event":
                 event_id = parse_qs(parsed.query).get("id", [""])[0]
                 try:
