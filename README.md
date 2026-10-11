@@ -115,8 +115,9 @@ uv run casuality-opencode-ingest --db .casuality/opencode.db
 opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script."
 ```
 
-Representative committed result (`stale_research`, OpenCode `1.18.34`):
-`completed (exit 0), 211 events, capture coverage 1.0, diagnosis scored`
+Representative committed result (`stale_research`, OpenCode `1.19.0`,
+`deepseek/deepseek-v4-flash`):
+`completed (exit 0), 331 events, capture coverage 1.0, diagnosis scored`
 (see `benchmark/results/opencode/opencode.md`). No video artifact ships
 with this release. [Setup guide →](docs/opencode.md)
 
@@ -132,8 +133,10 @@ real OpenCode coding-agent benchmark. Full results in
   successes; raw-deletion failure rate met target.
 - Experiment 1 (offline): passes; external Fastino run is
   provider-blocked/deferred (no structured-output capability).
-- Real OpenCode benchmark (7 runs / 5 tasks): capture micro-average `0.928`,
-  macro-average `0.967`; cause identification `1.0` on non-deviated runs.
+- Real OpenCode benchmark (5 runs / 5 tasks, OpenCode `1.19.0`): capture
+  micro/macro-average `1.0`; cause recall mean `0.3` (structural-slice
+  ancestry under explicit-evidence edges only); joint ancestry `0.0` —
+  genuine causal interaction is unsupported from live traces.
 
 Terminology is precise: live-trace branch results are reported as
 `joint ancestry` (not causal interaction), and minimal slices as a

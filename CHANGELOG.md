@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### OpenCode plugin loader compatibility
+
+- The plugin default export is now the V1 server-plugin module
+  (`{ id: "agent-casuality", server: AgentCasualityPlugin }`), supported
+  since OpenCode `1.18.29`. Previously the bare-function default export
+  fell through to the legacy loader, where the `telemetryStats` object
+  export silently disabled the whole plugin on OpenCode `>= 1.19`
+  (`Plugin export is not a function`, 0 events ingested).
+- Regression coverage: `test/loader-compat.test.mjs` pins the V1 contract
+  in `npm test`; `scripts/check-opencode-plugin-compat.py` verifies actual
+  loading on real binaries (verified: `1.19.0` with 83 events, `1.18.34`
+  with 86 events, 0 receiver errors).
+
+### Real OpenCode benchmark (fresh rerun, 2026-10-11)
+
+- `uv run casuality-benchmark opencode --model
+  openrouter/deepseek/deepseek-v4-flash`: 5 runs / 5 tasks on OpenCode
+  `1.19.0`, all completed, 0 deviations; artifacts committed under
+  `benchmark/results/opencode/`.
+- Capture micro/macro-average `1.0`; cause recall mean `0.3`
+  (structural-slice ancestry under explicit-evidence edges only); joint
+  ancestry `0.0` (genuine causal interaction unsupported from live
+  traces); provenance `1.0`; distractors `1.0`.
+- This replaces the earlier 7-run result (capture `0.928`/`0.967`, cause
+  `1.0`), which was scored from stale traces with linear chaining and
+  must not be reused.
+
 ## [0.1.0] - 2026-10-06
 
 First public release. Published to PyPI as `agent-casuality==0.1.0`.

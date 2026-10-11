@@ -11,10 +11,16 @@ Summary of committed artifacts in `benchmark/results/` (JSON + Markdown).
 | Experiment 1 (offline) | `uv run casuality-benchmark experiment1 --repetitions 3` | Passes (12 true positives / 12 true negatives) |
 | Experiment 1 (external Fastino) | `uv run casuality-benchmark experiment1 --provider fastino` | Provider-blocked / deferred — catalog has no structured-output capability, so no external run was completed |
 | `agent-replay 0.2.0` baseline | `uv run casuality-benchmark baseline` | Divergence localization only; multi-parent causality, interactions, shared-state causality, distractor reasoning, and minimal reduction unsupported |
-| OpenCode coding-agent benchmark | `uv run casuality-benchmark opencode` | 7 runs across 5 tasks; capture micro-average `0.928` / macro-average `0.967`; cause identification `1.0` on non-deviated runs |
+| OpenCode coding-agent benchmark | `uv run casuality-benchmark opencode` | 5 runs across 5 tasks (OpenCode `1.19.0`, `deepseek/deepseek-v4-flash`); capture micro/macro-average `1.0`; cause recall mean `0.3`; joint ancestry `0.0` (genuine causal interaction unsupported) |
 
-Three `shared_state_contamination` runs are agent deviations (the agent
-refused the unsafe override), not adapter failures.
+The 2026-10-11 rerun (after the honest-causality fix `fe7a4ef`, which
+removed arrival-order edges) completed all 5 tasks with 0 deviations.
+Cause recall mean `0.3` measures structural-slice ancestry under
+explicit-evidence edges only (tool `callID` pairing, resource
+read-after-write, declared `parent_event_id`); arrival order is preserved
+by `logical_seq`/`wall_time` but never inferred as causality. It replaces
+the earlier 7-run result (capture `0.928`/`0.967`, cause `1.0`), which was
+scored from stale traces with linear chaining and must not be reused.
 
 ## Terminology
 

@@ -101,8 +101,13 @@ uv run casuality-benchmark opencode `
   --runs 2 --timeout 300 `
   --opencode-bin "C:/path/to/opencode.exe" `
   --output-dir benchmark/results/opencode `
-  --model "opencode/muse-spark-1.3-contributor-free"
+  --model "openrouter/deepseek/deepseek-v4-flash"
 ```
+
+The model is passed as `opencode run -m`. API-key models need the key in
+the environment (e.g. `OPENROUTER_API_KEY`): the runner passes
+`os.environ` through and does not auto-load `.env`, so export it in-shell
+before running. No `opencode auth login` is needed for key-based models.
 
 Options: `--task` (repeatable, default all five), `--runs` (runs per task),
 `--timeout` (seconds per run), `--opencode-bin` (default auto-detect),

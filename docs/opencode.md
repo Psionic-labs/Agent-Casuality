@@ -19,14 +19,46 @@ uv run casuality-opencode-ingest --db .casuality/opencode.db
 opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script."
 ```
 
-Representative committed result (`stale_research`, OpenCode `1.18.34`):
+Representative committed result (`stale_research`, OpenCode `1.19.0`,
+`deepseek/deepseek-v4-flash`):
 
 ```text
-Status: completed (exit 0), events: 211, capture coverage: 1.0, diagnosis: scored
+Status: completed (exit 0), events: 331, capture coverage: 1.0, diagnosis: scored
 ```
 
 Full output: `benchmark/results/opencode/opencode.md`. No video artifact ships
 with this release.
+
+## What the benchmark numbers mean
+
+Three claims are kept strictly separate:
+
+- **Event capture** (micro/macro-average `1.0` on the 2026-10-11 rerun):
+  minimum expected event-class coverage — every event class OpenCode
+  exposes was captured. This says nothing about causality.
+- **Causal ancestry** (cause recall mean `0.3`): structural-slice recall
+  under explicit-evidence edges only (tool `callID` pairing, resource
+  read-after-write, declared `parent_event_id`). Arrival order is never
+  inferred as causality, so slices stay small and honest.
+- **Genuine causal interaction** (`unsupported`, joint ancestry `0.0`):
+  live traces offer no counterfactual intervention, so branch co-ancestry
+  is reported as joint ancestry, never as a causal interaction index.
+
+## Loader compatibility
+
+The plugin default-exports the V1 server-plugin module
+`{ id: "agent-casuality", server: AgentCasualityPlugin }`, supported since
+OpenCode `1.18.29`. A bare-function default export falls through to the
+legacy loader, where any non-function named export (e.g. `telemetryStats`)
+silently disables the whole plugin on OpenCode `>= 1.19`
+(`Plugin export is not a function`, visible only in `opencode.log`).
+
+- Fast regression test: `test/loader-compat.test.mjs` (runs in `npm test`)
+  pins the V1 default-export contract.
+- Actual-loading matrix: `uv run python scripts/check-opencode-plugin-compat.py`
+  runs a trivial prompt under real binaries and asserts events are ingested
+  with no loader rejection. Verified 2026-10-11: `1.19.0` (83 events),
+  `1.18.34` (86 events), 0 receiver errors on both.
 
 ## Ingest endpoint
 
