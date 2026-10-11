@@ -491,9 +491,11 @@ def score_diagnosis(
                 pair_details.append({"pair": pair, "detected": False, "reason": "unresolved"})
                 continue
             both_in = all(i in failure_ancestors for i in (*left_ids, *right_ids))
-            # Telemetry chains events linearly, so branch events are usually
-            # reachable from one another; independence is reported
-            # informationally and does not gate detection.
+            # Arrival order creates no causal edges, so branch events are
+            # independent unless a declared edge (callID pairing,
+            # read-after-write, explicit parent_event_id) links them;
+            # independence is reported informationally and does not gate
+            # detection.
             left_anc = set().union(*(ancestors_of(log, i) - {i} for i in left_ids))
             right_anc = set().union(*(ancestors_of(log, i) - {i} for i in right_ids))
             independent = not (set(left_ids) & right_anc or set(right_ids) & left_anc)

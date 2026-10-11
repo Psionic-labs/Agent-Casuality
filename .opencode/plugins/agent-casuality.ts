@@ -20,6 +20,24 @@ const authToken = process.env.CASUALITY_OPENCODE_INGEST_TOKEN
 const queue: Envelope[] = []
 let draining = false
 
+// Observable telemetry counters. Losses are counted and warned (fail-open),
+// never thrown, so queue overflows and exhausted retries stay visible.
+export const telemetryStats = {
+  enqueued: 0,
+  delivered: 0,
+  droppedQueueOverflow: 0,
+  droppedDeliveryFailed: 0,
+  rejectedByReceiver: 0,
+}
+
+function warn(message: string): void {
+  try {
+    console.warn(`[agent-casuality] ${message}`)
+  } catch {
+    // Logging must never interrupt OpenCode (fail-open)
+  }
+}
+
 // Helper to extract session ID across OpenCode payload variants
 // Covers top-level fields plus nested info/session (session.created,
 // message.updated) and part (message.part.updated) shapes.
@@ -48,7 +66,9 @@ function sessionID(kind: string, payload: Record<string, unknown>): string | und
   return undefined
 }
 
-// Push event to queue and trigger asynchronous drain (drops oldest if full)
+// Push event to queue and trigger asynchronous drain.
+// Drops the oldest envelope if full; the drop is counted in
+// telemetryStats.droppedQueueOverflow and warned (observable, fail-open).
 function enqueue(kind: string, payload: unknown): void {
   if (!payload || typeof payload !== "object") return
   queue.push({
@@ -57,44 +77,101 @@ function enqueue(kind: string, payload: unknown): void {
     session_id: sessionID(kind, payload as Record<string, unknown>),
     payload: payload as Record<string, unknown>,
   })
-  if (queue.length > 256) queue.shift()
+  telemetryStats.enqueued += 1
+  if (queue.length > 256) {
+    queue.shift()
+    telemetryStats.droppedQueueOverflow += 1
+    warn(
+      `telemetry queue overflow: dropped oldest envelope (${telemetryStats.droppedQueueOverflow} total overflow drops)`,
+    )
+  }
   void drain()
 }
 
-// Asynchronously post buffered envelopes to receiver with up to 3 retries
+type PostResult = "delivered" | "rejected" | "failed"
+
+// Post one envelope. An HTTP 2xx alone is NOT success: when the receiver
+// reports explicit `persisted`/`accepted` counts, zero means the event was
+// received but not persisted and must be retried. Bodies without counts
+// (e.g. plain 200 `{}`) are treated as delivered for compatibility.
+async function postEnvelope(item: Envelope): Promise<PostResult> {
+  try {
+    const headers: Record<string, string> = { "content-type": "application/json" }
+    if (authToken) headers.authorization = `Bearer ${authToken}`
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(item),
+      signal: AbortSignal.timeout(1000),
+    })
+    if (!response.ok) return "failed"
+    try {
+      const body = (await response.json()) as Record<string, unknown> | null
+      if (body && typeof body === "object") {
+        if (typeof body.persisted === "number") return body.persisted > 0 ? "delivered" : "rejected"
+        if (typeof body.accepted === "number") return body.accepted > 0 ? "delivered" : "rejected"
+      }
+    } catch {
+      // Non-JSON body: HTTP success is the only signal; treat as delivered.
+    }
+    return "delivered"
+  } catch {
+    return "failed"
+  }
+}
+
+// Asynchronously post buffered envelopes to receiver with up to 3 retries.
+// Envelopes still undelivered after retries are dropped but counted in
+// telemetryStats.droppedDeliveryFailed (and rejectedByReceiver when the
+// receiver explicitly reported zero persistence) and warned.
 async function drain(): Promise<void> {
   if (draining) return
   draining = true
   try {
     while (queue.length > 0) {
-      const item = queue[0]
-      let sent = false
-      for (let attempt = 0; attempt < 3 && !sent; attempt += 1) {
-        try {
-          const headers: Record<string, string> = { "content-type": "application/json" }
-          if (authToken) headers.authorization = `Bearer ${authToken}`
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(item),
-            signal: AbortSignal.timeout(1000),
-          })
-          sent = response.ok
-        } catch {
-          sent = false
-        }
+      // Take ownership upfront: overflow shifts during the async post below
+      // then only affect queued (not in-flight) envelopes, keeping the
+      // delivered/dropped accounting exact.
+      const item = queue.shift()
+      if (!item) continue
+      let result: PostResult = "failed"
+      for (let attempt = 0; attempt < 3 && result !== "delivered"; attempt += 1) {
+        result = await postEnvelope(item)
         // Short exponential backoff between retries (50ms, 100ms)
-        if (!sent && attempt < 2) {
+        if (result !== "delivered" && attempt < 2) {
           await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)))
         }
       }
-      queue.shift()
+      if (result === "delivered") {
+        telemetryStats.delivered += 1
+      } else {
+        telemetryStats.droppedDeliveryFailed += 1
+        if (result === "rejected") telemetryStats.rejectedByReceiver += 1
+        warn(
+          `telemetry delivery failed after 3 attempts (${result}): dropped ${item.kind} ` +
+            `(${telemetryStats.droppedDeliveryFailed} total delivery drops)`,
+        )
+      }
     }
   } catch {
     // Fail-open guarantee: telemetry errors must never interrupt OpenCode
   } finally {
     draining = false
   }
+}
+
+// Introspection hooks for tests and operators (read-only except reset).
+export function __casualityTestReset(): void {
+  queue.length = 0
+  telemetryStats.enqueued = 0
+  telemetryStats.delivered = 0
+  telemetryStats.droppedQueueOverflow = 0
+  telemetryStats.droppedDeliveryFailed = 0
+  telemetryStats.rejectedByReceiver = 0
+}
+
+export function __casualityTestQueueLength(): number {
+  return queue.length
 }
 
 // OpenCode V1 Plugin implementation registering event and lifecycle hooks

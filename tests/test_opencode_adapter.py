@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+import urllib.error
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -333,7 +334,7 @@ def test_opencode_resource_registry_uses_event_wall_time(tmp_path: Path) -> None
 
 
 def test_opencode_server_fail_open_drops_malformed_telemetry(tmp_path: Path) -> None:
-    """Ensure HTTP receiver handles malformed payloads fail-open with HTTP 202 without crashing."""
+    """Malformed payloads get an honest 400 (not 202) with zero counts, fail-open."""
     server = OpenCodeIngestServer(tmp_path / "fail_open.db", port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -346,10 +347,29 @@ def test_opencode_server_fail_open_drops_malformed_telemetry(tmp_path: Path) -> 
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urlopen(req, timeout=5) as response:
-            res = json.loads(response.read().decode("utf-8"))
-            assert res.get("accepted") == 0
-            assert res.get("error") == "telemetry dropped"
+        try:
+            with urlopen(req, timeout=5) as response:  # pragma: no cover - expect 400
+                res = json.loads(response.read().decode("utf-8"))
+                status = response.status
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            res = json.loads(exc.read().decode("utf-8"))
+        assert status == 400
+        assert res.get("accepted") == 0
+        assert res.get("persisted") == 0
+        assert res.get("received") == 0
+        assert res.get("error") == "telemetry dropped"
+        # Fail-open: receiver still serves valid telemetry afterwards.
+        ok = _send(
+            url,
+            {
+                "kind": "event:session.created",
+                "timestamp": 1000,
+                "payload": {"sessionID": "session-after-malformed"},
+            },
+        )
+        assert ok.get("accepted") == 1
+        assert ok.get("persisted") == 1
     finally:
         server.close()
         thread.join(timeout=5)
@@ -392,6 +412,198 @@ def test_simulated_opencode_session_reaches_sqlite_and_graph(tmp_path: Path) -> 
     assert len(file_writes) == 2
     latest = server.mapper.resources()[("opencode", "file://src/app.py")]
     assert latest.last_writer_event_id == file_writes[-1].id
-    assert events[-1].causal_parent_ids == [events[-2].id]
-    assert set(store.ancestors(events[-1].id)) == {event.id for event in events}
+    # No implicit arrival-order causality: only the genuine tool callID
+    # linkage (tool.execute.after -> tool.execute.before) creates an edge.
+    # Ordering is preserved independently via logical_seq/wall_time.
+    assert events[3].causal_parent_ids == [events[2].id]
+    for index, event in enumerate(events):
+        if index != 3:
+            assert event.causal_parent_ids == [], f"event {index} has implicit parents"
+    seqs = [event.logical_seq for event in events]
+    assert seqs == sorted(seqs)
+    assert events[-1].causal_parent_ids == []
+    assert store.ancestors(events[-1].id) == [events[-1].id]
+    assert store.ancestors(events[3].id) == [events[3].id, events[2].id]
     store.close()
+
+
+def _post_raw(url: str, data: bytes) -> tuple[int, dict[str, object]]:
+    request = Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=5) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        return exc.code, json.loads(exc.read().decode("utf-8"))
+
+
+def test_opencode_receiver_counts_received_normalized_persisted(tmp_path: Path) -> None:
+    """Batch with one valid and one non-object envelope reports honest counts."""
+    server = OpenCodeIngestServer(tmp_path / "counts.db", port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://{server.address[0]}:{server.address[1]}/v1/opencode/events"
+        status, body = _post_raw(
+            url,
+            json.dumps(
+                [
+                    {
+                        "kind": "event:session.created",
+                        "timestamp": 1000,
+                        "payload": {"sessionID": "session-counts"},
+                    },
+                    "not-an-envelope",
+                ]
+            ).encode("utf-8"),
+        )
+        assert status == 202
+        assert body["received"] == 2
+        assert body["normalized"] == 1
+        assert body["persisted"] == 1
+        assert body["accepted"] == 1
+        assert body["rejected"] == 1
+        assert server.errors, "rejected envelope must be observable via server.errors"
+    finally:
+        server.close()
+        thread.join(timeout=5)
+
+
+def test_opencode_receiver_unpersisted_is_not_accepted(tmp_path: Path) -> None:
+    """HTTP 202 with persisted 0 must not be mistaken for durable capture."""
+
+    class BrokenLog:
+        def append(self, event: object) -> object:
+            raise OSError("disk unavailable")
+
+    server = OpenCodeIngestServer(tmp_path / "unpersisted.db", port=0)
+    server._server.mapper = OpenCodeEventMapper(BrokenLog())
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://{server.address[0]}:{server.address[1]}/v1/opencode/events"
+        status, body = _post_raw(
+            url,
+            json.dumps(
+                {
+                    "kind": "event:session.created",
+                    "timestamp": 1000,
+                    "payload": {"sessionID": "session-broken-persist"},
+                }
+            ).encode("utf-8"),
+        )
+        # Still 202 fail-open (no crash), but counts expose the persistence gap.
+        assert status == 202
+        assert body["received"] == 1
+        assert body["normalized"] == 1
+        assert body["persisted"] == 0
+        assert body["accepted"] == 0
+        assert server.errors, "persistence failure must be observable via server.errors"
+    finally:
+        server.close()
+        thread.join(timeout=5)
+
+
+def test_opencode_receiver_fail_open_on_storage_failure(tmp_path: Path) -> None:
+    """Storage exceptions never crash the receiver; the run continues."""
+
+    class BrokenLog:
+        def append(self, event: object) -> object:
+            raise OSError("disk unavailable")
+
+    server = OpenCodeIngestServer(tmp_path / "failopen.db", port=0)
+    server._server.mapper = OpenCodeEventMapper(BrokenLog())
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://{server.address[0]}:{server.address[1]}/v1/opencode/events"
+        first = _send(
+            url,
+            {
+                "kind": "event:session.created",
+                "timestamp": 1000,
+                "payload": {"sessionID": "session-still-alive"},
+            },
+        )
+        second = _send(
+            url,
+            {
+                "kind": "event:session.status",
+                "timestamp": 1100,
+                "payload": {"sessionID": "session-still-alive"},
+            },
+        )
+        assert first["persisted"] == 0
+        assert second["persisted"] == 0
+    finally:
+        server.close()
+        thread.join(timeout=5)
+
+
+def test_opencode_sessionless_events_preserved_as_unassociated() -> None:
+    """Genuinely session-less OpenCode shapes are kept under unknown, flagged, never invented."""
+    log = InMemoryEventLog()
+    mapper = OpenCodeEventMapper(log)
+    # Real SDK shapes: file.edited {file}, file.watcher.updated {file, event},
+    # session.error with optional sessionID omitted.
+    file_edit = mapper.ingest({"kind": "event:file.edited", "payload": {"file": "src/a.py"}})
+    watcher = mapper.ingest(
+        {"kind": "event:file.watcher.updated", "payload": {"file": "src/b.py", "event": "change"}}
+    )
+    session_error = mapper.ingest({"kind": "event:session.error", "payload": {"error": {"x": 1}}})
+    assert file_edit is not None and file_edit.stored is True
+    assert watcher is not None and watcher.stored is True
+    assert session_error is not None and session_error.stored is True
+    for capture in (file_edit, watcher, session_error):
+        assert capture.event.agent_id == "opencode:unknown"
+        assert capture.event.payload["session_id"] == "unknown"
+        assert capture.event.payload["session_unassociated"] is True
+    # A session-bearing event in the same mapper is associated, not flagged.
+    associated = mapper.ingest(
+        {"kind": "event:session.created", "payload": {"sessionID": "sess-1"}}
+    )
+    assert associated is not None
+    assert associated.event.agent_id == "opencode:sess-1"
+    assert associated.event.payload["session_unassociated"] is False
+
+
+def test_opencode_no_implicit_parents_but_ordering_preserved() -> None:
+    """Unrelated same-session events keep logical_seq order with no causal edges."""
+    log = InMemoryEventLog()
+    mapper = OpenCodeEventMapper(log)
+    first = mapper.ingest(
+        {"kind": "event:session.created", "payload": {"sessionID": "s-order"}}
+    )
+    second = mapper.ingest(
+        {"kind": "event:session.status", "payload": {"sessionID": "s-order"}}
+    )
+    assert first is not None and second is not None
+    assert second.event.causal_parent_ids == []
+    assert second.event.logical_seq > first.event.logical_seq
+    assert second.event.wall_time >= first.event.wall_time
+
+
+def test_opencode_explicit_parent_preserved_without_chaining() -> None:
+    """parent_event_id evidence creates exactly that edge, plus no implicit chain."""
+    log = InMemoryEventLog()
+    mapper = OpenCodeEventMapper(log)
+    first = mapper.ingest(
+        {"kind": "event:session.created", "payload": {"sessionID": "s-explicit"}}
+    )
+    assert first is not None
+    second = mapper.ingest(
+        {
+            "kind": "event:session.status",
+            "payload": {"sessionID": "s-explicit", "parent_event_id": first.event.id},
+        }
+    )
+    third = mapper.ingest(
+        {"kind": "event:session.status", "payload": {"sessionID": "s-explicit"}}
+    )
+    assert second is not None and third is not None
+    assert second.event.causal_parent_ids == [first.event.id]
+    assert third.event.causal_parent_ids == []

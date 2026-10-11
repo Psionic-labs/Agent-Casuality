@@ -50,7 +50,18 @@ opt-in and best-effort.
 ## Fail-open behavior
 
 - The plugin buffers at most 256 envelopes, retries 3 times, and drops
-  telemetry rather than interrupting OpenCode.
-- The receiver answers `202` on malformed input instead of failing the run.
+  telemetry rather than interrupting OpenCode. Queue overflows and exhausted
+  retries are counted in `telemetryStats` (`droppedQueueOverflow`,
+  `droppedDeliveryFailed`, `rejectedByReceiver`) and emitted via
+  `console.warn`; an HTTP 2xx with an explicit zero `persisted`/`accepted`
+  count is retried, not treated as delivered.
+- The receiver answers `400` on malformed input and `202` with
+  `received`/`normalized`/`persisted` counts (`accepted` aliases `persisted`)
+  otherwise, so senders never mistake receipt for persistence. Only durably
+  stored events count as persisted.
 - `file.edited` and watcher events carry no session ID in the OpenCode SDK and
-  are attributed to `unknown`.
+  are preserved under `unknown` with `session_unassociated: true`; session IDs
+  are never invented.
+- Causal edges require explicit evidence (`parent_event_id`, tool `callID`
+  linkage, or resource read-after-write). Arrival order is preserved by
+  `logical_seq`/`wall_time`, never inferred as causality.

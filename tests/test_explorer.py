@@ -59,7 +59,9 @@ def test_failure_report_roles_match_spec() -> None:
 def test_diagnosis_keeps_honest_labels() -> None:
     report = diagnosis_report(_demo())
     dims = report["dimensions"]
-    assert dims["cause_identification"]["recall"] == 1.0
+    assert dims["cause_identification"]["recall"] == 0.333
+    assert dims["cause_identification"]["identified"] == ["retry_success"]
+    assert dims["cause_identification"]["missed"] == ["first_test_failure", "fix_edit"]
     minimal = dims["minimal_slice"]
     assert minimal["metric"] == "required_cause_preservation_proxy"
     assert minimal["causal_minimality"] == "not_measurable"

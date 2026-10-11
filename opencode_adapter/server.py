@@ -29,18 +29,77 @@ class _Handler(BaseHTTPRequestHandler):
             # Read and parse incoming JSON payload (supports both single event or a list)
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8"))
-            envelopes = body if isinstance(body, list) else [body]
-            accepted = 0
-            # Feed each envelope through the mapper to record in SQLite
-            for envelope in envelopes:
-                if isinstance(envelope, dict) and server.mapper.ingest(envelope) is not None:
-                    accepted += 1
-            # HTTP 202 Accepted: confirms receipt of telemetry
-            self._json(202, {"accepted": accepted})
         except Exception as exc:  # noqa: BLE001 - fail-open telemetry boundary
-            # Fail-open guarantee: malformed body or processing error drops telemetry safely
+            # Malformed body: honest 400 (not 202) so senders never mistake
+            # it for persisted telemetry. Still fail-open: no raise, no crash.
+            server.errors.append(f"telemetry dropped: {exc}")
+            self._json(
+                400,
+                {
+                    "received": 0,
+                    "normalized": 0,
+                    "persisted": 0,
+                    "accepted": 0,
+                    "rejected": 0,
+                    "error": "telemetry dropped",
+                },
+            )
+            return
+        try:
+            envelopes = body if isinstance(body, list) else [body]
+            received = len(envelopes)
+            normalized = 0
+            persisted = 0
+            failures: list[str] = []
+            # Feed each envelope through the mapper to record in SQLite
+            for index, envelope in enumerate(envelopes):
+                if not isinstance(envelope, dict):
+                    failures.append(f"envelope {index}: not an object")
+                    continue
+                try:
+                    capture = server.mapper.ingest(envelope)
+                except Exception as exc:  # noqa: BLE001 - defensive; ingest is fail-open
+                    failures.append(f"envelope {index}: ingest error: {exc}")
+                    continue
+                if capture is None:
+                    failures.append(f"envelope {index}: not normalized")
+                    continue
+                normalized += 1
+                if capture.stored:
+                    persisted += 1
+                else:
+                    failures.append(f"envelope {index}: not persisted")
+            rejected = received - normalized
+            unpersisted = normalized - persisted
+            for failure in failures:
+                server.errors.append(failure)
+            # accepted is a backward-compatible alias for persisted: only
+            # durably stored (or deduplicated-to-stored) events count.
+            response: dict[str, Any] = {
+                "received": received,
+                "normalized": normalized,
+                "persisted": persisted,
+                "accepted": persisted,
+                "rejected": rejected,
+                "unpersisted": unpersisted,
+            }
+            if failures:
+                response["errors"] = failures
+            self._json(202, response)
+        except Exception as exc:  # noqa: BLE001 - fail-open telemetry boundary
+            # Fail-open guarantee: processing error drops telemetry safely
             server.errors.append(str(exc))
-            self._json(202, {"accepted": 0, "error": "telemetry dropped"})
+            self._json(
+                202,
+                {
+                    "received": 0,
+                    "normalized": 0,
+                    "persisted": 0,
+                    "accepted": 0,
+                    "rejected": 0,
+                    "error": "telemetry dropped",
+                },
+            )
 
     def log_message(self, format: str, *args: Any) -> None:
         # Suppress default noisy stderr HTTP logging during agent runs

@@ -101,9 +101,23 @@ def test_diagnosis_scoring_retry() -> None:
     diagnosis = score_diagnosis(
         log, log.events(), spec, resolved["resolved"], failure["failure_event_id"]
     )
-    assert diagnosis["cause_identification"]["recall"] == 1.0
-    assert diagnosis["causal_slice"]["recall"] == 1.0
-    assert diagnosis["minimal_slice"]["required_recall"] == 1.0
+    # Honest causality: only declared edges (callID pairing, read-after-write,
+    # explicit parent_event_id) create ancestry. Arrival order alone creates
+    # none, so only the callID-linked retry_success is an ancestor of the
+    # failure; first_test_failure/fix_edit occur but are unlinked.
+    assert diagnosis["cause_identification"]["recall"] == 0.333
+    assert diagnosis["cause_identification"]["identified"] == ["retry_success"]
+    assert diagnosis["cause_identification"]["missed"] == [
+        "first_test_failure",
+        "fix_edit",
+    ]
+    assert diagnosis["causal_slice"]["recall"] == 1 / 3
+    assert diagnosis["causal_slice"]["roles"] == ["retry_success"]
+    assert diagnosis["minimal_slice"]["required_recall"] == 0.333
+    failure_ancestors = ancestors_of(log, failure["failure_event_id"])
+    assert resolved["resolved"]["first_test_failure"][0] not in failure_ancestors
+    assert resolved["resolved"]["fix_edit"][0] not in failure_ancestors
+    assert resolved["resolved"]["retry_success"][0] in failure_ancestors
     assert diagnosis["provenance"]["resource_recall"] == 1.0
     assert diagnosis["interaction"]["exact_match"]
     assert diagnosis["distractors"]["leaked"] == 0
@@ -147,13 +161,14 @@ def test_distractor_excluded_from_minimal() -> None:
     diagnosis = score_diagnosis(
         log, log.events(), spec, resolved["resolved"], failure["failure_event_id"]
     )
-    assert diagnosis["minimal_slice"]["required_recall"] == 1.0
+    assert diagnosis["minimal_slice"]["required_recall"] == 0.333
+    assert diagnosis["minimal_slice"]["roles"] == ["test_failure"]
     assert diagnosis["minimal_slice"]["distractors_leaked"] == []
     states = {d["role"]: d["state"] for d in diagnosis["distractors"]["roles"]}
     assert states["distractor_read"] == "excluded"
 
 
-def test_interaction_detected_and_absent() -> None:
+def test_interaction_not_inferred_from_arrival_order() -> None:
     base = _load_recorded("stale_research")["envelopes"][:2]
     read_a = {
         "kind": "hook:tool.execute.before",
@@ -191,8 +206,11 @@ def test_interaction_detected_and_absent() -> None:
     ]
     resolved = resolve_roles(log.events(), roles)
     failure = log.events()[-1].id
-    assert ancestors_of(log, failure) >= set(resolved["resolved"]["branch_a"]) | set(
-        resolved["resolved"]["branch_b"]
+    # Arrival order alone creates no edges, so neither branch reaches the
+    # failure and no interaction may be reported.
+    assert not (
+        ancestors_of(log, failure)
+        >= set(resolved["resolved"]["branch_a"]) | set(resolved["resolved"]["branch_b"])
     )
     spec = {
         "causal_roles": roles,
@@ -204,7 +222,10 @@ def test_interaction_detected_and_absent() -> None:
         "explanation_must_mention": [],
     }
     both_score = score_diagnosis(log, log.events(), spec, resolved["resolved"], failure)
-    assert both_score["interaction"]["detected"] == [["branch_a", "branch_b"]]
+    assert both_score["interaction"]["detected"] == []
+    pair = both_score["interaction"]["pairs"][0]
+    assert pair["both_ancestors_of_failure"] is False
+    assert pair["mutually_independent"] is True
 
     single = list(base) + [read_a, edit, finish]
     log2, _ = _ingest(single)
@@ -213,6 +234,44 @@ def test_interaction_detected_and_absent() -> None:
     failure2 = log2.events()[-1].id
     single_score = score_diagnosis(log2, log2.events(), spec, resolved2["resolved"], failure2)
     assert single_score["interaction"]["detected"] == []
+
+    # A declared edge (explicit parent_event_id) restores joint ancestry:
+    # read_b linked under read_a, failure paired to read_b via callID.
+    log3 = InMemoryEventLog()
+    mapper3 = OpenCodeEventMapper(log3, run_id="opencode-test")
+    for envelope in list(base) + [read_a]:
+        assert mapper3.ingest(envelope) is not None
+    read_a_id = resolve_roles(log3.events(), roles)["resolved"]["branch_a"][0]
+    linked_b = {
+        "kind": "hook:tool.execute.before",
+        "timestamp": 1300,
+        "session_id": "s",
+        "payload": {
+            "sessionID": "s",
+            "callID": "b",
+            "tool": "read",
+            "args": {"filePath": "B.md"},
+            "parent_event_id": read_a_id,
+        },
+    }
+    after_b = {
+        "kind": "hook:tool.execute.after",
+        "timestamp": 1400,
+        "session_id": "s",
+        "payload": {"sessionID": "s", "callID": "b", "tool": "read", "output": "ok"},
+    }
+    for envelope in (linked_b, after_b):
+        assert mapper3.ingest(envelope) is not None
+    resolved3 = resolve_roles(log3.events(), roles)
+    failure3 = log3.events()[-1].id
+    assert ancestors_of(log3, failure3) >= set(
+        resolved3["resolved"]["branch_a"]
+    ) | set(resolved3["resolved"]["branch_b"])
+    linked_score = score_diagnosis(
+        log3, log3.events(), spec, resolved3["resolved"], failure3
+    )
+    assert linked_score["interaction"]["detected"] == [["branch_a", "branch_b"]]
+    assert linked_score["interaction"]["pairs"][0]["both_ancestors_of_failure"] is True
 
 
 def test_contamination_edge_and_ordering() -> None:
@@ -358,8 +417,10 @@ def test_recorded_trace_offline_end_to_end() -> None:
         log, log.events(), spec, roles["resolved"], failure["failure_event_id"]
     )
     assert capture["overall_recall"] == 1.0
-    assert diagnosis["cause_identification"]["recall"] == 1.0
-    assert diagnosis["minimal_slice"]["required_recall"] == 1.0
+    assert diagnosis["cause_identification"]["recall"] == 0.333
+    assert diagnosis["cause_identification"]["identified"] == ["test_failure"]
+    assert diagnosis["cause_identification"]["missed"] == ["stale_read", "wrong_edit"]
+    assert diagnosis["minimal_slice"]["required_recall"] == 0.333
     assert diagnosis["provenance"]["resource_recall"] == 1.0
 
 
@@ -394,8 +455,12 @@ def test_minimality_proxy_is_not_causal_minimality() -> None:
     assert diagnosis["causal_minimality_overall"] == "not_measurable"
     # The membership predicate preserves ground-truth events by construction:
     # ddmin must return exactly {failure + required} regardless of replay.
-    assert proxy["size"] == 3  # failure + first_test_failure/fix_edit/ retry
-    assert proxy["required_recall"] == 1.0
+    # Only the callID-linked retry_success is reachable from the failure, so
+    # the proxy keeps {failure, retry_success}; unlinked required roles are
+    # reported as missed, not silently chained in.
+    assert proxy["size"] == 2  # failure + retry_success
+    assert proxy["roles"] == ["retry_success"]
+    assert proxy["required_recall"] == 0.333
 
 
 def test_joint_ancestry_is_not_causal_interaction() -> None:
@@ -409,9 +474,10 @@ def test_joint_ancestry_is_not_causal_interaction() -> None:
     assert diagnosis["causal_interaction_overall"] == "unsupported"
 
 
-def test_joint_ancestry_linear_chain_is_not_independence() -> None:
-    # Both branches resolve as ancestors because the receiver chains
-    # telemetry linearly; independence is reported separately and is False.
+def test_joint_ancestry_unlinked_branches_are_independent() -> None:
+    # Arrival order creates no edges: both branches resolve in the trace but
+    # neither reaches the failure, so no interaction is detected and the
+    # branches are correctly reported as mutually independent.
     base = _load_recorded("stale_research")["envelopes"][:2]
     read_a = {
         "kind": "hook:tool.execute.before",
@@ -444,9 +510,9 @@ def test_joint_ancestry_linear_chain_is_not_independence() -> None:
     }
     score = score_diagnosis(log, log.events(), spec, resolved["resolved"], failure)
     pair = score["interaction"]["pairs"][0]
-    assert pair["detected"] is True
-    assert pair["both_ancestors_of_failure"] is True
-    assert pair["mutually_independent"] is False  # linear chaining, not independence
+    assert pair["detected"] is False
+    assert pair["both_ancestors_of_failure"] is False
+    assert pair["mutually_independent"] is True  # no edges, no false chain
     assert score["interaction"]["metric"] == "joint_ancestry"
 
 

@@ -179,9 +179,10 @@ class OpenCodeEventMapper:
         wall_time: datetime | None = None,
     ) -> OpenCodeCapture:
         state = self._state(session_id)
+        # Only explicit causal evidence creates edges (explicit parent_event_id,
+        # tool callID linkage, or resource read-after-write). Arrival order is
+        # preserved by logical_seq/wall_time, never inferred as causality.
         parent_ids = list(parents or [])
-        if not parent_ids and state.last_event_id:
-            parent_ids = [state.last_event_id]
         safe_payload = _redact(copy.deepcopy(payload), self.redactor)
         event, stored = record_event(
             agent_id=f"opencode:{session_id}",
@@ -217,6 +218,10 @@ class OpenCodeEventMapper:
             common = {
                 "opencode_kind": kind,
                 "session_id": session_id,
+                # Explicit marker for events with no reliable session evidence
+                # (e.g. file.edited, file.watcher.updated, vcs/tui/server
+                # events). Preserved under "unknown", never invented.
+                "session_unassociated": session_id == "unknown",
                 "event_id": source_id,
                 "timestamp": timestamp.isoformat(),
                 "model": state.model,
