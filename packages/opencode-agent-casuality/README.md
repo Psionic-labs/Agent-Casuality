@@ -2,6 +2,9 @@
 
 OpenCode plugin that streams Agent-Casuality telemetry events to the ingest endpoint.
 
+Scope: telemetry capture only. The Visual DAG Explorer is not part of this
+package; it ships with the `agent-casuality` Python distribution.
+
 ## Usage
 
 Add the package to your OpenCode config:

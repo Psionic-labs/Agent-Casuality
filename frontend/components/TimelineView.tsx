@@ -25,7 +25,7 @@ import { Legend } from "./Legend.tsx";
 
 const BASE_UNIT = 120;
 const GAP = 8;
-const LANE_H = 56;
+const LANE_H = 48;
 const HEADER_W = 120;
 
 interface Props {
@@ -64,7 +64,11 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
   }, [lanes]);
 
   const unit = BASE_UNIT * k;
-  const totalW = contentWidth(ordered.length, unit, GAP);
+  // Keep every horizontal feature in the same scaled coordinate system.
+  // Scaling only clips while leaving the gaps fixed makes a fit calculation
+  // fall short of its measured viewport on short traces.
+  const gap = GAP * k;
+  const totalW = contentWidth(ordered.length, unit, gap);
 
   // Resolve tool names for lanes from recorded /api/event details (cached).
   useEffect(() => {
@@ -117,10 +121,34 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
     setK(kFit);
     const sel = selectedId ? (indexOf.get(selectedId) ?? -1) : -1;
     if (scroller && sel >= 0) {
-      const step = BASE_UNIT * kFit + GAP;
-      scroller.scrollLeft = Math.max(0, sel * step - scroller.clientWidth / 2);
+      const step = (BASE_UNIT + GAP) * kFit;
+      const viewportW = Math.max(0, scroller.clientWidth - HEADER_W);
+      scroller.scrollLeft = Math.max(0, sel * step - viewportW / 2);
     }
   }, [ordered, selectedId, indexOf]);
+
+  // The plotted width belongs to the scrolling viewport, not to a fixed
+  // layout slot.  When that viewport changes, retain a deliberate zoom but
+  // update a fitted view (or one that would otherwise become letterboxed).
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const syncFitToViewport = () => {
+      const nextFit = fitScale(
+        scroller.clientWidth - HEADER_W,
+        contentWidth(ordered.length, BASE_UNIT, GAP),
+      );
+      setK((current) => {
+        const wasFitted = Math.abs(current - fitRef.current) < 1e-6;
+        fitRef.current = nextFit;
+        return wasFitted || current < nextFit ? nextFit : current;
+      });
+    };
+    const observer = new ResizeObserver(syncFitToViewport);
+    observer.observe(scroller);
+    syncFitToViewport();
+    return () => observer.disconnect();
+  }, [ordered.length]);
 
   // Apply a pending cursor-anchored zoom after the new scale renders.
   useLayoutEffect(() => {
@@ -128,9 +156,9 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
     const pending = anchorRef.current;
     if (!scroller || !pending) return;
     anchorRef.current = null;
-    const ratio = (unit + GAP) / pending.step;
+    const ratio = (unit + gap) / pending.step;
     scroller.scrollLeft = pending.contentX * ratio - pending.viewportX;
-  }, [k, unit]);
+  }, [k, unit, gap]);
 
   // Keep keyboard focus on the selected clip.
   useEffect(() => {
@@ -154,7 +182,8 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
   });
 
   // Cursor-anchored scroll zoom. The floor is the fit-all scale (zooming
-  // out stops at fit, so the trace can never be lost); the ceiling stays 10x.
+  // out stops at fit, so the trace can never be lost); the ceiling is 10x
+  // unless a very short trace needs a larger fitted scale.
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;
@@ -165,14 +194,21 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
       anchorRef.current = {
         viewportX,
         contentX: viewportX + scroller.scrollLeft,
-        step: unit + GAP,
+        step: unit + gap,
       };
-      const next = zoomAt({ k, tx: 0, ty: 0 }, 0, 0, e.deltaY < 0 ? 1.2 : 1 / 1.2, fitRef.current, 10);
+      const next = zoomAt(
+        { k, tx: 0, ty: 0 },
+        0,
+        0,
+        e.deltaY < 0 ? 1.2 : 1 / 1.2,
+        fitRef.current,
+        Math.max(10, fitRef.current),
+      );
       setK(next.k);
     };
     scroller.addEventListener("wheel", onWheel, { passive: false });
     return () => scroller.removeEventListener("wheel", onWheel);
-  }, [k, unit]);
+  }, [k, unit, gap]);
 
   // Drag-to-pan with a 6px drag-vs-click threshold (reuses clickSuppressed).
   useEffect(() => {
@@ -210,7 +246,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
     const rect = ruler.getBoundingClientRect();
     return Math.min(
       ordered.length - 1,
-      Math.max(0, Math.floor((clientX - rect.left) / (unit + GAP))),
+      Math.max(0, Math.floor((clientX - rect.left) / (unit + gap))),
     );
   };
 
@@ -242,9 +278,10 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
     if (!node) return;
     const scroller = scrollRef.current;
     if (scroller) {
-      const x = clipX(next, unit, GAP);
-      if (x < scroller.scrollLeft || x + unit > scroller.scrollLeft + scroller.clientWidth) {
-        scroller.scrollLeft = Math.max(0, x - scroller.clientWidth / 2);
+      const x = clipX(next, unit, gap);
+      const viewportW = Math.max(0, scroller.clientWidth - HEADER_W);
+      if (x < scroller.scrollLeft || x + unit > scroller.scrollLeft + viewportW) {
+        scroller.scrollLeft = Math.max(0, x - viewportW / 2);
       }
     }
     selectEvent(node.id);
@@ -262,7 +299,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
   };
 
   // Visible-window culling: mount only clips intersecting the viewport.
-  const win = visibleWindow(scroll.left, Math.max(0, scroll.client - HEADER_W), ordered.length, unit, GAP);
+  const win = visibleWindow(scroll.left, Math.max(0, scroll.client - HEADER_W), ordered.length, unit, gap);
   const visibleIdx = new Set<number>();
   for (let i = win.start; i < win.end; i++) visibleIdx.add(i);
 
@@ -284,17 +321,17 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
       const lp = laneOf.get(s.fromId);
       const lc = laneOf.get(s.toId);
       if (ip === undefined || ic === undefined || lp === undefined || lc === undefined) continue;
-      const x1 = clipX(ip, unit, GAP) + unit;
+      const x1 = clipX(ip, unit, gap) + unit;
       const y1 = lp * LANE_H + LANE_H / 2;
-      const x2 = clipX(ic, unit, GAP);
+      const x2 = clipX(ic, unit, gap);
       const y2 = lc * LANE_H + LANE_H / 2;
       parts.push(`M ${x1} ${y1} L ${x2} ${y2}`);
     }
     return parts.join(" ");
-  }, [segments, indexOf, laneOf, unit]);
+  }, [segments, indexOf, laneOf, unit, gap]);
 
   const selIdx = selectedId ? (indexOf.get(selectedId) ?? -1) : -1;
-  const playX = selIdx >= 0 ? clipX(selIdx, unit, GAP) + unit / 2 : null;
+  const playX = selIdx >= 0 ? clipX(selIdx, unit, gap) + unit / 2 : null;
 
   const clipClass = (nodeId: string, inSlice: boolean, eventType: string): string => {
     let cls = tickClassNames(
@@ -330,7 +367,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
                   <span
                     key={n.id}
                     className={`tl-num${n.id === selectedId ? " sel" : ""}`}
-                    style={{ left: clipX(i, unit, GAP), width: unit + GAP }}
+                    style={{ left: clipX(i, unit, gap), width: unit + gap }}
                   >
                     {n.logical_seq}
                   </span>
@@ -370,7 +407,7 @@ export function TimelineView({ overview, selectedId, lit, parentOf, apiRef }: Pr
                             else clipRefs.current.delete(n.id);
                           }}
                           className={clipClass(n.id, n.in_failure_slice, n.event_type)}
-                          style={{ left: clipX(i, unit, GAP), width: unit }}
+                          style={{ left: clipX(i, unit, gap), width: unit }}
                           title={`#${n.logical_seq} ${n.label}`}
                           aria-label={`Event ${n.logical_seq} ${n.event_type}`}
                           onClick={() => {

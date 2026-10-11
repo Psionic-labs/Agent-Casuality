@@ -238,8 +238,17 @@ def ai_diagnosis_report(
             "status": "ai_unavailable",
             "hint": "set OPENROUTER_API_KEY (or OPENROUTER_MODEL) to enable AI analysis.",
         }
+    except ImportError:
+        return 503, {
+            "status": "ai_unavailable",
+            "hint": "httpx is not installed; install the explain extra to enable AI analysis.",
+        }
     except RuntimeError as exc:
         return 502, {"status": "ai_error", "error": str(exc)}
+    except Exception as exc:
+        # Transport/timeout/unexpected model-layer failures are still model
+        # failures (502), never an unhandled 500 from this endpoint.
+        return 502, {"status": "ai_error", "error": f"{type(exc).__name__}: {exc}"}
     if not explanation_matches_format(text, package):
         return 502, {
             "status": "format_rejected",

@@ -152,7 +152,7 @@ button:focus-visible, .clip:focus-visible {
 /* Main panels: one 1px divider between DAG and inspector, no nested cards. */
 .debug-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 0;
   margin: 12px 0 0;
   border-top: 1px solid #111;
@@ -216,6 +216,11 @@ button:focus-visible, .clip:focus-visible {
 
 #dag {
   width: 100%;
+  /* Fixed shared view height: Graph and Timeline are tab alternatives in
+   * the same card, so both slots render at exactly the shared budget
+   * (46vh, min 300px) and the card never changes size when switching tabs.
+   * Shallow DAGs letterbox via the default meet fit; overflowing timelines
+   * scroll; zoom/pan still operate in viewBox units. */
   height: 46vh;
   min-height: 300px;
   background: var(--ground);
@@ -225,6 +230,7 @@ button:focus-visible, .clip:focus-visible {
   touch-action: none;
 }
 #dag:active { cursor: grabbing; }
+
 #dag .node { cursor: pointer; }
 #dag .node circle { fill: var(--clip-fill); stroke: #111; stroke-width: 1; }
 #dag .node text { fill: var(--text); font-size: 11px; }
@@ -238,12 +244,23 @@ button:focus-visible, .clip:focus-visible {
 #dag .edge.lit { stroke: var(--edge-gold); stroke-width: 1.5; }
 
 /* ---------- Timeline view ---------- */
-#timeline { background: var(--track-body); border: 1px solid #111; border-radius: var(--radius); }
+#timeline {
+  /* Timeline and Graph occupy the same main-view viewport.  The lane
+   * scroller below flexes into the remaining area so short traces retain
+   * a readable plotting field above the minimap. */
+  height: 46vh;
+  min-height: 300px;
+  background: var(--track-body);
+  border: 1px solid #111;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+}
 .tl-scroll {
   overflow: auto;
-  max-height: 46vh;
-  min-height: 300px;
+  min-height: 0;
   border-bottom: 1px solid var(--hairline);
+  flex: 1 1 auto;
 }
 .tl-ruler-row { display: flex; position: sticky; top: 0; z-index: 3; background: var(--track-head); }
 .tl-corner {
@@ -299,7 +316,7 @@ button:focus-visible, .clip:focus-visible {
 .clip {
   position: absolute;
   top: 6px;
-  height: 44px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -333,7 +350,7 @@ button:focus-visible, .clip:focus-visible {
   pointer-events: none;
 }
 /* Minimap strip: square segments with 1px gaps; the box is a 1px outline. */
-.minimap { position: relative; padding: 10px 12px 4px; }
+.minimap { position: relative; padding: 10px 12px 4px; flex: 0 0 auto; }
 .minimap-track { position: relative; display: flex; gap: 1px; height: 16px; cursor: pointer; }
 .mm-seg { flex: 1 0 0; min-width: 2px; border-radius: 0; background: var(--clip-fill); }
 .mm-seg.in-slice { background: var(--slice-fill); }
@@ -359,12 +376,13 @@ button:focus-visible, .clip:focus-visible {
 .sw.failure { background: var(--fail-fill); }
 .sw.terminal { background: transparent; border: 1px dashed var(--terminal); }
 .sw.selected { background: transparent; border: 2px solid #fff; }
-.tl-note { padding: 0 12px 10px; }
+.tl-note { padding: 0 12px 10px; flex: 0 0 auto; }
 
-/* Capped to the same 46vh budget as the timeline/DAG column so the grid
- * row never grows taller than the view next to it (which would push the
- * tab bar down into dead space). Overflow scrolls inside the card. */
-.inspector-card { max-height: 46vh; min-height: 300px; overflow-y: auto; }
+/* The inspector stretches to match whatever the main view renders — the
+ * grid uses align-items: start so the sidebar doesn't artificially extend.
+ * A generous max-height prevents it from pushing the page too tall on
+ * large traces; overflow scrolls inside the card. */
+.inspector-card { max-height: 60vh; min-height: 200px; overflow-y: auto; }
 /* Inspector: a plain label/value list with 1px dividers. */
 #event-detail dl { margin: 0 0 6px; font-size: 12px; }
 #event-detail .field-row {

@@ -25,6 +25,7 @@ from typing import Any
 
 from core.decision import DecisionContract, create_fixture_decision
 from core.explain import (
+    DEFAULT_MODEL,
     build_evidence_package,
     explain,
     explanation_matches_format,
@@ -141,8 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_exp.add_argument(
         "--model",
         default=None,
-        help="OpenRouter model (default: "
-        "nvidia/nemotron-3-ultra-550b-a55b:free)",
+        help=f"OpenRouter model (default: {DEFAULT_MODEL})",
     )
     p_exp.add_argument(
         "--raw-evidence", action="store_true", help="output JSON evidence package"

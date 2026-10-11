@@ -22,8 +22,8 @@ Agent execution → event capture → causal graph → slice / provenance / inte
 
 ## Install
 
-Published as `agent-casuality==0.1.0` (PyPI) and
-`@psionic-labs/opencode-agent-casuality==0.1.0` (npm).
+Published as `agent-casuality==0.1.2` (PyPI) and
+`@psionic-labs/opencode-agent-casuality==0.1.1` (npm).
 
 Requires Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).
 
@@ -69,7 +69,18 @@ Then open <http://127.0.0.1:8766>. The bundled demo trace loads:
 a failing test, the fix edit, and the passing retry, with the failure
 path highlighted.
 
-![Visual DAG Explorer — graph view with the failure path highlighted](docs/screenshots/explorer-graph-fallback.png)
+![Visual DAG Explorer — live OpenCode trace with the failure target selected, causal edges, and inspector](docs/screenshots/explorer-shared-state-fresh.png)
+
+Screenshot: a freshly captured `shared_state_contamination` run (240
+events, 6 causal edges, `deepseek/deepseek-v4-flash`) — the checker's
+failure node selected, its causal chain in the inspector.
+
+![Visual DAG Explorer Timeline view — per-agent lanes in sequence order, the failure target selected, with minimap and event inspector](docs/screenshots/timeline.png)
+
+Screenshot: the bundled demo trace in the Timeline view — per-agent
+lanes (run, bash, edit), the retry's `tool_result` ("app tests pass")
+selected as the failure target, with the "Why did it fail?" strip and
+event inspector alongside.
 
 - **Graph + Timeline views** of the declared causal parents — every edge
   was recorded at capture time, none inferred.

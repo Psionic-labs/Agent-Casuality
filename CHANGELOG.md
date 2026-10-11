@@ -2,7 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.2] - 2026-10-11
+
+### AI diagnosis model default and error mapping (Python distribution)
+
+- `DEFAULT_MODEL` is now `nvidia/nemotron-3-ultra-550b-a55b:free`:
+  `deepseek/deepseek-v4-flash:free` was retired from OpenRouter's free
+  tier (HTTP 404, "unavailable for free"), which broke the explorer's
+  opt-in *Generate AI analysis* (`/api/ai-diagnosis` → 502) and the
+  `explain` CLI default. Override per call with `OPENROUTER_MODEL`.
+- `/api/ai-diagnosis` no longer leaks model-layer failures as HTTP 500:
+  `ImportError` (e.g. missing `httpx`) maps to 503 `ai_unavailable` and
+  any other unexpected model error maps to 502 `ai_error` with the
+  cause attached. The frontend now surfaces the backend's error body
+  instead of a bare status code.
+
+## [0.1.1] - 2026-10-11
 
 ### OpenCode plugin loader compatibility
 
@@ -30,6 +45,21 @@ All notable changes to this project will be documented in this file.
 - This replaces the earlier 7-run result (capture `0.928`/`0.967`, cause
   `1.0`), which was scored from stale traces with linear chaining and
   must not be reused.
+
+### Visual DAG Explorer (core feature, Python distribution)
+
+- The explorer (`uv run python -m explorer.server`, serves its own
+  bundled frontend) is part of this release: graph + timeline over
+  recorded causal edges, event inspector, and analysis tabs that stay
+  informative with no ground truth.
+- README showcases a screenshot captured from a fresh
+  `shared_state_contamination` trace (240 events, 6 causal edges,
+  `docs/screenshots/explorer-shared-state-fresh.png`); the reproducible
+  capture → serve → view flow is documented in `docs/opencode.md`.
+- Scope note: `@psionic-labs/opencode-agent-casuality@0.1.1` is the
+  telemetry-capture plugin only (hooks, buffering, fail-open delivery) —
+  installing it does not install the visual interface, which ships with
+  the `agent-casuality` Python distribution.
 
 ## [0.1.0] - 2026-10-06
 

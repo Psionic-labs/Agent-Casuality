@@ -17,7 +17,17 @@ export const ENDPOINTS = [
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path);
-  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+  if (!res.ok) {
+    // Keep the backend's error body: it carries the real reason
+    // (ai_unavailable hint / ai_error detail), not just the status.
+    let detail = "";
+    try {
+      detail = (await res.text()).slice(0, 300);
+    } catch {
+      detail = "";
+    }
+    throw new Error(detail ? `${path}: HTTP ${res.status} ${detail}` : `${path}: HTTP ${res.status}`);
+  }
   return (await res.json()) as T;
 }
 

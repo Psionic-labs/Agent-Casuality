@@ -93,10 +93,16 @@ describe("clip x-position from sequence index", () => {
     assert.equal(contentWidth(0, 120), 0);
   });
 
-  it("fit-all never zooms in beyond 1x", () => {
-    assert.equal(fitScale(2000, 1000), 1);
+  it("fit-all uses the entire measured plotting viewport", () => {
+    assert.equal(fitScale(2000, 1000), 2);
     assert.ok(Math.abs(fitScale(640, 1400) - 640 / 1400) < 1e-9);
     assert.equal(fitScale(0, 0), 1);
+  });
+
+  it("keeps clips and gaps on the same fitted coordinate system", () => {
+    const base = contentWidth(10, 120, 8);
+    const scale = fitScale(2000, base);
+    assert.ok(Math.abs(contentWidth(10, 120 * scale, 8 * scale) - 2000) < 1e-9);
   });
 });
 

@@ -29,6 +29,26 @@ Status: completed (exit 0), events: 331, capture coverage: 1.0, diagnosis: score
 Full output: `benchmark/results/opencode/opencode.md`. No video artifact ships
 with this release.
 
+## View a fresh trace in the Visual DAG Explorer
+
+No extra setup: the explorer ships in the Python distribution and serves
+its bundled frontend itself. No API key is needed (only the optional AI
+interpretation uses one).
+
+```powershell
+# 1. Capture a fresh trace (one benchmark task is enough)
+uv run casuality-benchmark opencode --task shared_state_contamination --timeout 300
+
+# 2. Serve the resulting trace in the explorer
+uv run python -m explorer.server --db benchmark/results/opencode/runs/<run-id>/trace.db
+
+# 3. Open http://127.0.0.1:8766 — graph, timeline, event inspector, and
+#    analysis tabs load from the trace's recorded causal edges.
+```
+
+The screenshot in [README](../README.md) (`docs/screenshots/explorer-shared-state-fresh.png`)
+was produced exactly this way from a `shared_state_contamination` run.
+
 ## What the benchmark numbers mean
 
 Three claims are kept strictly separate:

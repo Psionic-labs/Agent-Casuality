@@ -63,10 +63,15 @@ export function contentWidth(count: number, unit: number, gap = 8): number {
   return count === 0 ? 0 : clipX(count - 1, unit, gap) + unit;
 }
 
-/** Fit-all zoom for a container: scale the whole sequence into view. */
+/** Fit-all zoom for a container: scale the whole sequence into view.
+ *
+ * A short trace must be allowed to scale up too.  The caller applies this
+ * scale to every horizontal timeline unit (clips and gaps), so the returned
+ * value makes the sequence span the measured plotting viewport exactly.
+ */
 export function fitScale(containerW: number, totalW: number): number {
   if (totalW <= 0 || containerW <= 0) return 1;
-  return Math.min(1, containerW / totalW);
+  return containerW / totalW;
 }
 
 /** Index range of clips intersecting the visible window (plus one clip of

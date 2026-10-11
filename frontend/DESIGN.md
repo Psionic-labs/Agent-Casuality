@@ -69,7 +69,10 @@ Research detail lives behind tabs/collapsibles, never in the first viewport.
 Both columns share one height budget (46vh, min 300px): the inspector
 scrolls internally rather than stretching the grid row, so the tab bar
 always sits directly under the views instead of dropping into dead space
-below a long inspector dump.
+below a long inspector dump. Graph and Timeline are tab alternatives in
+the same card, so both view slots render at exactly that budget and the
+card never changes size when switching tabs: shallow DAGs letterbox via
+the SVG meet fit, overflowing timelines scroll internally.
 
 ## 4. Diagnosis section
 
