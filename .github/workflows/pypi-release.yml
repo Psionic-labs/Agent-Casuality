@@ -3,7 +3,7 @@
 # Setup (one time):
 #   1. On PyPI, register this workflow as a trusted publisher for the
 #      `agent-casuality` project. Owner, repository, workflow filename
-#      (`workflow.yml`) and environment (`pypi`) must match this file.
+#      (`pypi-release.yml`) and environment (`pypi`) must match this file.
 #   2. In the GitHub repo settings, create an environment named `pypi`
 #      (add required reviewers if you want a manual approval gate).
 #

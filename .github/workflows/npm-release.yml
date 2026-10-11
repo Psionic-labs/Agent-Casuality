@@ -1,0 +1,59 @@
+name: Publish plugin to npm
+
+# Independent of the PyPI release flow: plugin releases are cut with
+# `plugin-v*` tags (e.g. plugin-v0.1.1), so the Python package and the
+# OpenCode plugin version and ship on their own cadences.
+# Auth is npm OIDC trusted publishing (no token): register this repo +
+# this workflow filename as a trusted publisher in the npmjs.com package
+# settings once, then publishing just works.
+
+on:
+  push:
+    tags:
+      - "plugin-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing plugin-v* tag to publish (must already exist)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - id: v
+        run: |
+          VERSION="$(node -p "require('./packages/opencode-agent-casuality/package.json').version")"
+          TAG="${{ inputs.tag || github.ref_name }}"
+          test "plugin-v$VERSION" = "$TAG" || { echo "tag $TAG != plugin-v$VERSION from package.json"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm OIDC trusted publishing
+    defaults:
+      run:
+        working-directory: packages/opencode-agent-casuality
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # OIDC trusted publishing needs npm >= 11.5.1
+      - run: npm ci
+      - run: npm test
+      - run: npm publish --provenance --access public
