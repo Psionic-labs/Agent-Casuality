@@ -4,13 +4,13 @@
 
 Each task runs a real OpenCode coding-agent session with the Agent-Casuality plugin enabled. The trace is captured through the validated /v1/opencode/events receiver into SQLite, then scored for minimum expected event-class coverage (captured / expected minimum per class; NOT general precision/recall) and diagnosis quality (cause, structural slice, required-cause preservation proxy, provenance, joint-branch ancestry, distractors, summary-citation grounding). Minimal-slice results are a required-cause preservation proxy and are NOT causal minimality (not measurable: no DecisionContract or observable failure predicate on live traces). Interaction results are joint-branch ancestry detection and are NOT causal interaction (unsupported: no counterfactual intervention). Capture failures, diagnosis failures, and agent deviations are reported separately; capture shows micro- and macro-averages across task types.
 
-OpenCode version: `1.18.34`
+OpenCode version: `1.19.0`
 
 Platform: `Windows-11-10.0.26200-SP0`
 
-Timestamp: `2026-10-06T22:08:18.602159+00:00`
+Timestamp: `2026-10-11T07:11:04.796140+00:00`
 
-Repository head: `b9234ae95344eed56ea1d1e856a54f46dc629eeb`
+Repository head: `fe7a4ef2d75d622b541693809b20974163c713c9`
 
 ## Task descriptions
 
@@ -68,77 +68,63 @@ Expected diagnosis: The experimental write to shared.json contaminated the state
 
 Metric: minimum expected event-class coverage (captured / expected minimum; NOT general precision/recall; `available=false` classes excluded from the denominator).
 
-Micro-average (all runs): `0.928`
+Micro-average (all runs): `1.0`
 
-Macro-average (mean of per-task means): `0.967`
+Macro-average (mean of per-task means): `1.0`
 
 | Task | Runs | Statuses | Mean capture coverage | Deviated |
 | --- | --- | --- | --- | --- |
+| stale_research | 1 | completed | 1.0 | 0 |
 | conflicting_review | 1 | completed | 1.0 | 0 |
 | failed_test_retry | 1 | completed | 1.0 | 0 |
-| shared_state_contamination | 3 | completed,completed,completed | 0.833 | 3 |
-| stale_research | 1 | completed | 1.0 | 0 |
 | subagent_disagreement | 1 | completed | 1.0 | 0 |
+| shared_state_contamination | 1 | completed | 1.0 | 0 |
 
 ## Diagnosis quality
 
 No single opaque score. `mean_score` excludes agent-deviation runs (no ground-truth evidence to find); `mean_score_all_runs` includes them for traceability. True causal minimality is not measurable; true causal interaction is unsupported.
 
-- cause_identification (cause identification (ground-truth causal event in slice)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
-- causal_slice (structural slice presence (extra events reported via precision, not ignored)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
-- minimal_slice (required-cause preservation proxy (NOT causal minimality)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
-- provenance (provenance resource recall (edges reported separately)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.786` over 7)
-- interaction (joint-branch ancestry detection (NOT causal interaction)): measured mean `1.0` (measured runs: 2; all-runs mean: `1.0` over 2)
+- cause_identification (cause ID in slice): measured mean `0.3` (measured runs: 5; all-runs mean: `0.3` over 5)
+- causal_slice (structural slice presence (extras via precision)): measured mean `0.3` (measured runs: 5; all-runs mean: `0.3` over 5)
+- minimal_slice (required-cause preservation proxy (NOT causal minimality)): measured mean `0.3` (measured runs: 5; all-runs mean: `0.3` over 5)
+- provenance (provenance resource recall (edges reported separately)): measured mean `1.0` (measured runs: 5; all-runs mean: `1.0` over 5)
+- interaction (joint-branch ancestry detection (NOT causal interaction)): measured mean `0.0` (measured runs: 2; all-runs mean: `0.0` over 2)
 - distractors (distractor exclusion (explicit expected distractors absent)): measured mean `1.0` (measured runs: 2; all-runs mean: `1.0` over 2)
-- explanation_grounding (explanation grounding (summary cites real event IDs)): measured mean `0.0` (measured runs: 4; all-runs mean: `0.0` over 7)
-- joint_ancestry (joint-branch ancestry detection (NOT causal interaction)): measured mean `1.0` (measured runs: 2; all-runs mean: `1.0` over 2)
+- explanation_grounding (explanation grounding (summary cites real event IDs)): measured mean `0.0` (measured runs: 5; all-runs mean: `0.0` over 5)
+- joint_ancestry (joint-branch ancestry detection (NOT causal interaction)): measured mean `0.0` (measured runs: 2; all-runs mean: `0.0` over 2)
 - causal_interaction: `unsupported` (no counterfactual intervention available from live OpenCode traces; see joint_ancestry)
-- minimality_proxy (required-cause preservation proxy (NOT causal minimality)): measured mean `1.0` (measured runs: 4; all-runs mean: `0.571` over 7)
+- minimality_proxy (required-cause preservation proxy (NOT causal minimality)): measured mean `0.3` (measured runs: 5; all-runs mean: `0.3` over 5)
 - causal_minimality: `not_measurable` (live OpenCode traces carry no DecisionContract or observable failure predicate; minimal_slice is required-cause preservation)
-
-Agent deviations: `3` (shared_state_contamination-0bb78d63, shared_state_contamination-2f1a1f64, shared_state_contamination-a3c550c7)
 
 ## Per-scenario results
 
-### conflicting_review (conflicting_review-61b58f2b)
+### stale_research (stale_research-bbdda07a)
 
-Status: `completed` (exit 0), events: `268`, capture recall: `1.0`, diagnosis: `scored`
-
-Unresolved roles: `none`
-
-### failed_test_retry (failed_test_retry-30b1611c)
-
-Status: `completed` (exit 0), events: `208`, capture recall: `1.0`, diagnosis: `scored`
+Status: `completed` (exit 0), events: `331`, capture recall: `1.0`, diagnosis: `scored`
 
 Unresolved roles: `none`
 
-### shared_state_contamination (shared_state_contamination-0bb78d63)
+### conflicting_review (conflicting_review-3d4e9cb0)
 
-Status: `completed` (exit 0), events: `168`, capture recall: `0.833`, diagnosis: `scored`
-
-Unresolved roles: `['consumer_read', 'contaminating_write', 'validation_failure']`
-
-### shared_state_contamination (shared_state_contamination-2f1a1f64)
-
-Status: `completed` (exit 0), events: `181`, capture recall: `0.833`, diagnosis: `scored`
-
-Unresolved roles: `['consumer_read', 'contaminating_write', 'validation_failure']`
-
-### shared_state_contamination (shared_state_contamination-a3c550c7)
-
-Status: `completed` (exit 0), events: `180`, capture recall: `0.833`, diagnosis: `scored`
-
-Unresolved roles: `['consumer_read', 'contaminating_write', 'validation_failure']`
-
-### stale_research (stale_research-cfbdcbee)
-
-Status: `completed` (exit 0), events: `211`, capture recall: `1.0`, diagnosis: `scored`
+Status: `completed` (exit 0), events: `275`, capture recall: `1.0`, diagnosis: `scored`
 
 Unresolved roles: `none`
 
-### subagent_disagreement (subagent_disagreement-dad8b32f)
+### failed_test_retry (failed_test_retry-6d649bb2)
 
-Status: `completed` (exit 0), events: `578`, capture recall: `1.0`, diagnosis: `scored`
+Status: `completed` (exit 0), events: `234`, capture recall: `1.0`, diagnosis: `scored`
+
+Unresolved roles: `['first_test_failure']`
+
+### subagent_disagreement (subagent_disagreement-8f32cde5)
+
+Status: `completed` (exit 0), events: `723`, capture recall: `1.0`, diagnosis: `scored`
+
+Unresolved roles: `none`
+
+### shared_state_contamination (shared_state_contamination-f44153ca)
+
+Status: `completed` (exit 0), events: `240`, capture recall: `1.0`, diagnosis: `scored`
 
 Unresolved roles: `none`
 
@@ -148,9 +134,11 @@ No agent execution failures.
 
 Runs where the intended causal structure did not materialize (agent deviation, not adapter failure):
 
-- shared_state_contamination (shared_state_contamination-0bb78d63): unresolved roles `['consumer_read', 'contaminating_write', 'validation_failure']`; cause recall `0.0`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
-- shared_state_contamination (shared_state_contamination-2f1a1f64): unresolved roles `['consumer_read', 'contaminating_write', 'validation_failure']`; cause recall `0.0`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
-- shared_state_contamination (shared_state_contamination-a3c550c7): unresolved roles `['consumer_read', 'contaminating_write', 'validation_failure']`; cause recall `0.0`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
+- stale_research (stale_research-bbdda07a): unresolved roles `[]`; cause recall `0.333`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
+- conflicting_review (conflicting_review-3d4e9cb0): unresolved roles `[]`; cause recall `0.25`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
+- failed_test_retry (failed_test_retry-6d649bb2): unresolved roles `['first_test_failure']`; cause recall `0.333`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
+- subagent_disagreement (subagent_disagreement-8f32cde5): unresolved roles `[]`; cause recall `0.25`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
+- shared_state_contamination (shared_state_contamination-f44153ca): unresolved roles `[]`; cause recall `0.333`. The agent run completed but skipped the injected actions, so diagnosis has no ground-truth events to find.
 
 ## Limitations
 

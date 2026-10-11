@@ -41,8 +41,8 @@ const port = mode === "down" ? 0 : await listen()
 const ingestUrl = `http://127.0.0.1:${port}/v1/opencode/events`
 
 const driver = `
-import plugin from ${JSON.stringify(pathToFileURL(path.join(root, "dist", "index.js")).href)}
-const hooks = await plugin({})
+import pluginModule from ${JSON.stringify(pathToFileURL(path.join(root, "dist", "index.js")).href)}
+const hooks = await pluginModule.server({})
 await hooks.event({ event: { type: "session.created", properties: { info: { id: "sess-1" } } } })
 await hooks.event({ event: { type: "message.part.updated", properties: { sessionID: "sess-2", part: { sessionID: "sess-2" } } } })
 await hooks.event({ event: { type: "message.updated", properties: { info: { session_id: "sess-3" } } } })

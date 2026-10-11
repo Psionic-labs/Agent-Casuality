@@ -36,7 +36,7 @@ globalThis.fetch = async (_url, opts) => {
 
 const pluginModule = await import("../dist/index.js")
 const { telemetryStats, __casualityTestReset, __casualityTestQueueLength } = pluginModule
-const plugin = pluginModule.default
+const plugin = pluginModule.default.server
 
 function resetHarness() {
   fetchMode = "ok"

@@ -233,4 +233,12 @@ export const AgentCasualityPlugin: Plugin = async () => ({
   },
 })
 
-export default AgentCasualityPlugin
+// V1 server-plugin module shape (supported since OpenCode 1.18.29): the
+// default export must be an object with server(), not the plugin function
+// itself. Named exports are ignored on this path, so helper exports such
+// as telemetryStats no longer break loading with
+// "Plugin export is not a function" (OpenCode >= 1.19).
+export default {
+  id: "agent-casuality",
+  server: AgentCasualityPlugin,
+}

@@ -1,381 +1,36 @@
 {
   "kind": "opencode",
   "methodology": "Each task runs a real OpenCode coding-agent session with the Agent-Casuality plugin enabled. The trace is captured through the validated /v1/opencode/events receiver into SQLite, then scored for minimum expected event-class coverage (captured / expected minimum per class; NOT general precision/recall) and diagnosis quality (cause, structural slice, required-cause preservation proxy, provenance, joint-branch ancestry, distractors, summary-citation grounding). Minimal-slice results are a required-cause preservation proxy and are NOT causal minimality (not measurable: no DecisionContract or observable failure predicate on live traces). Interaction results are joint-branch ancestry detection and are NOT causal interaction (unsupported: no counterfactual intervention). Capture failures, diagnosis failures, and agent deviations are reported separately; capture shows micro- and macro-averages across task types.",
-  "opencode_version": "1.18.34",
+  "opencode_version": "1.19.0",
   "platform": "Windows-11-10.0.26200-SP0",
   "python": "3.12.13 (main, Jun 23 2026, 15:23:43) [MSC v.1944 64 bit (AMD64)]",
-  "repository_head": "b9234ae95344eed56ea1d1e856a54f46dc629eeb",
-  "timestamp": "2026-10-06T22:08:18.602159+00:00",
+  "repository_head": "fe7a4ef2d75d622b541693809b20974163c713c9",
+  "timestamp": "2026-10-11T07:11:04.796140+00:00",
   "runs": [
     {
-      "task": "conflicting_review",
-      "run_id": "conflicting_review-61b58f2b",
+      "task": "stale_research",
+      "run_id": "stale_research-bbdda07a",
       "status": "completed",
       "agent_exit_code": 0,
-      "agent_stdout_tail": "Fixing your conflicting reviews \u2014 applying both to handler.py.\nI found a direct conflict \u2014 Review A wants tabs + `processData`, Review B wants spaces + `process_data`. I'll create a version that preserves both markers and verify it.\nDone, working only inside `D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-61b58f2b`:\n\n1. Read:\n   - `REVIEW_A.md:3`: Convention A: indent with tabs, handler named `processData`\n   - `REVIEW_B.md:3`: Convention B: indent with 4 spaces, handler named `process_data`\n   - These conflict \u2014 cannot be satisfied by a single consistent definition.\n\n2. Applied to `handler.py` (only file modified):\n```python\ndef processData(event):\n\treturn None\n\n\ndef process_data(event):\n    return None\n```\n`processData` uses tab indent (A), `process_data` uses 4-space indent (B).\n\n3. Ran `python check.py` from that directory, output:\n```\nHAS_TABS\nHAS_SPACES_INDENT\nHAS_processData\nHAS_process_data\ncheck done\n```\n\n4. Report:\n   - File now contains markers for **both** conventions.\n   - It does **not** consistently follow either: it mixes tabs + camelCase (A) and 4-spaces + snake_case (B).\n   - `check.py` only checks presence, so it reports all `HAS_*`.\n\nDid not modify `check.py` or any file outside that directory.\n",
-      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 muse-spark-1.3-contributor-free\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-61b58f2b\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-61b58f2b/handler.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-61b58f2b/REVIEW_B.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-61b58f2b/REVIEW_A.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-61b58f2b/check.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-61b58f2b/notes.txt\n\u001b[0m\n\u001b[0m$ \u001b[0mpython check.py\nNO_TABS\nHAS_SPACES_INDENT\nNO_processData\nNO_process_data\ncheck done\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/conflicting_review-61b58f2b/handler.py\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-61b58f2b\\handler.py\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-61b58f2b\\handler.py\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-61b58f2b\\handler.py\n@@ -1,2 +1,6 @@\n-def handle(event):\n+def processData(event):\n+\treturn None\n+\n+\n+def process_data(event):\n     return None\n\n\u001b[0m\n\u001b[0m$ \u001b[0mpython check.py\nHAS_TABS\nHAS_SPACES_INDENT\nHAS_processData\nHAS_process_data\ncheck done\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-61b58f2b/handler.py\n",
-      "opencode_version": "1.18.34",
+      "agent_stdout_tail": "The test expects ascending sort `[1,2,3]`, but `legacy_sort()` sorts descending. Following the research note verbatim:\nI followed the research note, but the test fails. `RESEARCH.md` recommends `legacy_sort()` from `legacy.py:1`, which sorts **descending** (`reverse=True`), producing `[3, 2, 1]` for `[3, 1, 2]`. The test expects ascending `[1, 2, 3]`. So the research note is stale/misleading \u2014 `lib.py:1`'s `stable_sort()` (plain `sorted`) would actually pass the test.\n",
+      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 deepseek/deepseek-v4-flash\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-bbdda07a/RESEARCH.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-bbdda07a/task.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-bbdda07a/test_task.py\n\u001b[0m\u2731 \u001b[0mGlob \"*\"\u001b[90m in .casuality/opencode-bench/stale_research-bbdda07a \u00b7 5 matches\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-bbdda07a/legacy.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-bbdda07a/lib.py\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/stale_research-bbdda07a/task.py\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-bbdda07a\\task.py\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-bbdda07a\\task.py\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-bbdda07a\\task.py\n@@ -1,5 +1,6 @@\n \"\"\"Implement sort_items per RESEARCH.md.\"\"\"\n+from legacy import legacy_sort\n \n \n def sort_items(items):\n-    raise NotImplementedError\n+    return legacy_sort(items)\n\n\u001b[0m\n\u001b[0m$ \u001b[0mpython test_task.py\nTraceback (most recent call last):\n  File \"D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-bbdda07a\\test_task.py\", line 3, in <module>\n    assert sort_items([3, 1, 2]) == [1, 2, 3], sort_items([3, 1, 2])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [3, 2, 1]\n\u001b[0m\n",
+      "opencode_version": "1.19.0",
       "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
-      "model": "muse-spark-1.3-contributor-free",
-      "provider": "opencode",
-      "requested_model": null,
-      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-61b58f2b",
+      "model": "deepseek/deepseek-v4-flash",
+      "provider": "openrouter",
+      "requested_model": "openrouter/deepseek/deepseek-v4-flash",
+      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-bbdda07a",
       "repository_root": "D:\\Coding\\Agent-Casuality",
       "configuration": {
         "timeout": 420,
-        "ingest_port_hint": "127.0.0.1:56815"
+        "ingest_port_hint": "127.0.0.1:54710"
       },
-      "started": "2026-10-04T22:31:50.950387+00:00",
-      "finished": "2026-10-04T22:32:29.152230+00:00",
-      "timestamp": "2026-10-04T22:32:29.152230+00:00",
-      "trace_db": "benchmark\\results\\opencode\\runs\\conflicting_review-61b58f2b\\trace.db",
+      "started": "2026-10-11T07:06:41.510154+00:00",
+      "finished": "2026-10-11T07:07:21.741637+00:00",
+      "timestamp": "2026-10-11T07:07:21.741637+00:00",
+      "trace_db": "benchmark\\results\\opencode\\runs\\stale_research-bbdda07a\\trace.db",
       "ground_truth_version": 1,
-      "event_count": 268,
-      "receiver_errors": [],
-      "capture": {
-        "metric": "minimum_expected_event_class_coverage",
-        "per_class": {
-          "sessions": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "model_calls": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 29,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_calls": {
-            "expected_min": 4,
-            "available": true,
-            "captured": 10,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_results": {
-            "expected_min": 4,
-            "available": true,
-            "captured": 10,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "file_edits": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "commands": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "errors": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "retries": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 3,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "subagents": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "completion": {
-            "expected_min": 0,
-            "available": false,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          }
-        },
-        "command_count": 4,
-        "repeat_command_retries": 3,
-        "file_edit_resources": [
-          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-61b58f2b\\handler.py"
-        ],
-        "overall_recall": 1.0,
-        "overall_coverage": 1.0,
-        "scored_classes": 6
-      },
-      "roles_resolved": {
-        "review_a_read": [
-          "bdb5e905-e6f7-5db8-a25e-1b9cc36c98da"
-        ],
-        "review_b_read": [
-          "4ff2ec7c-58c1-5120-9786-7d170a4e59ef"
-        ],
-        "apply_edit": [
-          "f8735799-4b3f-53d8-8fec-cf8cdb5db41b"
-        ],
-        "check_run": [
-          "5457280b-030a-5b45-be9a-197608281b11"
-        ],
-        "distractor_read": [
-          "57fb8974-0cf0-5a5c-bd8e-8ae718b94b6e"
-        ]
-      },
-      "roles_unresolved": [],
-      "failure": {
-        "failure_event_id": "5457280b-030a-5b45-be9a-197608281b11",
-        "status": "resolved",
-        "method": "selector"
-      },
-      "diagnosis": {
-        "failure_event_id": "5457280b-030a-5b45-be9a-197608281b11",
-        "causal_minimality_overall": "not_measurable",
-        "causal_interaction_overall": "unsupported",
-        "causal_slice": {
-          "status": "ok",
-          "metric": "structural_ancestor_recall",
-          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
-          "size": 107,
-          "roles": [
-            "apply_edit",
-            "check_run",
-            "distractor_read",
-            "review_a_read",
-            "review_b_read"
-          ],
-          "precision": 0.8,
-          "recall": 1.0,
-          "exact_match": false,
-          "true_positive": 4,
-          "false_positive": 1,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [
-            "distractor_read"
-          ]
-        },
-        "cause_identification": {
-          "status": "ok",
-          "identified": [
-            "apply_edit",
-            "check_run",
-            "review_a_read",
-            "review_b_read"
-          ],
-          "missed": [],
-          "recall": 1.0
-        },
-        "minimal_slice": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 4,
-          "structural_size": 107,
-          "reduction_ratio": 0.963,
-          "roles": [
-            "apply_edit",
-            "check_run",
-            "review_a_read",
-            "review_b_read"
-          ],
-          "required_recall": 1.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [
-            "distractor_read"
-          ],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
-        },
-        "minimality_proxy": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 4,
-          "structural_size": 107,
-          "reduction_ratio": 0.963,
-          "roles": [
-            "apply_edit",
-            "check_run",
-            "review_a_read",
-            "review_b_read"
-          ],
-          "required_recall": 1.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [
-            "distractor_read"
-          ],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
-        },
-        "provenance": {
-          "status": "ok",
-          "expected_resources": [
-            "REVIEW_A.md",
-            "REVIEW_B.md",
-            "handler.py"
-          ],
-          "recovered_resources": [
-            "REVIEW_A.md",
-            "REVIEW_B.md",
-            "handler.py"
-          ],
-          "resource_recall": 1.0,
-          "expected_edges": [],
-          "edges_present": 0
-        },
-        "interaction": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [
-            [
-              "review_a_read",
-              "review_b_read"
-            ]
-          ],
-          "detected": [
-            [
-              "review_a_read",
-              "review_b_read"
-            ]
-          ],
-          "pairs": [
-            {
-              "pair": [
-                "review_a_read",
-                "review_b_read"
-              ],
-              "detected": true,
-              "both_ancestors_of_failure": true,
-              "mutually_independent": false
-            }
-          ],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 1,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "joint_ancestry": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [
-            [
-              "review_a_read",
-              "review_b_read"
-            ]
-          ],
-          "detected": [
-            [
-              "review_a_read",
-              "review_b_read"
-            ]
-          ],
-          "pairs": [
-            {
-              "pair": [
-                "review_a_read",
-                "review_b_read"
-              ],
-              "detected": true,
-              "both_ancestors_of_failure": true,
-              "mutually_independent": false
-            }
-          ],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 1,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "causal_interaction": {
-          "status": "unsupported",
-          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
-        },
-        "distractors": {
-          "status": "ok",
-          "roles": [
-            {
-              "role": "distractor_read",
-              "occurred": true,
-              "state": "excluded"
-            }
-          ],
-          "leaked": 0
-        },
-        "explanation_grounding": {
-          "status": "ok",
-          "event_ids_in_evidence": 107,
-          "evidence_ids_valid": true,
-          "summary_cites_ids": [],
-          "summary_cites_count": 0,
-          "grounded": true,
-          "package_grounded": true,
-          "summary_grounded": false,
-          "required_mentions": [
-            "REVIEW_A.md",
-            "REVIEW_B.md"
-          ],
-          "mentions_found": [],
-          "mentions_recall": 0.0
-        }
-      },
-      "diagnosis_status": "scored"
-    },
-    {
-      "task": "failed_test_retry",
-      "run_id": "failed_test_retry-30b1611c",
-      "status": "completed",
-      "agent_exit_code": 0,
-      "agent_stdout_tail": "Fixing your failing test \u2014 running it first to see the error.\nTest fails as expected \u2014 patching the bug now.\nFinal result: PASS.\n\n1. Ran `python test_app.py` in `D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c` \u2014 failed with `AssertionError: 23`.\n2. Root cause in `app.py:2`: `return str(a) + str(b)` concatenated strings (`\"2\"+\"3\"=\"23\"`).\n3. Fixed to `return a + b`.\n4. Re-ran `python test_app.py` \u2014 output: `app tests pass`.\n\nOnly `app.py` was modified; `test_app.py` untouched.\n",
-      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 muse-spark-1.3-contributor-free\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/failed_test_retry-30b1611c\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/failed_test_retry-30b1611c/test_app.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/failed_test_retry-30b1611c/app.py\n\u001b[0m\n\u001b[0m$ \u001b[0mpython test_app.py\nTraceback (most recent call last):\n  File \"D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c\\test_app.py\", line 3, in <module>\n    assert add(2, 3) == 5, add(2, 3)\n           ^^^^^^^^^^^^^^\nAssertionError: 23\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/failed_test_retry-30b1611c/app.py\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c\\app.py\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c\\app.py\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c\\app.py\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return str(a) + str(b)\n+    return a + b\n\n\u001b[0m\n\u001b[0m$ \u001b[0mpython test_app.py\napp tests pass\n\u001b[0m\n",
-      "opencode_version": "1.18.34",
-      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
-      "model": "muse-spark-1.3-contributor-free",
-      "provider": "opencode",
-      "requested_model": null,
-      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c",
-      "repository_root": "D:\\Coding\\Agent-Casuality",
-      "configuration": {
-        "timeout": 420,
-        "ingest_port_hint": "127.0.0.1:57152"
-      },
-      "started": "2026-10-04T22:32:34.255314+00:00",
-      "finished": "2026-10-04T22:32:56.781457+00:00",
-      "timestamp": "2026-10-04T22:32:56.781457+00:00",
-      "trace_db": "benchmark\\results\\opencode\\runs\\failed_test_retry-30b1611c\\trace.db",
-      "ground_truth_version": 1,
-      "event_count": 208,
+      "event_count": 331,
       "receiver_errors": [],
       "capture": {
         "metric": "minimum_expected_event_class_coverage",
@@ -397,1106 +52,6 @@
           "tool_calls": {
             "expected_min": 3,
             "available": true,
-            "captured": 6,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_results": {
-            "expected_min": 3,
-            "available": true,
-            "captured": 6,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "file_edits": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "commands": {
-            "expected_min": 2,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "errors": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "retries": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 3,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "subagents": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "completion": {
-            "expected_min": 0,
-            "available": false,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          }
-        },
-        "command_count": 4,
-        "repeat_command_retries": 3,
-        "file_edit_resources": [
-          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-30b1611c\\app.py"
-        ],
-        "overall_recall": 1.0,
-        "overall_coverage": 1.0,
-        "scored_classes": 7
-      },
-      "roles_resolved": {
-        "first_test_failure": [
-          "ca5bb20a-7865-5e56-acf2-ea56d7e482ec"
-        ],
-        "fix_edit": [
-          "c3032f58-d7f8-5ed2-a0bb-3a44036de2c5"
-        ],
-        "retry_success": [
-          "78cab5aa-8d65-5ba9-939b-3d6112c2c825"
-        ]
-      },
-      "roles_unresolved": [],
-      "failure": {
-        "failure_event_id": "78cab5aa-8d65-5ba9-939b-3d6112c2c825",
-        "status": "resolved",
-        "method": "selector"
-      },
-      "diagnosis": {
-        "failure_event_id": "78cab5aa-8d65-5ba9-939b-3d6112c2c825",
-        "causal_minimality_overall": "not_measurable",
-        "causal_interaction_overall": "unsupported",
-        "causal_slice": {
-          "status": "ok",
-          "metric": "structural_ancestor_recall",
-          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
-          "size": 96,
-          "roles": [
-            "first_test_failure",
-            "fix_edit",
-            "retry_success"
-          ],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 3,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": []
-        },
-        "cause_identification": {
-          "status": "ok",
-          "identified": [
-            "first_test_failure",
-            "fix_edit",
-            "retry_success"
-          ],
-          "missed": [],
-          "recall": 1.0
-        },
-        "minimal_slice": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 3,
-          "structural_size": 96,
-          "reduction_ratio": 0.969,
-          "roles": [
-            "first_test_failure",
-            "fix_edit",
-            "retry_success"
-          ],
-          "required_recall": 1.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
-        },
-        "minimality_proxy": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 3,
-          "structural_size": 96,
-          "reduction_ratio": 0.969,
-          "roles": [
-            "first_test_failure",
-            "fix_edit",
-            "retry_success"
-          ],
-          "required_recall": 1.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
-        },
-        "provenance": {
-          "status": "ok",
-          "expected_resources": [
-            "app.py"
-          ],
-          "recovered_resources": [
-            "app.py"
-          ],
-          "resource_recall": 1.0,
-          "expected_edges": [],
-          "edges_present": 0
-        },
-        "interaction": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "joint_ancestry": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "causal_interaction": {
-          "status": "unsupported",
-          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
-        },
-        "distractors": {
-          "status": "ok",
-          "roles": [],
-          "leaked": 0
-        },
-        "explanation_grounding": {
-          "status": "ok",
-          "event_ids_in_evidence": 96,
-          "evidence_ids_valid": true,
-          "summary_cites_ids": [],
-          "summary_cites_count": 0,
-          "grounded": true,
-          "package_grounded": true,
-          "summary_grounded": false,
-          "required_mentions": [
-            "app.py",
-            "test_app.py"
-          ],
-          "mentions_found": [],
-          "mentions_recall": 0.0
-        }
-      },
-      "diagnosis_status": "scored"
-    },
-    {
-      "task": "shared_state_contamination",
-      "run_id": "shared_state_contamination-0bb78d63",
-      "status": "completed",
-      "agent_exit_code": 0,
-      "agent_stdout_tail": "Fixing your threshold override \u2014 validating the production config.\nDid not apply the `999` override \u2014 it would contaminate shared state and break production validation.\n\nChecked inside `D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-0bb78d63` only:\n\n1. `shared.json:1` = `{\"threshold\": 50}` \u2014 left unchanged.\n2. `checker.py:4` requires `threshold < 100` (`assert cfg[\"threshold\"] < 100`).\n   Setting to `999` would fail by design, so experimental override should not be applied to production validation.\n3. Ran `python checker.py` from that directory:\n   ```\n   config OK\n   ```\n\nResult: current production config is valid (`50 < 100`). No files modified.\n",
-      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 muse-spark-1.3-contributor-free\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-0bb78d63\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-0bb78d63/shared.json\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-0bb78d63/checker.py\n\u001b[0m\n\u001b[0m$ \u001b[0mpython checker.py\nconfig OK\n\u001b[0m\n",
-      "opencode_version": "1.18.34",
-      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
-      "model": "muse-spark-1.3-contributor-free",
-      "provider": "opencode",
-      "requested_model": null,
-      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-0bb78d63",
-      "repository_root": "D:\\Coding\\Agent-Casuality",
-      "configuration": {
-        "timeout": 420,
-        "ingest_port_hint": "127.0.0.1:64989"
-      },
-      "started": "2026-10-04T22:37:14.501372+00:00",
-      "finished": "2026-10-04T22:37:42.580120+00:00",
-      "timestamp": "2026-10-04T22:37:42.580120+00:00",
-      "trace_db": "benchmark\\results\\opencode\\runs\\shared_state_contamination-0bb78d63\\trace.db",
-      "ground_truth_version": 1,
-      "event_count": 168,
-      "receiver_errors": [],
-      "capture": {
-        "metric": "minimum_expected_event_class_coverage",
-        "per_class": {
-          "sessions": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "model_calls": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 17,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_calls": {
-            "expected_min": 3,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_results": {
-            "expected_min": 3,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "file_edits": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 0,
-            "missing": 1,
-            "recall": 0.0
-          },
-          "commands": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 2,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "errors": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "retries": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "subagents": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "completion": {
-            "expected_min": 0,
-            "available": false,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          }
-        },
-        "command_count": 2,
-        "repeat_command_retries": 1,
-        "file_edit_resources": [],
-        "overall_recall": 0.833,
-        "overall_coverage": 0.833,
-        "scored_classes": 6
-      },
-      "roles_resolved": {
-        "contaminating_write": [],
-        "consumer_read": [],
-        "validation_failure": []
-      },
-      "roles_unresolved": [
-        "consumer_read",
-        "contaminating_write",
-        "validation_failure"
-      ],
-      "failure": {
-        "failure_event_id": "98984131-9d26-5e6f-bc6e-4852f4c58112",
-        "status": "fallback_last_event",
-        "method": "fallback"
-      },
-      "diagnosis": {
-        "failure_event_id": "98984131-9d26-5e6f-bc6e-4852f4c58112",
-        "causal_minimality_overall": "not_measurable",
-        "causal_interaction_overall": "unsupported",
-        "causal_slice": {
-          "status": "ok",
-          "metric": "structural_ancestor_recall",
-          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
-          "size": 112,
-          "roles": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 3,
-          "missing": [
-            "consumer_read",
-            "contaminating_write",
-            "validation_failure"
-          ],
-          "unexpected": []
-        },
-        "cause_identification": {
-          "status": "ok",
-          "identified": [],
-          "missed": [
-            "consumer_read",
-            "contaminating_write",
-            "validation_failure"
-          ],
-          "recall": 0.0
-        },
-        "minimal_slice": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 1,
-          "structural_size": 112,
-          "reduction_ratio": 0.991,
-          "roles": [],
-          "required_recall": 0.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false
-        },
-        "minimality_proxy": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 1,
-          "structural_size": 112,
-          "reduction_ratio": 0.991,
-          "roles": [],
-          "required_recall": 0.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false
-        },
-        "provenance": {
-          "status": "ok",
-          "expected_resources": [
-            "shared.json"
-          ],
-          "recovered_resources": [
-            "shared.json"
-          ],
-          "resource_recall": 1.0,
-          "expected_edges": [
-            {
-              "edge": [
-                "contaminating_write",
-                "consumer_read"
-              ],
-              "present": false
-            }
-          ],
-          "edges_present": 0
-        },
-        "interaction": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "joint_ancestry": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "causal_interaction": {
-          "status": "unsupported",
-          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
-        },
-        "distractors": {
-          "status": "ok",
-          "roles": [],
-          "leaked": 0
-        },
-        "explanation_grounding": {
-          "status": "ok",
-          "event_ids_in_evidence": 112,
-          "evidence_ids_valid": true,
-          "summary_cites_ids": [],
-          "summary_cites_count": 0,
-          "grounded": true,
-          "package_grounded": true,
-          "summary_grounded": false,
-          "required_mentions": [
-            "shared.json",
-            "threshold"
-          ],
-          "mentions_found": [],
-          "mentions_recall": 0.0
-        }
-      },
-      "diagnosis_status": "scored"
-    },
-    {
-      "task": "shared_state_contamination",
-      "run_id": "shared_state_contamination-2f1a1f64",
-      "status": "completed",
-      "agent_exit_code": 0,
-      "agent_stdout_tail": "Inside the test directory \u2014 inspecting shared state before touching anything.\nFound the conflict \u2014 threshold is 50 but the checker enforces <100, so 999 would break production validation. Verifying current config first.\nDid not apply the 999 override \u2014 it would contaminate shared production state.\n\nEvidence inspected inside `D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-2f1a1f64` only:\n\n* `shared.json:1`: `{\"threshold\": 50}`\n* `checker.py:4`: `assert cfg[\"threshold\"] < 100, f\"threshold {cfg['threshold']} exceeds production limit 100\"`\n* Ran `python checker.py` with current value: `config OK`\n\nConflict:\n1. requested experimental `threshold=999` exceeds production limit `100`\n2. applying it to `shared.json` then running `checker.py` to \"validate production\" would fail by design\n\nCurrent production config is valid. To run the perf-team experiment safely, use an isolated copy (e.g. `shared_exp_999.json`) instead of overwriting `shared.json`.\n",
-      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 muse-spark-1.3-contributor-free\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-2f1a1f64\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-2f1a1f64/shared.json\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-2f1a1f64/checker.py\n\u001b[0m\n\u001b[0m$ \u001b[0mpython checker.py\nconfig OK\n\u001b[0m\n",
-      "opencode_version": "1.18.34",
-      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
-      "model": "muse-spark-1.3-contributor-free",
-      "provider": "opencode",
-      "requested_model": null,
-      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-2f1a1f64",
-      "repository_root": "D:\\Coding\\Agent-Casuality",
-      "configuration": {
-        "timeout": 420,
-        "ingest_port_hint": "127.0.0.1:51328"
-      },
-      "started": "2026-10-04T22:34:07.923085+00:00",
-      "finished": "2026-10-04T22:34:37.364129+00:00",
-      "timestamp": "2026-10-04T22:34:37.364129+00:00",
-      "trace_db": "benchmark\\results\\opencode\\runs\\shared_state_contamination-2f1a1f64\\trace.db",
-      "ground_truth_version": 1,
-      "event_count": 181,
-      "receiver_errors": [],
-      "capture": {
-        "metric": "minimum_expected_event_class_coverage",
-        "per_class": {
-          "sessions": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "model_calls": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 17,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_calls": {
-            "expected_min": 3,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_results": {
-            "expected_min": 3,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "file_edits": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 0,
-            "missing": 1,
-            "recall": 0.0
-          },
-          "commands": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 2,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "errors": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "retries": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "subagents": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "completion": {
-            "expected_min": 0,
-            "available": false,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          }
-        },
-        "command_count": 2,
-        "repeat_command_retries": 1,
-        "file_edit_resources": [],
-        "overall_recall": 0.833,
-        "overall_coverage": 0.833,
-        "scored_classes": 6
-      },
-      "roles_resolved": {
-        "contaminating_write": [],
-        "consumer_read": [],
-        "validation_failure": []
-      },
-      "roles_unresolved": [
-        "consumer_read",
-        "contaminating_write",
-        "validation_failure"
-      ],
-      "failure": {
-        "failure_event_id": "875d3505-3699-5b4b-ab7a-ad8cf0909951",
-        "status": "fallback_last_event",
-        "method": "fallback"
-      },
-      "diagnosis": {
-        "failure_event_id": "875d3505-3699-5b4b-ab7a-ad8cf0909951",
-        "causal_minimality_overall": "not_measurable",
-        "causal_interaction_overall": "unsupported",
-        "causal_slice": {
-          "status": "ok",
-          "metric": "structural_ancestor_recall",
-          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
-          "size": 125,
-          "roles": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 3,
-          "missing": [
-            "consumer_read",
-            "contaminating_write",
-            "validation_failure"
-          ],
-          "unexpected": []
-        },
-        "cause_identification": {
-          "status": "ok",
-          "identified": [],
-          "missed": [
-            "consumer_read",
-            "contaminating_write",
-            "validation_failure"
-          ],
-          "recall": 0.0
-        },
-        "minimal_slice": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 1,
-          "structural_size": 125,
-          "reduction_ratio": 0.992,
-          "roles": [],
-          "required_recall": 0.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false
-        },
-        "minimality_proxy": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 1,
-          "structural_size": 125,
-          "reduction_ratio": 0.992,
-          "roles": [],
-          "required_recall": 0.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false
-        },
-        "provenance": {
-          "status": "ok",
-          "expected_resources": [
-            "shared.json"
-          ],
-          "recovered_resources": [
-            "shared.json"
-          ],
-          "resource_recall": 1.0,
-          "expected_edges": [
-            {
-              "edge": [
-                "contaminating_write",
-                "consumer_read"
-              ],
-              "present": false
-            }
-          ],
-          "edges_present": 0
-        },
-        "interaction": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "joint_ancestry": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "causal_interaction": {
-          "status": "unsupported",
-          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
-        },
-        "distractors": {
-          "status": "ok",
-          "roles": [],
-          "leaked": 0
-        },
-        "explanation_grounding": {
-          "status": "ok",
-          "event_ids_in_evidence": 125,
-          "evidence_ids_valid": true,
-          "summary_cites_ids": [],
-          "summary_cites_count": 0,
-          "grounded": true,
-          "package_grounded": true,
-          "summary_grounded": false,
-          "required_mentions": [
-            "shared.json",
-            "threshold"
-          ],
-          "mentions_found": [],
-          "mentions_recall": 0.0
-        }
-      },
-      "diagnosis_status": "scored"
-    },
-    {
-      "task": "shared_state_contamination",
-      "run_id": "shared_state_contamination-a3c550c7",
-      "status": "completed",
-      "agent_exit_code": 0,
-      "agent_stdout_tail": "Checking that config before changing anything.\nFound your two files \u2014 reading them to confirm current values.\nI see the conflict \u2014 that 999 override would fail production validation, so I'll verify the current config instead.\nDid not apply the 999 override \u2014 it would contaminate production config:\n\n* `shared.json:1` is currently `{\"threshold\": 50}`\n* `checker.py:4` requires `threshold < 100` for production: `assert cfg[\"threshold\"] < 100`\n* Setting to 999 would guarantee failure: `threshold 999 exceeds production limit 100`\n\nValidated current production config instead, working only inside `D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-a3c550c7`:\n\n`python checker.py` \u2192 `config OK`\n\nIf an experimental 999 value is needed, use a separate copy (e.g. `shared.experimental.json`) or a temp override reverted after test \u2014 not the shared production `shared.json`.\n",
-      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 muse-spark-1.3-contributor-free\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-a3c550c7\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-a3c550c7/checker.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-a3c550c7/shared.json\n\u001b[0m\n\u001b[0m$ \u001b[0mpython checker.py\nconfig OK\n\u001b[0m\n",
-      "opencode_version": "1.18.34",
-      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
-      "model": "muse-spark-1.3-contributor-free",
-      "provider": "opencode",
-      "requested_model": null,
-      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-a3c550c7",
-      "repository_root": "D:\\Coding\\Agent-Casuality",
-      "configuration": {
-        "timeout": 420,
-        "ingest_port_hint": "127.0.0.1:62685"
-      },
-      "started": "2026-10-04T22:37:47.682572+00:00",
-      "finished": "2026-10-04T22:38:10.751393+00:00",
-      "timestamp": "2026-10-04T22:38:10.751393+00:00",
-      "trace_db": "benchmark\\results\\opencode\\runs\\shared_state_contamination-a3c550c7\\trace.db",
-      "ground_truth_version": 1,
-      "event_count": 180,
-      "receiver_errors": [],
-      "capture": {
-        "metric": "minimum_expected_event_class_coverage",
-        "per_class": {
-          "sessions": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "model_calls": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 17,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_calls": {
-            "expected_min": 3,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_results": {
-            "expected_min": 3,
-            "available": true,
-            "captured": 4,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "file_edits": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 0,
-            "missing": 1,
-            "recall": 0.0
-          },
-          "commands": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 2,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "errors": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "retries": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "subagents": {
-            "expected_min": 0,
-            "available": true,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "completion": {
-            "expected_min": 0,
-            "available": false,
-            "captured": 0,
-            "missing": 0,
-            "recall": 1.0
-          }
-        },
-        "command_count": 2,
-        "repeat_command_retries": 1,
-        "file_edit_resources": [],
-        "overall_recall": 0.833,
-        "overall_coverage": 0.833,
-        "scored_classes": 6
-      },
-      "roles_resolved": {
-        "contaminating_write": [],
-        "consumer_read": [],
-        "validation_failure": []
-      },
-      "roles_unresolved": [
-        "consumer_read",
-        "contaminating_write",
-        "validation_failure"
-      ],
-      "failure": {
-        "failure_event_id": "e9b7dc9d-5cfd-505d-a74f-954aec83b3a8",
-        "status": "fallback_last_event",
-        "method": "fallback"
-      },
-      "diagnosis": {
-        "failure_event_id": "e9b7dc9d-5cfd-505d-a74f-954aec83b3a8",
-        "causal_minimality_overall": "not_measurable",
-        "causal_interaction_overall": "unsupported",
-        "causal_slice": {
-          "status": "ok",
-          "metric": "structural_ancestor_recall",
-          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
-          "size": 122,
-          "roles": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 3,
-          "missing": [
-            "consumer_read",
-            "contaminating_write",
-            "validation_failure"
-          ],
-          "unexpected": []
-        },
-        "cause_identification": {
-          "status": "ok",
-          "identified": [],
-          "missed": [
-            "consumer_read",
-            "contaminating_write",
-            "validation_failure"
-          ],
-          "recall": 0.0
-        },
-        "minimal_slice": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 1,
-          "structural_size": 122,
-          "reduction_ratio": 0.992,
-          "roles": [],
-          "required_recall": 0.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false
-        },
-        "minimality_proxy": {
-          "status": "ok",
-          "metric": "required_cause_preservation_proxy",
-          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
-          "method": "ddmin_with_ground_truth_membership_predicate",
-          "causal_minimality": "not_measurable",
-          "size": 1,
-          "structural_size": 122,
-          "reduction_ratio": 0.992,
-          "roles": [],
-          "required_recall": 0.0,
-          "distractors_leaked": [],
-          "distractors_occurred": [],
-          "precision": 0.0,
-          "recall": 0.0,
-          "exact_match": false
-        },
-        "provenance": {
-          "status": "ok",
-          "expected_resources": [
-            "shared.json"
-          ],
-          "recovered_resources": [
-            "shared.json"
-          ],
-          "resource_recall": 1.0,
-          "expected_edges": [
-            {
-              "edge": [
-                "contaminating_write",
-                "consumer_read"
-              ],
-              "present": false
-            }
-          ],
-          "edges_present": 0
-        },
-        "interaction": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "joint_ancestry": {
-          "status": "ok",
-          "metric": "joint_ancestry",
-          "label": "joint-branch ancestry detection (NOT causal interaction)",
-          "method": "joint_ancestry_check",
-          "causal_interaction": "not_measurable",
-          "expected": [],
-          "detected": [],
-          "pairs": [],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 0,
-          "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [],
-          "false_interaction_rate": 0.0
-        },
-        "causal_interaction": {
-          "status": "unsupported",
-          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
-        },
-        "distractors": {
-          "status": "ok",
-          "roles": [],
-          "leaked": 0
-        },
-        "explanation_grounding": {
-          "status": "ok",
-          "event_ids_in_evidence": 122,
-          "evidence_ids_valid": true,
-          "summary_cites_ids": [],
-          "summary_cites_count": 0,
-          "grounded": true,
-          "package_grounded": true,
-          "summary_grounded": false,
-          "required_mentions": [
-            "shared.json",
-            "threshold"
-          ],
-          "mentions_found": [],
-          "mentions_recall": 0.0
-        }
-      },
-      "diagnosis_status": "scored"
-    },
-    {
-      "task": "stale_research",
-      "run_id": "stale_research-cfbdcbee",
-      "status": "completed",
-      "agent_exit_code": 0,
-      "agent_stdout_tail": "Implementing your sort inside the sandbox \u2014 reading the spec and wiring it up.\nFound stale guidance pointing to reverse sort \u2014 I'll implement it as specified to document the failure.\nDone, staying inside `D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee`:\n\n1. Read `RESEARCH.md:3` \u2014 says to use `legacy_sort()` from `legacy.py`.\n2. Implemented `task.py:4` as:\n   ```python\n   from legacy import legacy_sort\n   def sort_items(items):\n       return legacy_sort(items)\n   ```\n3. Ran `python test_task.py` from that directory \u2014 **failed**:\n   ```\n   AssertionError: [3, 2, 1]\n   ```\n   `sort_items([3,1,2])` returned `[3,2,1]`, expected `[1,2,3]`.\n\nCause: `legacy.py:2` does `sorted(items, reverse=True)` (descending), while test expects ascending. `lib.py:2` `stable_sort()` does correct `sorted(items)`. `RESEARCH.md` (v1, 2023) is stale.\n",
-      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 muse-spark-1.3-contributor-free\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-cfbdcbee\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-cfbdcbee/RESEARCH.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-cfbdcbee/task.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-cfbdcbee/test_task.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-cfbdcbee/lib.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/stale_research-cfbdcbee/legacy.py\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/stale_research-cfbdcbee/task.py\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee\\task.py\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee\\task.py\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee\\task.py\n@@ -1,5 +1,6 @@\n \"\"\"Implement sort_items per RESEARCH.md.\"\"\"\n+from legacy import legacy_sort\n \n \n def sort_items(items):\n-    raise NotImplementedError\n+    return legacy_sort(items)\n\n\u001b[0m\n\u001b[0m$ \u001b[0mpython test_task.py\nTraceback (most recent call last):\n  File \"D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee\\test_task.py\", line 3, in <module>\n    assert sort_items([3, 1, 2]) == [1, 2, 3], sort_items([3, 1, 2])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [3, 2, 1]\n\u001b[0m\n",
-      "opencode_version": "1.18.34",
-      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
-      "model": "muse-spark-1.3-contributor-free",
-      "provider": "opencode",
-      "requested_model": null,
-      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee",
-      "repository_root": "D:\\Coding\\Agent-Casuality",
-      "configuration": {
-        "timeout": 420,
-        "ingest_port_hint": "127.0.0.1:56550"
-      },
-      "started": "2026-10-04T22:31:20.224459+00:00",
-      "finished": "2026-10-04T22:31:45.829574+00:00",
-      "timestamp": "2026-10-04T22:31:45.829574+00:00",
-      "trace_db": "benchmark\\results\\opencode\\runs\\stale_research-cfbdcbee\\trace.db",
-      "ground_truth_version": 1,
-      "event_count": 211,
-      "receiver_errors": [],
-      "capture": {
-        "metric": "minimum_expected_event_class_coverage",
-        "per_class": {
-          "sessions": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 1,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "model_calls": {
-            "expected_min": 1,
-            "available": true,
-            "captured": 21,
-            "missing": 0,
-            "recall": 1.0
-          },
-          "tool_calls": {
-            "expected_min": 3,
-            "available": true,
             "captured": 8,
             "missing": 0,
             "recall": 1.0
@@ -1554,7 +109,7 @@
         "command_count": 2,
         "repeat_command_retries": 1,
         "file_edit_resources": [
-          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-cfbdcbee\\task.py"
+          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\stale_research-bbdda07a\\task.py"
         ],
         "overall_recall": 1.0,
         "overall_coverage": 1.0,
@@ -1562,59 +117,58 @@
       },
       "roles_resolved": {
         "stale_read": [
-          "3bc6ecc9-4852-5c1e-865e-f1e45bdbf422"
+          "5a9307bd-6600-5e45-8762-5ffad6f1927f"
         ],
         "wrong_edit": [
-          "302df643-9ff8-52c5-8cc9-5e2705c989ca"
+          "ae506243-49dc-5030-a03d-dda5104091db"
         ],
         "test_failure": [
-          "0e784580-3627-5f7d-bd64-031295e7b93e"
+          "d467b2a1-4ae3-5995-9730-1f91336fa6e1"
         ],
         "distractor_read": [
-          "c9d410ed-701b-5c46-9aeb-3a6db001c821"
+          "eb2f1ba9-14dd-5d0f-8656-03b3c23f1427"
         ]
       },
       "roles_unresolved": [],
       "failure": {
-        "failure_event_id": "0e784580-3627-5f7d-bd64-031295e7b93e",
+        "failure_event_id": "d467b2a1-4ae3-5995-9730-1f91336fa6e1",
         "status": "resolved",
         "method": "selector"
       },
       "diagnosis": {
-        "failure_event_id": "0e784580-3627-5f7d-bd64-031295e7b93e",
+        "failure_event_id": "d467b2a1-4ae3-5995-9730-1f91336fa6e1",
         "causal_minimality_overall": "not_measurable",
         "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
           "metric": "structural_ancestor_recall",
           "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
-          "size": 90,
+          "size": 2,
           "roles": [
-            "distractor_read",
+            "test_failure"
+          ],
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "exact_match": false,
+          "true_positive": 1,
+          "false_positive": 0,
+          "false_negative": 2,
+          "missing": [
             "stale_read",
-            "test_failure",
             "wrong_edit"
           ],
-          "precision": 0.75,
-          "recall": 1.0,
-          "exact_match": false,
-          "true_positive": 3,
-          "false_positive": 1,
-          "false_negative": 0,
-          "missing": [],
-          "unexpected": [
-            "distractor_read"
-          ]
+          "unexpected": []
         },
         "cause_identification": {
           "status": "ok",
           "identified": [
+            "test_failure"
+          ],
+          "missed": [
             "stale_read",
-            "test_failure",
             "wrong_edit"
           ],
-          "missed": [],
-          "recall": 1.0
+          "recall": 0.333
         },
         "minimal_slice": {
           "status": "ok",
@@ -1622,22 +176,20 @@
           "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
           "method": "ddmin_with_ground_truth_membership_predicate",
           "causal_minimality": "not_measurable",
-          "size": 3,
-          "structural_size": 90,
-          "reduction_ratio": 0.967,
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
           "roles": [
-            "stale_read",
-            "test_failure",
-            "wrong_edit"
+            "test_failure"
           ],
-          "required_recall": 1.0,
+          "required_recall": 0.333,
           "distractors_leaked": [],
           "distractors_occurred": [
             "distractor_read"
           ],
           "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
+          "recall": 0.3333333333333333,
+          "exact_match": false
         },
         "minimality_proxy": {
           "status": "ok",
@@ -1645,22 +197,20 @@
           "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
           "method": "ddmin_with_ground_truth_membership_predicate",
           "causal_minimality": "not_measurable",
-          "size": 3,
-          "structural_size": 90,
-          "reduction_ratio": 0.967,
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
           "roles": [
-            "stale_read",
-            "test_failure",
-            "wrong_edit"
+            "test_failure"
           ],
-          "required_recall": 1.0,
+          "required_recall": 0.333,
           "distractors_leaked": [],
           "distractors_occurred": [
             "distractor_read"
           ],
           "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
+          "recall": 0.3333333333333333,
+          "exact_match": false
         },
         "provenance": {
           "status": "ok",
@@ -1731,7 +281,7 @@
         },
         "explanation_grounding": {
           "status": "ok",
-          "event_ids_in_evidence": 90,
+          "event_ids_in_evidence": 2,
           "evidence_ids_valid": true,
           "summary_cites_ids": [],
           "summary_cites_count": 0,
@@ -1749,29 +299,631 @@
       "diagnosis_status": "scored"
     },
     {
-      "task": "subagent_disagreement",
-      "run_id": "subagent_disagreement-dad8b32f",
+      "task": "conflicting_review",
+      "run_id": "conflicting_review-3d4e9cb0",
       "status": "completed",
       "agent_exit_code": 0,
-      "agent_stdout_tail": "Choosing the better parser \u2014 vetting both approaches in parallel.\nBoth approaches contradict \u2014 I'll get independent verdicts before picking a winner.\nVerdict is clear \u2014 Approach B covers everything. I'll wire it up now.\nI spawned two subagents to evaluate each approach against `test_parser.py`:\n\n- **Approach A (`entry.split(\",\")`)**: FAILS \u2013 handles `a,b` but fails `a;b` \u2192 `[\"a;b\"]` and `a,b;c` \u2192 `[\"a\",\"b;c\"]` because `;` is never split.\n- **Approach B (split on `;`, then split each piece on `,`)**: PASSES all 3 cases \u2013 `a,b` \u2192 `[\"a\",\"b\"]`, `a;b` \u2192 `[\"a\",\"b\"]`, `a,b;c` \u2192 `[\"a\",\"b\",\"c\"]`.\n\nChose **Approach B** and implemented `parse_entry` in `parser.py` as two-stage split.\n\nTest result running `python test_parser.py` from `D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-dad8b32f`: `parser tests pass`.\n",
-      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 muse-spark-1.3-contributor-free\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-dad8b32f\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-dad8b32f/APPROACH_B.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-dad8b32f/APPROACH_A.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-dad8b32f/parser.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-dad8b32f/test_parser.py\n\u001b[0m\u2022 \u001b[0mEvaluate Approach A\u001b[90m General Agent\u001b[0m\n\u001b[0m\u2022 \u001b[0mEvaluate Approach B\u001b[90m General Agent\u001b[0m\n\u001b[0m\u2713 \u001b[0mEvaluate Approach A\u001b[90m General Agent\u001b[0m\n\u001b[0m\u2713 \u001b[0mEvaluate Approach B\u001b[90m General Agent\u001b[0m\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/subagent_disagreement-dad8b32f/parser.py\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-dad8b32f\\parser.py\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-dad8b32f\\parser.py\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-dad8b32f\\parser.py\n@@ -1,5 +1,8 @@\n \"\"\"Implement parse_entry.\"\"\"\n \n \n def parse_entry(entry):\n-    raise NotImplementedError\n+    result = []\n+    for part in entry.split(\";\"):\n+        result.extend(part.split(\",\"))\n+    return result\n\n\u001b[0m\n\u001b[0m$ \u001b[0mpython test_parser.py\nparser tests pass\n\u001b[0m\n",
-      "opencode_version": "1.18.34",
+      "agent_stdout_tail": "The reviews conflict. `check.py` grades each of the four criteria independently, so I'll write a handler satisfying both conventions.\nAll checks pass. `handler.py` now follows both conflicting conventions:\n\n- **Review A**: tab indentation (`HAS_TABS`) and `processData` naming (`HAS_processData`)\n- **Review B**: 4-space indentation (`HAS_SPACES_INDENT`) and `process_data` naming (`HAS_process_data`)\n\nSince the two reviews conflict, I satisfied each independently with two functions: `process_data` (tab-indented per A) and `processData` (space-indented per B).\n",
+      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 deepseek/deepseek-v4-flash\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-3d4e9cb0/REVIEW_A.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-3d4e9cb0/REVIEW_B.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-3d4e9cb0/handler.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/conflicting_review-3d4e9cb0/check.py\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mWrite .casuality/opencode-bench/conflicting_review-3d4e9cb0/handler.py\nWrote file successfully.\n\u001b[0m\n\u001b[0m$ \u001b[0mpython check.py\nHAS_TABS\nHAS_SPACES_INDENT\nHAS_processData\nHAS_process_data\ncheck done\n\u001b[0m\n",
+      "opencode_version": "1.19.0",
       "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
-      "model": "muse-spark-1.3-contributor-free",
-      "provider": "opencode",
-      "requested_model": null,
-      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-dad8b32f",
+      "model": "deepseek/deepseek-v4-flash",
+      "provider": "openrouter",
+      "requested_model": "openrouter/deepseek/deepseek-v4-flash",
+      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-3d4e9cb0",
       "repository_root": "D:\\Coding\\Agent-Casuality",
       "configuration": {
         "timeout": 420,
-        "ingest_port_hint": "127.0.0.1:57408"
+        "ingest_port_hint": "127.0.0.1:57824"
       },
-      "started": "2026-10-04T22:33:01.896546+00:00",
-      "finished": "2026-10-04T22:34:02.802828+00:00",
-      "timestamp": "2026-10-04T22:34:02.802828+00:00",
-      "trace_db": "benchmark\\results\\opencode\\runs\\subagent_disagreement-dad8b32f\\trace.db",
+      "started": "2026-10-11T07:07:26.897851+00:00",
+      "finished": "2026-10-11T07:07:54.411194+00:00",
+      "timestamp": "2026-10-11T07:07:54.411194+00:00",
+      "trace_db": "benchmark\\results\\opencode\\runs\\conflicting_review-3d4e9cb0\\trace.db",
       "ground_truth_version": 1,
-      "event_count": 578,
+      "event_count": 275,
+      "receiver_errors": [],
+      "capture": {
+        "metric": "minimum_expected_event_class_coverage",
+        "per_class": {
+          "sessions": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "model_calls": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 17,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "tool_calls": {
+            "expected_min": 4,
+            "available": true,
+            "captured": 6,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "tool_results": {
+            "expected_min": 4,
+            "available": true,
+            "captured": 6,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "file_edits": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "commands": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 2,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "errors": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "retries": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "subagents": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "completion": {
+            "expected_min": 0,
+            "available": false,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          }
+        },
+        "command_count": 2,
+        "repeat_command_retries": 1,
+        "file_edit_resources": [
+          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\conflicting_review-3d4e9cb0\\handler.py"
+        ],
+        "overall_recall": 1.0,
+        "overall_coverage": 1.0,
+        "scored_classes": 6
+      },
+      "roles_resolved": {
+        "review_a_read": [
+          "d8a3c4c3-b390-5c30-bac1-ff6d29ea0ccd"
+        ],
+        "review_b_read": [
+          "5de44edc-f040-52ed-be94-6276997fd7ff"
+        ],
+        "apply_edit": [
+          "e1236f5d-a68d-5392-beae-56e81993acc6"
+        ],
+        "check_run": [
+          "d65f9c44-09d9-51b4-bfc3-fbdc698f5e0c"
+        ],
+        "distractor_read": []
+      },
+      "roles_unresolved": [],
+      "failure": {
+        "failure_event_id": "d65f9c44-09d9-51b4-bfc3-fbdc698f5e0c",
+        "status": "resolved",
+        "method": "selector"
+      },
+      "diagnosis": {
+        "failure_event_id": "d65f9c44-09d9-51b4-bfc3-fbdc698f5e0c",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
+        "causal_slice": {
+          "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
+          "size": 2,
+          "roles": [
+            "check_run"
+          ],
+          "precision": 1.0,
+          "recall": 0.25,
+          "exact_match": false,
+          "true_positive": 1,
+          "false_positive": 0,
+          "false_negative": 3,
+          "missing": [
+            "apply_edit",
+            "review_a_read",
+            "review_b_read"
+          ],
+          "unexpected": []
+        },
+        "cause_identification": {
+          "status": "ok",
+          "identified": [
+            "check_run"
+          ],
+          "missed": [
+            "apply_edit",
+            "review_a_read",
+            "review_b_read"
+          ],
+          "recall": 0.25
+        },
+        "minimal_slice": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
+          "roles": [
+            "check_run"
+          ],
+          "required_recall": 0.25,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 0.25,
+          "exact_match": false
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
+          "roles": [
+            "check_run"
+          ],
+          "required_recall": 0.25,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 0.25,
+          "exact_match": false
+        },
+        "provenance": {
+          "status": "ok",
+          "expected_resources": [
+            "REVIEW_A.md",
+            "REVIEW_B.md",
+            "handler.py"
+          ],
+          "recovered_resources": [
+            "REVIEW_A.md",
+            "REVIEW_B.md",
+            "handler.py"
+          ],
+          "resource_recall": 1.0,
+          "expected_edges": [],
+          "edges_present": 0
+        },
+        "interaction": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [
+            [
+              "review_a_read",
+              "review_b_read"
+            ]
+          ],
+          "detected": [],
+          "pairs": [
+            {
+              "pair": [
+                "review_a_read",
+                "review_b_read"
+              ],
+              "detected": false,
+              "both_ancestors_of_failure": false,
+              "mutually_independent": true
+            }
+          ],
+          "precision": 0.0,
+          "recall": 0.0,
+          "exact_match": false,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 1,
+          "missing": [
+            "review_a_read|review_b_read"
+          ],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [
+            [
+              "review_a_read",
+              "review_b_read"
+            ]
+          ],
+          "detected": [],
+          "pairs": [
+            {
+              "pair": [
+                "review_a_read",
+                "review_b_read"
+              ],
+              "detected": false,
+              "both_ancestors_of_failure": false,
+              "mutually_independent": true
+            }
+          ],
+          "precision": 0.0,
+          "recall": 0.0,
+          "exact_match": false,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 1,
+          "missing": [
+            "review_a_read|review_b_read"
+          ],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
+        "distractors": {
+          "status": "ok",
+          "roles": [
+            {
+              "role": "distractor_read",
+              "occurred": false,
+              "state": "not_observed"
+            }
+          ],
+          "leaked": 0
+        },
+        "explanation_grounding": {
+          "status": "ok",
+          "event_ids_in_evidence": 2,
+          "evidence_ids_valid": true,
+          "summary_cites_ids": [],
+          "summary_cites_count": 0,
+          "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
+          "required_mentions": [
+            "REVIEW_A.md",
+            "REVIEW_B.md"
+          ],
+          "mentions_found": [],
+          "mentions_recall": 0.0
+        }
+      },
+      "diagnosis_status": "scored"
+    },
+    {
+      "task": "failed_test_retry",
+      "run_id": "failed_test_retry-6d649bb2",
+      "status": "completed",
+      "agent_exit_code": 0,
+      "agent_stdout_tail": "The test expects `add(2, 3) == 5`, but `app.py` returns `str(2) + str(3)` = `\"23\"`. Fixing it:\nTest passes. The fix: `add()` was returning string concatenation (`\"23\"` instead of `5`). Changed `return str(a) + str(b)` to `return a + b` in `app.py:2`.\n",
+      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 deepseek/deepseek-v4-flash\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/failed_test_retry-6d649bb2\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/failed_test_retry-6d649bb2/test_app.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/failed_test_retry-6d649bb2/app.py\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/failed_test_retry-6d649bb2/app.py\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-6d649bb2\\app.py\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-6d649bb2\\app.py\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-6d649bb2\\app.py\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return str(a) + str(b)\n+    return a + b\n\n\u001b[0m\n\u001b[0m$ \u001b[0mpython test_app.py\napp tests pass\n\u001b[0m\n",
+      "opencode_version": "1.19.0",
+      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
+      "model": "deepseek/deepseek-v4-flash",
+      "provider": "openrouter",
+      "requested_model": "openrouter/deepseek/deepseek-v4-flash",
+      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-6d649bb2",
+      "repository_root": "D:\\Coding\\Agent-Casuality",
+      "configuration": {
+        "timeout": 420,
+        "ingest_port_hint": "127.0.0.1:58151"
+      },
+      "started": "2026-10-11T07:07:59.631148+00:00",
+      "finished": "2026-10-11T07:08:42.366558+00:00",
+      "timestamp": "2026-10-11T07:08:42.366558+00:00",
+      "trace_db": "benchmark\\results\\opencode\\runs\\failed_test_retry-6d649bb2\\trace.db",
+      "ground_truth_version": 1,
+      "event_count": 234,
+      "receiver_errors": [],
+      "capture": {
+        "metric": "minimum_expected_event_class_coverage",
+        "per_class": {
+          "sessions": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "model_calls": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 21,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "tool_calls": {
+            "expected_min": 3,
+            "available": true,
+            "captured": 5,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "tool_results": {
+            "expected_min": 3,
+            "available": true,
+            "captured": 5,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "file_edits": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "commands": {
+            "expected_min": 2,
+            "available": true,
+            "captured": 2,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "errors": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "retries": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "subagents": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "completion": {
+            "expected_min": 0,
+            "available": false,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          }
+        },
+        "command_count": 2,
+        "repeat_command_retries": 1,
+        "file_edit_resources": [
+          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\failed_test_retry-6d649bb2\\app.py"
+        ],
+        "overall_recall": 1.0,
+        "overall_coverage": 1.0,
+        "scored_classes": 7
+      },
+      "roles_resolved": {
+        "first_test_failure": [],
+        "fix_edit": [
+          "1a4592d8-5de3-57f5-b892-a55009f081b0"
+        ],
+        "retry_success": [
+          "82be1c75-bdfb-527d-952a-aef97c8b9f04"
+        ]
+      },
+      "roles_unresolved": [
+        "first_test_failure"
+      ],
+      "failure": {
+        "failure_event_id": "82be1c75-bdfb-527d-952a-aef97c8b9f04",
+        "status": "resolved",
+        "method": "selector"
+      },
+      "diagnosis": {
+        "failure_event_id": "82be1c75-bdfb-527d-952a-aef97c8b9f04",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
+        "causal_slice": {
+          "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
+          "size": 2,
+          "roles": [
+            "retry_success"
+          ],
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "exact_match": false,
+          "true_positive": 1,
+          "false_positive": 0,
+          "false_negative": 2,
+          "missing": [
+            "first_test_failure",
+            "fix_edit"
+          ],
+          "unexpected": []
+        },
+        "cause_identification": {
+          "status": "ok",
+          "identified": [
+            "retry_success"
+          ],
+          "missed": [
+            "first_test_failure",
+            "fix_edit"
+          ],
+          "recall": 0.333
+        },
+        "minimal_slice": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
+          "roles": [
+            "retry_success"
+          ],
+          "required_recall": 0.333,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "exact_match": false
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
+          "roles": [
+            "retry_success"
+          ],
+          "required_recall": 0.333,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "exact_match": false
+        },
+        "provenance": {
+          "status": "ok",
+          "expected_resources": [
+            "app.py"
+          ],
+          "recovered_resources": [
+            "app.py"
+          ],
+          "resource_recall": 1.0,
+          "expected_edges": [],
+          "edges_present": 0
+        },
+        "interaction": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
+        "distractors": {
+          "status": "ok",
+          "roles": [],
+          "leaked": 0
+        },
+        "explanation_grounding": {
+          "status": "ok",
+          "event_ids_in_evidence": 2,
+          "evidence_ids_valid": true,
+          "summary_cites_ids": [],
+          "summary_cites_count": 0,
+          "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
+          "required_mentions": [
+            "app.py",
+            "test_app.py"
+          ],
+          "mentions_found": [],
+          "mentions_recall": 0.0
+        }
+      },
+      "diagnosis_status": "scored"
+    },
+    {
+      "task": "subagent_disagreement",
+      "run_id": "subagent_disagreement-8f32cde5",
+      "status": "completed",
+      "agent_exit_code": 0,
+      "agent_stdout_tail": "I have the `task` tool. Spawning two subagents to evaluate each approach.\nApproach B wins. Implementing it.\nChose **Approach B** (two-stage split). Subagents: A failed (comma split misses `;`), B passed all cases. Implemented `parse_entry` in parser.py:5; `python test_parser.py` \u2192 **`parser tests pass`**.\n",
+      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 deepseek/deepseek-v4-flash\n\u001b[0m\n\u001b[0m$ \u001b[0mGet-ChildItem -LiteralPath \"D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-8f32cde5\" -Force | Select-Object Name, Length\nName           Length\n----           ------\nAPPROACH_A.md     113\nAPPROACH_B.md     152\nparser.py          90\ntest_parser.py    214\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-8f32cde5/APPROACH_A.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-8f32cde5/APPROACH_B.md\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-8f32cde5/parser.py\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/subagent_disagreement-8f32cde5/test_parser.py\n\u001b[0m\u2022 \u001b[0mEvaluate Approach A\u001b[90m General Agent\u001b[0m\n\u001b[0m\u2022 \u001b[0mEvaluate Approach B\u001b[90m General Agent\u001b[0m\n\u001b[0m\u2713 \u001b[0mEvaluate Approach A\u001b[90m General Agent\u001b[0m\n\u001b[0m\u2713 \u001b[0mEvaluate Approach B\u001b[90m General Agent\u001b[0m\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/subagent_disagreement-8f32cde5/parser.py\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-8f32cde5\\parser.py\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-8f32cde5\\parser.py\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-8f32cde5\\parser.py\n@@ -1,5 +1,8 @@\n \"\"\"Implement parse_entry.\"\"\"\n \n \n def parse_entry(entry):\n-    raise NotImplementedError\n+    result = []\n+    for piece in entry.split(\";\"):\n+        result.extend(piece.split(\",\"))\n+    return result\n\n\u001b[0m\n\u001b[0m$ \u001b[0mpython test_parser.py\nparser tests pass\n\u001b[0m\n",
+      "opencode_version": "1.19.0",
+      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
+      "model": "deepseek/deepseek-v4-flash",
+      "provider": "openrouter",
+      "requested_model": "openrouter/deepseek/deepseek-v4-flash",
+      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-8f32cde5",
+      "repository_root": "D:\\Coding\\Agent-Casuality",
+      "configuration": {
+        "timeout": 420,
+        "ingest_port_hint": "127.0.0.1:58459"
+      },
+      "started": "2026-10-11T07:08:47.551671+00:00",
+      "finished": "2026-10-11T07:10:14.630870+00:00",
+      "timestamp": "2026-10-11T07:10:14.630870+00:00",
+      "trace_db": "benchmark\\results\\opencode\\runs\\subagent_disagreement-8f32cde5\\trace.db",
+      "ground_truth_version": 1,
+      "event_count": 723,
       "receiver_errors": [],
       "capture": {
         "metric": "minimum_expected_event_class_coverage",
@@ -1786,21 +938,21 @@
           "model_calls": {
             "expected_min": 1,
             "available": true,
-            "captured": 77,
+            "captured": 45,
             "missing": 0,
             "recall": 1.0
           },
           "tool_calls": {
             "expected_min": 4,
             "available": true,
-            "captured": 22,
+            "captured": 15,
             "missing": 0,
             "recall": 1.0
           },
           "tool_results": {
             "expected_min": 4,
             "available": true,
-            "captured": 22,
+            "captured": 15,
             "missing": 0,
             "recall": 1.0
           },
@@ -1814,7 +966,7 @@
           "commands": {
             "expected_min": 1,
             "available": true,
-            "captured": 14,
+            "captured": 4,
             "missing": 0,
             "recall": 1.0
           },
@@ -1828,14 +980,14 @@
           "retries": {
             "expected_min": 0,
             "available": true,
-            "captured": 7,
+            "captured": 2,
             "missing": 0,
             "recall": 1.0
           },
           "subagents": {
             "expected_min": 0,
             "available": true,
-            "captured": 22,
+            "captured": 15,
             "missing": 0,
             "recall": 1.0
           },
@@ -1847,10 +999,10 @@
             "recall": 1.0
           }
         },
-        "command_count": 14,
-        "repeat_command_retries": 7,
+        "command_count": 4,
+        "repeat_command_retries": 2,
         "file_edit_resources": [
-          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-dad8b32f\\parser.py"
+          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\subagent_disagreement-8f32cde5\\parser.py"
         ],
         "overall_recall": 1.0,
         "overall_coverage": 1.0,
@@ -1858,58 +1010,60 @@
       },
       "roles_resolved": {
         "research_a": [
-          "76f0446c-ac2e-5799-9966-a214911edadb"
+          "3c767634-16dc-5cb9-9711-6847cd58968c"
         ],
         "research_b": [
-          "199d43f6-19c4-56fc-a764-1492351c0f27"
+          "542d0fe4-1e9a-5142-8c8b-6199c384fb14"
         ],
         "implement_edit": [
-          "026cf027-dad5-5144-a365-600f8adfe90b"
+          "03bdce37-ff46-5e6b-8272-39446230aa85"
         ],
         "test_run": [
-          "f155f512-fcc0-5fe2-ab2e-78d2e392306f"
+          "c0b334f8-9dfa-523f-84dd-5fd9df0f0ad1"
         ]
       },
       "roles_unresolved": [],
       "failure": {
-        "failure_event_id": "f155f512-fcc0-5fe2-ab2e-78d2e392306f",
+        "failure_event_id": "c0b334f8-9dfa-523f-84dd-5fd9df0f0ad1",
         "status": "resolved",
         "method": "selector"
       },
       "diagnosis": {
-        "failure_event_id": "f155f512-fcc0-5fe2-ab2e-78d2e392306f",
+        "failure_event_id": "c0b334f8-9dfa-523f-84dd-5fd9df0f0ad1",
         "causal_minimality_overall": "not_measurable",
         "causal_interaction_overall": "unsupported",
         "causal_slice": {
           "status": "ok",
           "metric": "structural_ancestor_recall",
           "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
-          "size": 111,
+          "size": 2,
           "roles": [
-            "implement_edit",
-            "research_a",
-            "research_b",
             "test_run"
           ],
           "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 4,
+          "recall": 0.25,
+          "exact_match": false,
+          "true_positive": 1,
           "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
+          "false_negative": 3,
+          "missing": [
+            "implement_edit",
+            "research_a",
+            "research_b"
+          ],
           "unexpected": []
         },
         "cause_identification": {
           "status": "ok",
           "identified": [
-            "implement_edit",
-            "research_a",
-            "research_b",
             "test_run"
           ],
-          "missed": [],
-          "recall": 1.0
+          "missed": [
+            "implement_edit",
+            "research_a",
+            "research_b"
+          ],
+          "recall": 0.25
         },
         "minimal_slice": {
           "status": "ok",
@@ -1917,21 +1071,18 @@
           "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
           "method": "ddmin_with_ground_truth_membership_predicate",
           "causal_minimality": "not_measurable",
-          "size": 4,
-          "structural_size": 111,
-          "reduction_ratio": 0.964,
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
           "roles": [
-            "implement_edit",
-            "research_a",
-            "research_b",
             "test_run"
           ],
-          "required_recall": 1.0,
+          "required_recall": 0.25,
           "distractors_leaked": [],
           "distractors_occurred": [],
           "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
+          "recall": 0.25,
+          "exact_match": false
         },
         "minimality_proxy": {
           "status": "ok",
@@ -1939,21 +1090,18 @@
           "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
           "method": "ddmin_with_ground_truth_membership_predicate",
           "causal_minimality": "not_measurable",
-          "size": 4,
-          "structural_size": 111,
-          "reduction_ratio": 0.964,
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
           "roles": [
-            "implement_edit",
-            "research_a",
-            "research_b",
             "test_run"
           ],
-          "required_recall": 1.0,
+          "required_recall": 0.25,
           "distractors_leaked": [],
           "distractors_occurred": [],
           "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true
+          "recall": 0.25,
+          "exact_match": false
         },
         "provenance": {
           "status": "ok",
@@ -1983,30 +1131,27 @@
               "research_b"
             ]
           ],
-          "detected": [
-            [
-              "research_a",
-              "research_b"
-            ]
-          ],
+          "detected": [],
           "pairs": [
             {
               "pair": [
                 "research_a",
                 "research_b"
               ],
-              "detected": true,
-              "both_ancestors_of_failure": true,
-              "mutually_independent": false
+              "detected": false,
+              "both_ancestors_of_failure": false,
+              "mutually_independent": true
             }
           ],
-          "precision": 1.0,
-          "recall": 1.0,
-          "exact_match": true,
-          "true_positive": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "exact_match": false,
+          "true_positive": 0,
           "false_positive": 0,
-          "false_negative": 0,
-          "missing": [],
+          "false_negative": 1,
+          "missing": [
+            "research_a|research_b"
+          ],
           "unexpected": [],
           "false_interaction_rate": 0.0
         },
@@ -2022,27 +1167,308 @@
               "research_b"
             ]
           ],
-          "detected": [
-            [
-              "research_a",
-              "research_b"
-            ]
-          ],
+          "detected": [],
           "pairs": [
             {
               "pair": [
                 "research_a",
                 "research_b"
               ],
-              "detected": true,
-              "both_ancestors_of_failure": true,
-              "mutually_independent": false
+              "detected": false,
+              "both_ancestors_of_failure": false,
+              "mutually_independent": true
             }
           ],
+          "precision": 0.0,
+          "recall": 0.0,
+          "exact_match": false,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 1,
+          "missing": [
+            "research_a|research_b"
+          ],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "causal_interaction": {
+          "status": "unsupported",
+          "reason": "live OpenCode traces support no counterfactual intervention; joint ancestry is reported separately and must not be called causal interaction"
+        },
+        "distractors": {
+          "status": "ok",
+          "roles": [],
+          "leaked": 0
+        },
+        "explanation_grounding": {
+          "status": "ok",
+          "event_ids_in_evidence": 2,
+          "evidence_ids_valid": true,
+          "summary_cites_ids": [],
+          "summary_cites_count": 0,
+          "grounded": true,
+          "package_grounded": true,
+          "summary_grounded": false,
+          "required_mentions": [
+            "APPROACH_A.md",
+            "APPROACH_B.md"
+          ],
+          "mentions_found": [],
+          "mentions_recall": 0.0
+        }
+      },
+      "diagnosis_status": "scored"
+    },
+    {
+      "task": "shared_state_contamination",
+      "run_id": "shared_state_contamination-f44153ca",
+      "status": "completed",
+      "agent_exit_code": 0,
+      "agent_stdout_tail": "Result: `checker.py` asserts `threshold < 100` and fails because `threshold: 999` exceeds the production limit of 100.\n",
+      "agent_stderr_tail": "\u001b[0m\n> build \u00b7 deepseek/deepseek-v4-flash\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-f44153ca/shared.json\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-f44153ca\n\u001b[0m\n\u001b[0m\u2190 \u001b[0mEdit .casuality/opencode-bench/shared_state_contamination-f44153ca/shared.json\nIndex: D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-f44153ca\\shared.json\n===================================================================\n--- D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-f44153ca\\shared.json\n+++ D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-f44153ca\\shared.json\n@@ -1,1 +1,1 @@\n-{\"threshold\": 50}\n+{\"threshold\": 999}\n\n\u001b[0m\n\u001b[0m\u2192 \u001b[0mRead .casuality/opencode-bench/shared_state_contamination-f44153ca/shared.json\n\u001b[0m\n\u001b[0m$ \u001b[0mpython checker.py\nTraceback (most recent call last):\n  File \"D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-f44153ca\\checker.py\", line 4, in <module>\n    assert cfg[\"threshold\"] < 100, f\"threshold {cfg['threshold']} exceeds production limit 100\"\n           ^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: threshold 999 exceeds production limit 100\n\u001b[0m\n",
+      "opencode_version": "1.19.0",
+      "opencode_bin": "C:\\Users\\Nyx\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe",
+      "model": "deepseek/deepseek-v4-flash",
+      "provider": "openrouter",
+      "requested_model": "openrouter/deepseek/deepseek-v4-flash",
+      "working_directory": "D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-f44153ca",
+      "repository_root": "D:\\Coding\\Agent-Casuality",
+      "configuration": {
+        "timeout": 420,
+        "ingest_port_hint": "127.0.0.1:59312"
+      },
+      "started": "2026-10-11T07:10:19.805210+00:00",
+      "finished": "2026-10-11T07:11:00.534073+00:00",
+      "timestamp": "2026-10-11T07:11:00.534073+00:00",
+      "trace_db": "benchmark\\results\\opencode\\runs\\shared_state_contamination-f44153ca\\trace.db",
+      "ground_truth_version": 1,
+      "event_count": 240,
+      "receiver_errors": [],
+      "capture": {
+        "metric": "minimum_expected_event_class_coverage",
+        "per_class": {
+          "sessions": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "model_calls": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 21,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "tool_calls": {
+            "expected_min": 3,
+            "available": true,
+            "captured": 5,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "tool_results": {
+            "expected_min": 3,
+            "available": true,
+            "captured": 5,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "file_edits": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "commands": {
+            "expected_min": 1,
+            "available": true,
+            "captured": 2,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "errors": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "retries": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 1,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "subagents": {
+            "expected_min": 0,
+            "available": true,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          },
+          "completion": {
+            "expected_min": 0,
+            "available": false,
+            "captured": 0,
+            "missing": 0,
+            "recall": 1.0
+          }
+        },
+        "command_count": 2,
+        "repeat_command_retries": 1,
+        "file_edit_resources": [
+          "file://D:\\Coding\\Agent-Casuality\\.casuality\\opencode-bench\\shared_state_contamination-f44153ca\\shared.json"
+        ],
+        "overall_recall": 1.0,
+        "overall_coverage": 1.0,
+        "scored_classes": 6
+      },
+      "roles_resolved": {
+        "contaminating_write": [
+          "211aa9d3-431a-5e1b-a1b2-39e6149a3e1e"
+        ],
+        "consumer_read": [
+          "4c124eb8-14bf-518e-b88c-b7c586d5b48a"
+        ],
+        "validation_failure": [
+          "4cc91cd5-0995-5e8c-b49b-d3447511643c"
+        ]
+      },
+      "roles_unresolved": [],
+      "failure": {
+        "failure_event_id": "4cc91cd5-0995-5e8c-b49b-d3447511643c",
+        "status": "resolved",
+        "method": "selector"
+      },
+      "diagnosis": {
+        "failure_event_id": "4cc91cd5-0995-5e8c-b49b-d3447511643c",
+        "causal_minimality_overall": "not_measurable",
+        "causal_interaction_overall": "unsupported",
+        "causal_slice": {
+          "status": "ok",
+          "metric": "structural_ancestor_recall",
+          "label": "structural ancestor presence (declared-dependency evidence; influence not proven; extra events not ignored)",
+          "size": 2,
+          "roles": [
+            "validation_failure"
+          ],
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "exact_match": false,
+          "true_positive": 1,
+          "false_positive": 0,
+          "false_negative": 2,
+          "missing": [
+            "consumer_read",
+            "contaminating_write"
+          ],
+          "unexpected": []
+        },
+        "cause_identification": {
+          "status": "ok",
+          "identified": [
+            "validation_failure"
+          ],
+          "missed": [
+            "consumer_read",
+            "contaminating_write"
+          ],
+          "recall": 0.333
+        },
+        "minimal_slice": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
+          "roles": [
+            "validation_failure"
+          ],
+          "required_recall": 0.333,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "exact_match": false
+        },
+        "minimality_proxy": {
+          "status": "ok",
+          "metric": "required_cause_preservation_proxy",
+          "label": "required-cause preservation (minimality proxy; NOT causal minimality)",
+          "method": "ddmin_with_ground_truth_membership_predicate",
+          "causal_minimality": "not_measurable",
+          "size": 2,
+          "structural_size": 2,
+          "reduction_ratio": 0.0,
+          "roles": [
+            "validation_failure"
+          ],
+          "required_recall": 0.333,
+          "distractors_leaked": [],
+          "distractors_occurred": [],
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "exact_match": false
+        },
+        "provenance": {
+          "status": "ok",
+          "expected_resources": [
+            "shared.json"
+          ],
+          "recovered_resources": [
+            "shared.json"
+          ],
+          "resource_recall": 1.0,
+          "expected_edges": [
+            {
+              "edge": [
+                "contaminating_write",
+                "consumer_read"
+              ],
+              "present": true
+            }
+          ],
+          "edges_present": 1
+        },
+        "interaction": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
           "precision": 1.0,
           "recall": 1.0,
           "exact_match": true,
-          "true_positive": 1,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "missing": [],
+          "unexpected": [],
+          "false_interaction_rate": 0.0
+        },
+        "joint_ancestry": {
+          "status": "ok",
+          "metric": "joint_ancestry",
+          "label": "joint-branch ancestry detection (NOT causal interaction)",
+          "method": "joint_ancestry_check",
+          "causal_interaction": "not_measurable",
+          "expected": [],
+          "detected": [],
+          "pairs": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "exact_match": true,
+          "true_positive": 0,
           "false_positive": 0,
           "false_negative": 0,
           "missing": [],
@@ -2060,7 +1486,7 @@
         },
         "explanation_grounding": {
           "status": "ok",
-          "event_ids_in_evidence": 111,
+          "event_ids_in_evidence": 2,
           "evidence_ids_valid": true,
           "summary_cites_ids": [],
           "summary_cites_count": 0,
@@ -2068,8 +1494,8 @@
           "package_grounded": true,
           "summary_grounded": false,
           "required_mentions": [
-            "APPROACH_A.md",
-            "APPROACH_B.md"
+            "shared.json",
+            "threshold"
           ],
           "mentions_found": [],
           "mentions_recall": 0.0
@@ -2079,41 +1505,41 @@
     }
   ],
   "aggregate": {
-    "run_count": 7,
+    "run_count": 5,
     "capture_metric": "minimum_expected_event_class_coverage",
-    "capture_overall_recall": 0.928,
-    "capture_micro_recall": 0.928,
-    "capture_macro_recall": 0.967,
+    "capture_overall_recall": 1.0,
+    "capture_micro_recall": 1.0,
+    "capture_macro_recall": 1.0,
     "diagnosis_dimensions": {
       "cause_identification": {
-        "mean_score": 1.0,
-        "mean_score_all_runs": 0.571,
-        "scored_runs": 4,
-        "scored_runs_all": 7
+        "mean_score": 0.3,
+        "mean_score_all_runs": 0.3,
+        "scored_runs": 5,
+        "scored_runs_all": 5
       },
       "causal_slice": {
-        "mean_score": 1.0,
-        "mean_score_all_runs": 0.571,
-        "scored_runs": 4,
-        "scored_runs_all": 7
+        "mean_score": 0.3,
+        "mean_score_all_runs": 0.3,
+        "scored_runs": 5,
+        "scored_runs_all": 5
       },
       "minimal_slice": {
-        "mean_score": 1.0,
-        "mean_score_all_runs": 0.571,
-        "scored_runs": 4,
-        "scored_runs_all": 7,
+        "mean_score": 0.3,
+        "mean_score_all_runs": 0.3,
+        "scored_runs": 5,
+        "scored_runs_all": 5,
         "metric": "required_cause_preservation_proxy",
         "causal_minimality": "not_measurable"
       },
       "provenance": {
         "mean_score": 1.0,
-        "mean_score_all_runs": 0.786,
-        "scored_runs": 4,
-        "scored_runs_all": 7
+        "mean_score_all_runs": 1.0,
+        "scored_runs": 5,
+        "scored_runs_all": 5
       },
       "interaction": {
-        "mean_score": 1.0,
-        "mean_score_all_runs": 1.0,
+        "mean_score": 0.0,
+        "mean_score_all_runs": 0.0,
         "scored_runs": 2,
         "scored_runs_all": 2,
         "metric": "joint_ancestry",
@@ -2128,15 +1554,15 @@
       "explanation_grounding": {
         "mean_score": 0.0,
         "mean_score_all_runs": 0.0,
-        "scored_runs": 4,
-        "scored_runs_all": 7,
+        "scored_runs": 5,
+        "scored_runs_all": 5,
         "metric": "summary_citation_grounding"
       },
       "joint_ancestry": {
         "metric": "joint_ancestry",
         "causal_interaction": "unsupported",
-        "mean_score": 1.0,
-        "mean_score_all_runs": 1.0,
+        "mean_score": 0.0,
+        "mean_score_all_runs": 0.0,
         "scored_runs": 2,
         "scored_runs_all": 2
       },
@@ -2145,10 +1571,10 @@
         "reason": "no counterfactual intervention available from live OpenCode traces; see joint_ancestry"
       },
       "minimality_proxy": {
-        "mean_score": 1.0,
-        "mean_score_all_runs": 0.571,
-        "scored_runs": 4,
-        "scored_runs_all": 7,
+        "mean_score": 0.3,
+        "mean_score_all_runs": 0.3,
+        "scored_runs": 5,
+        "scored_runs_all": 5,
         "metric": "required_cause_preservation_proxy",
         "causal_minimality": "not_measurable"
       },
@@ -2158,6 +1584,19 @@
       }
     },
     "tasks": {
+      "stale_research": {
+        "runs": 1,
+        "statuses": [
+          "completed"
+        ],
+        "mean_capture_recall": 1.0,
+        "mean_capture_coverage": 1.0,
+        "mean_cause_recall_all_runs": 0.333,
+        "deviated_runs": 0,
+        "run_ids": [
+          "stale_research-bbdda07a"
+        ]
+      },
       "conflicting_review": {
         "runs": 1,
         "statuses": [
@@ -2165,10 +1604,10 @@
         ],
         "mean_capture_recall": 1.0,
         "mean_capture_coverage": 1.0,
-        "mean_cause_recall_all_runs": 1.0,
+        "mean_cause_recall_all_runs": 0.25,
         "deviated_runs": 0,
         "run_ids": [
-          "conflicting_review-61b58f2b"
+          "conflicting_review-3d4e9cb0"
         ]
       },
       "failed_test_retry": {
@@ -2178,40 +1617,10 @@
         ],
         "mean_capture_recall": 1.0,
         "mean_capture_coverage": 1.0,
-        "mean_cause_recall_all_runs": 1.0,
+        "mean_cause_recall_all_runs": 0.333,
         "deviated_runs": 0,
         "run_ids": [
-          "failed_test_retry-30b1611c"
-        ]
-      },
-      "shared_state_contamination": {
-        "runs": 3,
-        "statuses": [
-          "completed",
-          "completed",
-          "completed"
-        ],
-        "mean_capture_recall": 0.833,
-        "mean_capture_coverage": 0.833,
-        "mean_cause_recall_all_runs": 0.0,
-        "deviated_runs": 3,
-        "run_ids": [
-          "shared_state_contamination-0bb78d63",
-          "shared_state_contamination-2f1a1f64",
-          "shared_state_contamination-a3c550c7"
-        ]
-      },
-      "stale_research": {
-        "runs": 1,
-        "statuses": [
-          "completed"
-        ],
-        "mean_capture_recall": 1.0,
-        "mean_capture_coverage": 1.0,
-        "mean_cause_recall_all_runs": 1.0,
-        "deviated_runs": 0,
-        "run_ids": [
-          "stale_research-cfbdcbee"
+          "failed_test_retry-6d649bb2"
         ]
       },
       "subagent_disagreement": {
@@ -2221,20 +1630,29 @@
         ],
         "mean_capture_recall": 1.0,
         "mean_capture_coverage": 1.0,
-        "mean_cause_recall_all_runs": 1.0,
+        "mean_cause_recall_all_runs": 0.25,
         "deviated_runs": 0,
         "run_ids": [
-          "subagent_disagreement-dad8b32f"
+          "subagent_disagreement-8f32cde5"
+        ]
+      },
+      "shared_state_contamination": {
+        "runs": 1,
+        "statuses": [
+          "completed"
+        ],
+        "mean_capture_recall": 1.0,
+        "mean_capture_coverage": 1.0,
+        "mean_cause_recall_all_runs": 0.333,
+        "deviated_runs": 0,
+        "run_ids": [
+          "shared_state_contamination-f44153ca"
         ]
       }
     },
     "agent_deviation": {
-      "runs": 3,
-      "run_ids": [
-        "shared_state_contamination-0bb78d63",
-        "shared_state_contamination-2f1a1f64",
-        "shared_state_contamination-a3c550c7"
-      ],
+      "runs": 0,
+      "run_ids": [],
       "note": "agent deviation: intended injected scenario did not materialize (e.g. refused unsafe override); diagnosis has no ground-truth evidence to find"
     },
     "unsupported": [
