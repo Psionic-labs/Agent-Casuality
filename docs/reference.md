@@ -38,9 +38,15 @@ default is `.casuality/events.db`, which only Python capture code creates.
 
 ## Visual DAG Explorer
 
-Read-only viewer over recorded causal edges (never inferred):
+Read-only viewer over recorded causal edges (never inferred).
+Ships inside the `agent-casuality` wheel as vendored static assets
+(`explorer/static/`, synced from `frontend/out/`); no clone needed:
 
 ```powershell
+# PyPI install
+casuality-explorer
+casuality-explorer --db .casuality/opencode.db --port 8766
+# Source checkout
 uv run python -m explorer.server
 uv run python -m explorer.server --db .casuality/opencode.db --port 8766
 ```

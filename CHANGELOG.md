@@ -2,7 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.3]
+## [0.1.3] - 2026-10-13
+
+### Visual DAG Explorer ships in the PyPI wheel (packaging fix)
+
+- The `agent-casuality` wheel now bundles the compiled Visual DAG frontend
+  (`explorer/static/`, 20 files: `index.html` + `_next/` JS/CSS), vendored
+  from `frontend/out/` via `scripts/sync-explorer-static.py`. Previously the
+  wheel/sdist contained only `explorer/*.py` + demo JSONs, so
+  `python -m explorer.server` from a PyPI install 404'd on `/` (the
+  `frontend/out/` directory is gitignored and was never packaged).
+- `explorer.server.get_frontend_dir()` resolves `explorer/static/` inside the
+  installed package without relying on CWD or the checkout layout (legacy
+  `frontend/out/` fallback kept for development).
+- New `casuality-explorer` console entry point (`explorer.server:main`),
+  alongside the existing `casuality-opencode-ingest` receiver. Consumer flow
+  with no clone: `pip install agent-casuality` → install the OpenCode plugin
+  → `casuality-opencode-ingest --db .casuality/opencode.db` → run OpenCode →
+  `casuality-explorer --db .casuality/opencode.db`.
+- `MANIFEST.in` + `package-data` (`explorer: demo/*.json, static/*,
+  static/**/*`) guarantee wheel + sdist coverage; `tests/test_packaging.py`
+  fails if the frontend bundle, the asset references, the entry points, or
+  the CWD-independent resolution regress.
 
 ### OpenCode plugin telemetry 
 

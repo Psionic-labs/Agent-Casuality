@@ -248,3 +248,8 @@ frontend/next-env.d.ts
 .vercel/
 npm-debug.log*
 .DS_Store
+
+# Casuality explorer bundle: frontend/out/ above is a local-only build artifact,
+# but its synced copy under explorer/static/ (via scripts/sync-explorer-static.py)
+# IS the distributable asset and must stay committed — never ignore it.
+!explorer/static/

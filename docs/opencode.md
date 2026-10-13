@@ -36,14 +36,22 @@ with this release.
 
 No extra setup: the explorer ships in the Python distribution and serves
 its bundled frontend itself. No API key is needed (only the optional AI
-interpretation uses one).
+interpretation uses one). No repository clone is needed for the PyPI path.
 
 ```powershell
+# PyPI consumer flow
+pip install agent-casuality
+casuality-opencode-ingest --db .casuality/opencode.db
+# ... run an OpenCode session (plugin posts automatically) ...
+casuality-explorer --db .casuality/opencode.db
+
+# Source checkout flow
 # 1. Capture a fresh trace (one benchmark task is enough)
 uv run casuality-benchmark opencode --task shared_state_contamination --timeout 300
 
 # 2. Serve the resulting trace in the explorer
 uv run python -m explorer.server --db benchmark/results/opencode/runs/<run-id>/trace.db
+# (installed equivalent: casuality-explorer --db <path>)
 
 # 3. Open http://127.0.0.1:8766 — graph, timeline, event inspector, and
 #    analysis tabs load from the trace's recorded causal edges.

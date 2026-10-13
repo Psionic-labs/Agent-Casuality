@@ -1,6 +1,6 @@
 [project]
 name = "agent-casuality"
-version = "0.1.2"
+version = "0.1.3"
 description = "Causal capture SDK for branching multi-agent systems"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -26,13 +26,14 @@ include = ["benchmark*", "casuality*", "cli*", "core*", "explorer*", "sdk*", "st
 [tool.setuptools.package-data]
 benchmark = ["ground_truth/*.json"]
 "benchmark.opencode" = ["ground_truth/*.json"]
-explorer = ["demo/*.json"]
+explorer = ["demo/*.json", "static/*", "static/**/*"]
 
 [project.scripts]
 casuality = "cli.main:main"
 agent-casuality = "cli.main:main"
 casuality-benchmark = "benchmark.runner:main"
 casuality-opencode-ingest = "opencode_adapter.server:main"
+casuality-explorer = "explorer.server:main"
 
 [dependency-groups]
 dev = [

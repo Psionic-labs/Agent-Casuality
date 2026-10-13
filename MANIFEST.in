@@ -1,0 +1,5 @@
+recursive-include explorer/static *
+recursive-include explorer/demo *.json
+recursive-include benchmark/ground_truth *.json
+recursive-include benchmark/opencode/ground_truth *.json
+global-exclude __pycache__ *~ *.pyc *.pyo

@@ -9,6 +9,26 @@ providers, and API keys are optional.
 - Python 3.11 or newer
 - `uv`
 
+## Install (PyPI consumer, no clone needed)
+
+```powershell
+pip install agent-casuality
+# or: uv add agent-casuality
+opencode plugin add @psionic-labs/opencode-agent-casuality
+```
+
+Consumer flow: start the receiver → run OpenCode → launch the Visual DAG:
+
+```powershell
+casuality-opencode-ingest --db .casuality/opencode.db
+opencode run "Inspect the repository, make a small testable change, and run pytest"
+casuality-explorer --db .casuality/opencode.db
+```
+
+Then open <http://127.0.0.1:8766>. See [docs/opencode.md](docs/opencode.md)
+for the full plugin options and [docs/reference.md](docs/reference.md) for
+the explorer API.
+
 ## Install the source checkout
 
 From the repository root:
@@ -268,8 +288,8 @@ plugin options. The smoke test is not part of CI.
   discover arbitrary database or filesystem reads automatically.
 - The high-level local API does not yet record the fixture's exact field-level
   provenance chain.
-- The Visual DAG Explorer (`uv run python -m explorer.server`, default
-  <http://127.0.0.1:8766>) is read-only over recorded causal edges; its
+- The Visual DAG Explorer (`casuality-explorer`, default
+  <http://127.0.0.1:8766>; source checkout: `uv run python -m explorer.server`) is read-only over recorded causal edges; its
   optional *Generate AI analysis* calls OpenRouter only on click (default
   model `nvidia/nemotron-3-ultra-550b-a55b:free`, override with
   `OPENROUTER_MODEL`).

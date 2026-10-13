@@ -2,7 +2,8 @@
 
 Only the standard library is used. ``create_server`` binds a dataset to a
 ``ThreadingHTTPServer``; ``main`` wires it to ``--db`` (live SQLite) or the
-bundled demo trace and serves ``frontend/`` at ``/``.
+bundled demo trace and serves the vendored ``explorer/static/`` bundle at
+``/`` (built from ``frontend/`` via ``scripts/sync-explorer-static.py``).
 """
 
 from __future__ import annotations
@@ -25,7 +26,37 @@ from explorer.queries import (
     graph_overview,
 )
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "out"
+
+def get_frontend_dir() -> Path:
+    """Resolve the bundled Visual DAG static assets without relying on CWD.
+
+    Order:
+    1. ``explorer/static/`` next to this file (wheel + source checkout after
+       ``scripts/sync-explorer-static.py``). This is the only path that
+       exists in a PyPI install.
+    2. ``frontend/out/`` in a development checkout (back-compat for a fresh
+       ``npm run build`` before the vendored copy is synced).
+    """
+    packaged = Path(__file__).resolve().parent / "static"
+    if (packaged / "index.html").is_file():
+        return packaged
+    # importlib.resources covers exotic install layouts where __file__ may
+    # not be a plain directory (kept as a best-effort fallback).
+    try:
+        from importlib.resources import files as _files
+
+        candidate = _files("explorer") / "static"
+        # Traversable may not be a Path (e.g. zip); joinpath/as_file only
+        # helps for single files, so only accept a real filesystem dir.
+        if isinstance(candidate, Path) and (candidate / "index.html").is_file():
+            return candidate
+    except Exception:
+        pass
+    legacy = Path(__file__).resolve().parent.parent / "frontend" / "out"
+    return legacy
+
+
+FRONTEND_DIR = get_frontend_dir()
 
 _CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -88,9 +119,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": str(exc)})
 
     def _handle_static(self, path: str) -> None:
+        frontend_dir = get_frontend_dir()
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
-        target = (FRONTEND_DIR / rel).resolve()
-        if FRONTEND_DIR.resolve() not in target.parents and target != FRONTEND_DIR.resolve():
+        target = (frontend_dir / rel).resolve()
+        if frontend_dir.resolve() not in target.parents and target != frontend_dir.resolve():
             self._send(403, b"forbidden", "text/plain")
             return
         if not target.is_file():
@@ -118,6 +150,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--db", default=None, help="Live SQLite file (default: demo trace)")
     args = parser.parse_args(argv)
+    frontend_dir = get_frontend_dir()
+    if not (frontend_dir / "index.html").is_file():
+        parser.error(
+            f"Explorer frontend not found at {frontend_dir}. "
+            "The wheel should bundle explorer/static/; from source run "
+            "`cd frontend && npm ci && npm run build` then "
+            "`uv run python scripts/sync-explorer-static.py`."
+        )
     dataset = loader.load_sqlite(args.db) if args.db else loader.load_demo()
     server = create_server(dataset, args.host, args.port)
     print(f"serving {dataset.source} at http://{args.host}:{args.port}/")

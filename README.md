@@ -22,7 +22,7 @@ Agent execution → event capture → causal graph → slice / provenance / inte
 
 ## Install
 
-Published as `agent-casuality==0.1.2` (PyPI) and
+Published as `agent-casuality==0.1.3` (PyPI) and
 `@psionic-labs/opencode-agent-casuality==0.1.3` (npm).
 
 Requires Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).
@@ -59,9 +59,17 @@ Limitations: the evidence does not establish why the upstream tools produced the
 
 ## See it: Visual DAG Explorer
 
-Open the capture as an interactive causal graph — no API key needed:
+Open the capture as an interactive causal graph — no API key needed.
+The Explorer ships inside the `agent-casuality` PyPI wheel (no clone needed):
 
 ```bash
+# PyPI install
+pip install agent-casuality
+casuality-explorer
+```
+
+```bash
+# Source checkout
 uv run python -m explorer.server
 ```
 
@@ -89,7 +97,8 @@ event inspector alongside.
 - **Analysis tabs** (chain, provenance, interaction, evidence, metrics)
   stay informative even with no ground truth, built from capture facts.
 - **Your own runs**: point it at a live capture —
-  `uv run python -m explorer.server --db .casuality/opencode.db`.
+  `casuality-explorer --db .casuality/opencode.db`
+  (source checkout: `uv run python -m explorer.server --db .casuality/opencode.db`).
 - **Optional AI interpretation**: set `OPENROUTER_API_KEY` (and optionally
   `OPENROUTER_MODEL`, default `nvidia/nemotron-3-ultra-550b-a55b:free`),
   then click *Generate AI analysis* in the
@@ -121,11 +130,18 @@ Capture live coding-agent sessions. Telemetry is fail-open: it never
 interrupts your agent.
 
 ```powershell
-# Terminal 1: receiver
-uv run casuality-opencode-ingest --db .casuality/opencode.db
+# Terminal 1: receiver (PyPI install; source checkout: uv run casuality-opencode-ingest ...)
+casuality-opencode-ingest --db .casuality/opencode.db
 # Terminal 2: agent (plugin posts automatically)
 opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script."
+# Terminal 3: Visual DAG
+casuality-explorer --db .casuality/opencode.db
 ```
+
+Full consumer flow: install `agent-casuality` → install the OpenCode plugin
+(`opencode plugin add @psionic-labs/opencode-agent-casuality`) → start the
+receiver → run OpenCode → launch `casuality-explorer` → inspect the recorded
+trace. No repository clone is needed.
 
 Representative committed result (`stale_research`, OpenCode `1.19.0`):
 `completed (exit 0), 331 events, capture coverage 1.0, diagnosis scored`
