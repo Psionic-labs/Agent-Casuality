@@ -2,6 +2,11 @@
   "name": "@psionic-labs/opencode-agent-casuality",
   "version": "0.1.3",
   "description": "OpenCode plugin that streams Agent-Casuality telemetry events to the ingest endpoint",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Psionic-labs/Agent-Casuality.git",
+    "directory": "packages/opencode-agent-casuality"
+  },
   "type": "module",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.js",
