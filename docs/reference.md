@@ -36,6 +36,68 @@ default is `.casuality/events.db`, which only Python capture code creates.
   proportions are descriptive, not p-values.
 - LLM explanations must stay grounded in the supplied evidence package.
 
+## Visual DAG Explorer
+
+Read-only viewer over recorded causal edges (never inferred):
+
+```powershell
+uv run python -m explorer.server
+uv run python -m explorer.server --db .casuality/opencode.db --port 8766
+```
+
+Open <http://127.0.0.1:8766>. Default serves the bundled demo trace; `--db`
+points at a live SQLite capture. No API key is needed except for the opt-in
+*Generate AI analysis* button.
+
+| Endpoint | Content |
+| --- | --- |
+| `GET /api/overview` | Nodes + declared causal edges, failure target |
+| `GET /api/failure` | How the failure target was chosen (resolved / fallback) |
+| `GET /api/diagnosis` | Benchmark diagnosis dimensions for the failure |
+| `GET /api/event?id=<id>` | One event with parents, children, full record |
+| `GET /api/evidence` | Evidence package + offline summary |
+| `GET /api/ai-diagnosis` | Opt-in model interpretation, quarantined from facts |
+
+`/api/ai-diagnosis` needs `OPENROUTER_API_KEY` (model via `OPENROUTER_MODEL`,
+default `nvidia/nemotron-3-ultra-550b-a55b:free`). Without a key it returns
+`503 ai_unavailable`; model/format failures return `502` with the cause. The
+model text is always labeled interpretation, never mixed with evidence.
+
+## OpenCode ingest
+
+```text
+POST http://127.0.0.1:8765/v1/opencode/events
+```
+
+Receiver: `uv run casuality-opencode-ingest --db .casuality/opencode.db`.
+Answers `400` on malformed input, `202` with `received`/`normalized`/
+`persisted` counts otherwise.
+
+Plugin environment (see [docs/opencode.md](opencode.md)):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `CASUALITY_OPENCODE_INGEST_URL` | `http://127.0.0.1:8765/v1/opencode/events` | Ingest endpoint |
+| `CASUALITY_OPENCODE_INGEST_TOKEN` | _(unset)_ | Sent as `Authorization: Bearer <token>` |
+| `CASUALITY_OPENCODE_INGEST_TIMEOUT_MS` | `5000` | Per-request timeout in ms |
+| `CASUALITY_OPENCODE_BATCH_MAX` | `25` | Max envelopes per POST (singletons stay single objects) |
+| `CASUALITY_OPENCODE_LOG_TELEMETRY_FAILURES` | _(unset)_ | Set to `1`/`true` to enable delivery warnings |
+
+Telemetry is fail-open and quiet by default: bounded 256-envelope buffer,
+batched POSTs with 3 attempts per batch, drops counted in `telemetryStats`
+rather than interrupting OpenCode.
+
+## Benchmarks
+
+```powershell
+uv run casuality-benchmark scenarios
+uv run casuality-benchmark experiment2 --dependencies 100
+uv run casuality-benchmark experiment3
+uv run casuality-benchmark opencode --timeout 420
+```
+
+Full results in [benchmarks.md](benchmarks.md) and `benchmark/results/`.
+
 ## Optional services
 
 ```powershell

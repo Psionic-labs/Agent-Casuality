@@ -96,12 +96,14 @@ uv run casuality-benchmark opencode --timeout 420
 uv run casuality-benchmark opencode --task failed_test_retry --timeout 300
 
 # Repeat runs, custom binary / output / receiver / model / timeout
+# (pass an available model — the 2026-10-11 committed rerun used
+# openrouter/deepseek/deepseek-v4-flash, since retired from OpenRouter's free tier)
 uv run casuality-benchmark opencode `
   --task stale_research --task failed_test_retry `
   --runs 2 --timeout 300 `
   --opencode-bin "C:/path/to/opencode.exe" `
   --output-dir benchmark/results/opencode `
-  --model "openrouter/deepseek/deepseek-v4-flash"
+  --model "openrouter/<available-model>"
 ```
 
 The model is passed as `opencode run -m`. API-key models need the key in

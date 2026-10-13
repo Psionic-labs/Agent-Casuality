@@ -23,7 +23,7 @@ Agent execution → event capture → causal graph → slice / provenance / inte
 ## Install
 
 Published as `agent-casuality==0.1.2` (PyPI) and
-`@psionic-labs/opencode-agent-casuality==0.1.1` (npm).
+`@psionic-labs/opencode-agent-casuality==0.1.3` (npm).
 
 Requires Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).
 
@@ -72,7 +72,7 @@ path highlighted.
 ![Visual DAG Explorer — live OpenCode trace with the failure target selected, causal edges, and inspector](docs/screenshots/explorer-shared-state-fresh.png)
 
 Screenshot: a freshly captured `shared_state_contamination` run (240
-events, 6 causal edges, `deepseek/deepseek-v4-flash`) — the checker's
+events, 6 causal edges) — the checker's
 failure node selected, its causal chain in the inspector.
 
 ![Visual DAG Explorer Timeline view — per-agent lanes in sequence order, the failure target selected, with minimap and event inspector](docs/screenshots/timeline.png)
@@ -91,7 +91,8 @@ event inspector alongside.
 - **Your own runs**: point it at a live capture —
   `uv run python -m explorer.server --db .casuality/opencode.db`.
 - **Optional AI interpretation**: set `OPENROUTER_API_KEY` (and optionally
-  `OPENROUTER_MODEL`), then click *Generate AI analysis* in the
+  `OPENROUTER_MODEL`, default `nvidia/nemotron-3-ultra-550b-a55b:free`),
+  then click *Generate AI analysis* in the
   "Why did it fail?" strip. The model text lives in its own labeled
   block — never mixed with the evidence.
 
@@ -126,8 +127,7 @@ uv run casuality-opencode-ingest --db .casuality/opencode.db
 opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script."
 ```
 
-Representative committed result (`stale_research`, OpenCode `1.19.0`,
-`deepseek/deepseek-v4-flash`):
+Representative committed result (`stale_research`, OpenCode `1.19.0`):
 `completed (exit 0), 331 events, capture coverage 1.0, diagnosis scored`
 (see `benchmark/results/opencode/opencode.md`). No video artifact ships
 with this release. [Setup guide →](docs/opencode.md)

@@ -1,5 +1,12 @@
 # Empirical Proof & Verification of Agent-Casuality
 
+> **Document status:** Historical evidence snapshot. Numbers below describe
+> the runs available when it was written; the committed record is now the
+> 2026-10-11 OpenCode rerun (OpenCode `1.19.0`, 5 runs / 5 tasks, capture
+> micro/macro-average `1.0`, cause recall mean `0.3`, joint ancestry `0.0`).
+> Use [README.md](../README.md), [benchmarks.md](benchmarks.md), and
+> `benchmark/results/opencode/opencode.md` for current results.
+
 This document provides a comprehensive, empirical record proving that **Agent-Casuality** is fully functional, mathematically sound, and verified on real autonomous coding agents.
 
 ---

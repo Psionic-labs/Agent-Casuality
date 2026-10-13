@@ -22,8 +22,8 @@ test("captures all event kinds with session ids, auth header, and retry", () => 
 
 test("retries failed posts before succeeding", () => {
   const out = run("flaky")
-  assert.match(out, /PASS: 14\/12 envelopes/)
-  assert.match(out, /14 requests/)
+  assert.match(out, /PASS: 12\/12 envelopes/)
+  assert.match(out, /\(\d+ requests\)/)
 })
 
 test("fails open when the ingest endpoint is unreachable", () => {

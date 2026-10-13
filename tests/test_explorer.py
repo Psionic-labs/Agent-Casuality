@@ -121,6 +121,7 @@ def test_server_serves_api_and_static() -> None:
     finally:
         server.shutdown()
         thread.join()
+        server.server_close()
 
 
 _VALID_AI_TEXT = """Diagnosis: The retry passed because the fix edit

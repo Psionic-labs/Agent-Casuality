@@ -236,7 +236,7 @@ instead of hiding them. Real branching exists only in the live
   TypeScript, run directly by Node's type stripping.
 - `npx tsc --noEmit` (strict) and `npm run build` (static export) must pass.
 - `uv run ruff check .`, `uv run ty check .`, `uv run pytest -q`
-  (192 passed, 7 postgres/env skips).
+  (198 passed, 7 postgres/env skips).
 - Live-server smoke: static 200s (including `/_next/*` assets with correct
   MIME), demo slice/diagnosis/provenance values, live 1625-event overview.
 - Manual acceptance procedure with reference screenshots: TEST.md §29.

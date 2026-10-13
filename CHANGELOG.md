@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3]
+
+### OpenCode plugin telemetry 
+
+- Batched delivery: envelopes drain in batches of up to
+  `CASUALITY_OPENCODE_BATCH_MAX` (default 25) per POST; singletons stay
+  single objects. Short `persisted`/`accepted` counts retry the batch;
+  count-less 2xx bodies still count as delivered.
+- Quiet fail-open by default: delivery warnings emit only when
+  `CASUALITY_OPENCODE_LOG_TELEMETRY_FAILURES=1`/`true`, rate-limited, with
+  the first warning naming the endpoint and receiver start command.
+- Per-request config: endpoint, bearer token, timeout
+  (`CASUALITY_OPENCODE_INGEST_TIMEOUT_MS`, default 5000), and batch size
+  resolve per request; retry backoff is 200ms/400ms.
+- CI frontend job now uses Node.js 24.
+
+### Docs: refreshed to match current behavior
+
+- All user-facing docs synced to the working tree: GETTING_STARTED
+  (OpenCode 1.19.0, explorer coverage, current AI model default),
+  `docs/reference.md` (explorer/ingest endpoints, plugin env table,
+  benchmark commands), `docs/opencode.md` and the npm README (quiet
+  fail-open default, batching/backoff, full env table),
+  `docs/benchmarks.md` and `benchmark/README.md` (retired-model notes),
+  README (AI default), CONTRIBUTING (frontend gates), PROOF.md,
+  LEGACY_README.md, and `frontend/DESIGN.md` (current suite counts).
+
+### Docs: TEST.md slimmed, verification archive
+
+- `TEST.md` shrank from ~1100 to ~340 lines: it now covers the quick
+  gates, benchmark verification, a fixture CLI smoke block, a
+  focused-test-files table, short PostgreSQL notes, and the current
+  Phase 5/6, OpenCode (§28), and explorer (§29) procedures. Section
+  numbers 28/29 are unchanged, so existing links still resolve.
+- The historical Phase 2-4 PostgreSQL/SQL checks (§§1-24) moved
+  verbatim to `docs/verification-archive.md` with a status banner;
+  `GETTING_STARTED.md` now links there for schema/query detail.
+
 ## [0.1.2] - 2026-10-11
 
 ### AI diagnosis model default and error mapping (Python distribution)

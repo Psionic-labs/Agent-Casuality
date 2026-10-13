@@ -1,5 +1,9 @@
 # Agent-Casuality
 
+> **Document status:** Archived snapshot, kept for provenance. Not referenced
+> by the current docs. Use [README.md](../README.md) and
+> [GETTING_STARTED.md](../GETTING_STARTED.md) for current behavior.
+
 Causal debugging for branching multi-agent systems.
 
 ## 60 seconds

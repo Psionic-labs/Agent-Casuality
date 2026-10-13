@@ -50,6 +50,15 @@ uv run ruff check .
 uv run ty check .
 ```
 
+For explorer/frontend changes, also run the frontend gates from `frontend/`
+(see [TEST.md §29](TEST.md)):
+
+```powershell
+npm test
+npx tsc --noEmit
+npm run build
+```
+
 ## Verify the example
 
 Changes to capture, storage, CLI analysis, explanation, or decision replay

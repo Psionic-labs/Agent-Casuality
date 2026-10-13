@@ -11,10 +11,14 @@ Summary of committed artifacts in `benchmark/results/` (JSON + Markdown).
 | Experiment 1 (offline) | `uv run casuality-benchmark experiment1 --repetitions 3` | Passes (12 true positives / 12 true negatives) |
 | Experiment 1 (external Fastino) | `uv run casuality-benchmark experiment1 --provider fastino` | Provider-blocked / deferred — catalog has no structured-output capability, so no external run was completed |
 | `agent-replay 0.2.0` baseline | `uv run casuality-benchmark baseline` | Divergence localization only; multi-parent causality, interactions, shared-state causality, distractor reasoning, and minimal reduction unsupported |
-| OpenCode coding-agent benchmark | `uv run casuality-benchmark opencode` | 5 runs across 5 tasks (OpenCode `1.19.0`, `deepseek/deepseek-v4-flash`); capture micro/macro-average `1.0`; cause recall mean `0.3`; joint ancestry `0.0` (genuine causal interaction unsupported) |
+| OpenCode coding-agent benchmark | `uv run casuality-benchmark opencode` | 5 runs across 5 tasks (OpenCode `1.19.0`); capture micro/macro-average `1.0`; cause recall mean `0.3`; joint ancestry `0.0` (genuine causal interaction unsupported) |
 
 The 2026-10-11 rerun (after the honest-causality fix `fe7a4ef`, which
-removed arrival-order edges) completed all 5 tasks with 0 deviations.
+removed arrival-order edges) completed all 5 tasks with 0 deviations, using
+`deepseek/deepseek-v4-flash` as the OpenCode model. That model has since been
+retired from OpenRouter's free tier — reruns should pass an available model
+via `--model`, and the AI-explanation default is now
+`nvidia/nemotron-3-ultra-550b-a55b:free` (override with `OPENROUTER_MODEL`).
 Cause recall mean `0.3` measures structural-slice ancestry under
 explicit-evidence edges only (tool `callID` pairing, resource
 read-after-write, declared `parent_event_id`); arrival order is preserved

@@ -19,12 +19,15 @@ uv run casuality-opencode-ingest --db .casuality/opencode.db
 opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script."
 ```
 
-Representative committed result (`stale_research`, OpenCode `1.19.0`,
-`deepseek/deepseek-v4-flash`):
+Representative committed result (`stale_research`, OpenCode `1.19.0`):
 
 ```text
 Status: completed (exit 0), events: 331, capture coverage: 1.0, diagnosis: scored
 ```
+
+(The 2026-10-11 rerun used `deepseek/deepseek-v4-flash` as the OpenCode model;
+that model has since been retired from OpenRouter's free tier. The AI-explanation
+default is now `nvidia/nemotron-3-ultra-550b-a55b:free`.)
 
 Full output: `benchmark/results/opencode/opencode.md`. No video artifact ships
 with this release.
@@ -86,7 +89,16 @@ silently disables the whole plugin on OpenCode `>= 1.19`
 POST http://127.0.0.1:8765/v1/opencode/events
 ```
 
-Optional token (sent as a bearer header):
+Plugin options (all resolved per request, so env changes apply without
+reloading the plugin):
+
+| Environment variable | Default | Description |
+| --- | --- | --- |
+| `CASUALITY_OPENCODE_INGEST_URL` | `http://127.0.0.1:8765/v1/opencode/events` | Ingest endpoint |
+| `CASUALITY_OPENCODE_INGEST_TOKEN` | _(unset)_ | Sent as `Authorization: Bearer <token>` |
+| `CASUALITY_OPENCODE_INGEST_TIMEOUT_MS` | `5000` | Per-request timeout in ms |
+| `CASUALITY_OPENCODE_BATCH_MAX` | `25` | Max envelopes per POST (singletons stay single objects) |
+| `CASUALITY_OPENCODE_LOG_TELEMETRY_FAILURES` | _(unset)_ | Set to `1`/`true` to enable delivery warnings |
 
 ```powershell
 $env:CASUALITY_OPENCODE_INGEST_URL = "http://127.0.0.1:8765/v1/opencode/events"
@@ -101,12 +113,19 @@ opt-in and best-effort.
 
 ## Fail-open behavior
 
-- The plugin buffers at most 256 envelopes, retries 3 times, and drops
-  telemetry rather than interrupting OpenCode. Queue overflows and exhausted
-  retries are counted in `telemetryStats` (`droppedQueueOverflow`,
-  `droppedDeliveryFailed`, `rejectedByReceiver`) and emitted via
-  `console.warn`; an HTTP 2xx with an explicit zero `persisted`/`accepted`
-  count is retried, not treated as delivered.
+- The plugin buffers at most 256 envelopes (oldest dropped on overflow),
+  sends them in batches (up to `CASUALITY_OPENCODE_BATCH_MAX`, default 25
+  per POST; singletons stay single objects for backward compatibility),
+  retries each batch 3 times with 200ms/400ms backoff, and drops telemetry
+  rather than interrupting OpenCode. Queue overflows and exhausted retries
+  are counted in `telemetryStats` (`droppedQueueOverflow`,
+  `droppedDeliveryFailed`, `rejectedByReceiver`). Telemetry is quiet by
+  default: delivery warnings are emitted only when
+  `CASUALITY_OPENCODE_LOG_TELEMETRY_FAILURES=1`/`true`, rate-limited, with
+  the first one naming the endpoint plus the receiver start command. An
+  HTTP 2xx with an explicit short `persisted`/`accepted` count (fewer than
+  the batch size) is retried, not treated as delivered; bodies without
+  counts (e.g. plain 200 `{}`) are treated as delivered for compatibility.
 - The receiver answers `400` on malformed input and `202` with
   `received`/`normalized`/`persisted` counts (`accepted` aliases `persisted`)
   otherwise, so senders never mistake receipt for persistence. Only durably

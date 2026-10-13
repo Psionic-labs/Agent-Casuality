@@ -134,7 +134,8 @@ does not persist the agent metadata currently needed by that command.
 ## Optional OpenRouter explanation
 
 Install the optional HTTP dependency and set a key only if you want a
-model-generated explanation:
+model-generated explanation (default model
+`nvidia/nemotron-3-ultra-550b-a55b:free`; override with `OPENROUTER_MODEL`):
 
 ```powershell
 uv sync --extra explain
@@ -179,7 +180,8 @@ intentionally available:
 uv run --env-file .env pytest -q
 ```
 
-Detailed schema and query verification is in [TEST.md](TEST.md). Those SQL
+Detailed schema and query verification is in
+[docs/verification-archive.md](docs/verification-archive.md). Those SQL
 queries work in PostgreSQL generally; a hosted PostgreSQL SQL editor is
 optional.
 
@@ -220,7 +222,8 @@ uv run pytest tests/test_opencode_adapter.py -v
 
 ### 2. Live OpenCode runtime smoke test
 
-OpenCode `1.18.32` loads the project plugin from
+OpenCode `1.19.0` (V1 `{ id, server }` plugin contract, supported since
+`1.18.29`) loads the project plugin from
 `.opencode/plugins/agent-casuality.ts`. Start the Agent-Casuality receiver in
 one terminal:
 
@@ -247,7 +250,10 @@ uv run python -c "from storage.sqlite import SQLiteEventStore; store = SQLiteEve
 uv run python -c "from storage.sqlite import SQLiteEventStore; store = SQLiteEventStore('.casuality/opencode.db'); latest = store.events()[-1]; print('Causal ancestors count:', len(store.ancestors(latest.id)))"
 ```
 
-Telemetry delivery is fail-open and the smoke test is not part of CI.
+Telemetry delivery is fail-open and quiet by default (no console warnings
+unless `CASUALITY_OPENCODE_LOG_TELEMETRY_FAILURES=1`); envelopes are sent in
+batches of up to 25. See [docs/opencode.md](docs/opencode.md) for the full
+plugin options. The smoke test is not part of CI.
 
 ## Current boundaries
 
@@ -262,4 +268,8 @@ Telemetry delivery is fail-open and the smoke test is not part of CI.
   discover arbitrary database or filesystem reads automatically.
 - The high-level local API does not yet record the fixture's exact field-level
   provenance chain.
-- The project currently exposes a CLI and Python API, not a frontend.
+- The Visual DAG Explorer (`uv run python -m explorer.server`, default
+  <http://127.0.0.1:8766>) is read-only over recorded causal edges; its
+  optional *Generate AI analysis* calls OpenRouter only on click (default
+  model `nvidia/nemotron-3-ultra-550b-a55b:free`, override with
+  `OPENROUTER_MODEL`).

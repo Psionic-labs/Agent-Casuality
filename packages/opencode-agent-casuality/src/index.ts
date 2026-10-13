@@ -12,9 +12,26 @@ type Envelope = {
   payload: Record<string, unknown>
 }
 
-// Configurable endpoint (defaults to local receiver on port 8765)
-const endpoint = process.env.CASUALITY_OPENCODE_INGEST_URL ?? "http://127.0.0.1:8765/v1/opencode/events"
-const authToken = process.env.CASUALITY_OPENCODE_INGEST_TOKEN
+// Configurable endpoint (defaults to local receiver on port 8765).
+// Resolved per request so env changes apply without reloading the plugin.
+function ingestUrl(): string {
+  return process.env.CASUALITY_OPENCODE_INGEST_URL ?? "http://127.0.0.1:8765/v1/opencode/events"
+}
+
+function ingestTimeoutMs(): number {
+  const parsed = Number(process.env.CASUALITY_OPENCODE_INGEST_TIMEOUT_MS ?? 5000)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5000
+}
+
+function batchMax(): number {
+  const parsed = Number(process.env.CASUALITY_OPENCODE_BATCH_MAX ?? 25)
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 25
+}
+
+function authHeaders(): Record<string, string> {
+  const token = process.env.CASUALITY_OPENCODE_INGEST_TOKEN
+  return token ? { authorization: `Bearer ${token}` } : {}
+}
 
 // Bounded in-memory telemetry buffer (max 256 items) to prevent memory growth
 const queue: Envelope[] = []
@@ -30,12 +47,45 @@ export const telemetryStats = {
   rejectedByReceiver: 0,
 }
 
+// Telemetry is intentionally fail-open and quiet by default: a missing local
+// receiver must not obscure OpenCode's UI. Set this to "1" or "true" when
+// diagnosing capture issues.
+function telemetryWarningsEnabled(): boolean {
+  const value = process.env.CASUALITY_OPENCODE_LOG_TELEMETRY_FAILURES?.toLowerCase()
+  return value === "1" || value === "true"
+}
+
+// Warning throttle applies only when diagnostic logging is explicitly enabled.
+let warnedEndpointHint = false
+let lastWarnAt = 0
+let lastWarnedDrops = 0
+
 function warn(message: string): void {
+  if (!telemetryWarningsEnabled()) return
   try {
     console.warn(`[agent-casuality] ${message}`)
   } catch {
     // Logging must never interrupt OpenCode (fail-open)
   }
+}
+
+function warnDeliveryExhausted(result: PostResult, batch: Envelope[]): void {
+  const now = Date.now()
+  const total = telemetryStats.droppedDeliveryFailed
+  const shouldWarn =
+    !warnedEndpointHint || total - lastWarnedDrops >= 10 || now - lastWarnAt > 5000
+  if (!shouldWarn) return
+  lastWarnAt = now
+  lastWarnedDrops = total
+  const kinds = [...new Set(batch.map((item) => item.kind))].slice(0, 3).join(", ")
+  const hint = warnedEndpointHint
+    ? ""
+    : ` is the receiver running? start it with \`uv run casuality-opencode-ingest --db .casuality/opencode.db\` (endpoint ${ingestUrl()}).`
+  warnedEndpointHint = true
+  warn(
+    `telemetry delivery failed after 3 attempts (${result}): dropped ${batch.length} event(s) [${kinds}] ` +
+      `(${total} total delivery drops).${hint}`,
+  )
 }
 
 // Helper to extract session ID across OpenCode payload variants
@@ -90,26 +140,30 @@ function enqueue(kind: string, payload: unknown): void {
 
 type PostResult = "delivered" | "rejected" | "failed"
 
-// Post one envelope. An HTTP 2xx alone is NOT success: when the receiver
-// reports explicit `persisted`/`accepted` counts, zero means the event was
-// received but not persisted and must be retried. Bodies without counts
-// (e.g. plain 200 `{}`) are treated as delivered for compatibility.
-async function postEnvelope(item: Envelope): Promise<PostResult> {
+// Post a batch of envelopes in one request. The receiver accepts both a
+// single envelope object and an array; singletons stay objects for
+// backward compatibility. An HTTP 2xx alone is NOT success: when the
+// receiver reports explicit `persisted`/`accepted` counts, fewer than the
+// batch size means at least one event was received but not persisted and
+// the batch must be retried (idempotency keys make retries safe).
+// Bodies without counts (e.g. plain 200 `{}`) are treated as delivered
+// for compatibility.
+async function postBatch(batch: Envelope[]): Promise<PostResult> {
   try {
-    const headers: Record<string, string> = { "content-type": "application/json" }
-    if (authToken) headers.authorization = `Bearer ${authToken}`
-    const response = await fetch(endpoint, {
+    const response = await fetch(ingestUrl(), {
       method: "POST",
-      headers,
-      body: JSON.stringify(item),
-      signal: AbortSignal.timeout(1000),
+      headers: { "content-type": "application/json", ...authHeaders() },
+      body: JSON.stringify(batch.length === 1 ? batch[0] : batch),
+      signal: AbortSignal.timeout(ingestTimeoutMs()),
     })
     if (!response.ok) return "failed"
     try {
       const body = (await response.json()) as Record<string, unknown> | null
       if (body && typeof body === "object") {
-        if (typeof body.persisted === "number") return body.persisted > 0 ? "delivered" : "rejected"
-        if (typeof body.accepted === "number") return body.accepted > 0 ? "delivered" : "rejected"
+        if (typeof body.persisted === "number")
+          return body.persisted >= batch.length ? "delivered" : "rejected"
+        if (typeof body.accepted === "number")
+          return body.accepted >= batch.length ? "delivered" : "rejected"
       }
     } catch {
       // Non-JSON body: HTTP success is the only signal; treat as delivered.
@@ -120,10 +174,11 @@ async function postEnvelope(item: Envelope): Promise<PostResult> {
   }
 }
 
-// Asynchronously post buffered envelopes to receiver with up to 3 retries.
-// Envelopes still undelivered after retries are dropped but counted in
-// telemetryStats.droppedDeliveryFailed (and rejectedByReceiver when the
-// receiver explicitly reported zero persistence) and warned.
+// Asynchronously post buffered envelopes to the receiver in batches with up
+// to 3 attempts per batch. Envelopes still undelivered after retries are
+// dropped but counted in telemetryStats.droppedDeliveryFailed (and
+// rejectedByReceiver when the receiver explicitly reported short
+// persistence) and warned (rate-limited).
 async function drain(): Promise<void> {
   if (draining) return
   draining = true
@@ -132,25 +187,27 @@ async function drain(): Promise<void> {
       // Take ownership upfront: overflow shifts during the async post below
       // then only affect queued (not in-flight) envelopes, keeping the
       // delivered/dropped accounting exact.
-      const item = queue.shift()
-      if (!item) continue
+      const batch: Envelope[] = []
+      const limit = batchMax()
+      while (queue.length > 0 && batch.length < limit) {
+        const item = queue.shift()
+        if (item) batch.push(item)
+      }
+      if (batch.length === 0) continue
       let result: PostResult = "failed"
       for (let attempt = 0; attempt < 3 && result !== "delivered"; attempt += 1) {
-        result = await postEnvelope(item)
-        // Short exponential backoff between retries (50ms, 100ms)
+        result = await postBatch(batch)
+        // Backoff between retries (200ms, 400ms) to give a busy receiver room
         if (result !== "delivered" && attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)))
+          await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
         }
       }
       if (result === "delivered") {
-        telemetryStats.delivered += 1
+        telemetryStats.delivered += batch.length
       } else {
-        telemetryStats.droppedDeliveryFailed += 1
-        if (result === "rejected") telemetryStats.rejectedByReceiver += 1
-        warn(
-          `telemetry delivery failed after 3 attempts (${result}): dropped ${item.kind} ` +
-            `(${telemetryStats.droppedDeliveryFailed} total delivery drops)`,
-        )
+        telemetryStats.droppedDeliveryFailed += batch.length
+        if (result === "rejected") telemetryStats.rejectedByReceiver += batch.length
+        warnDeliveryExhausted(result, batch)
       }
     }
   } catch {
@@ -168,6 +225,9 @@ export function __casualityTestReset(): void {
   telemetryStats.droppedQueueOverflow = 0
   telemetryStats.droppedDeliveryFailed = 0
   telemetryStats.rejectedByReceiver = 0
+  warnedEndpointHint = false
+  lastWarnAt = 0
+  lastWarnedDrops = 0
 }
 
 export function __casualityTestQueueLength(): number {

@@ -101,7 +101,21 @@ if (mode === "down") {
   process.exit(0)
 }
 
-const kinds = received.map((r) => r.body.kind)
+// The plugin batches envelopes (single object for 1, array for N) and retries
+// whole batches; failed attempts still reach the receiver, so dedupe by body.
+const seen = new Set()
+const envelopes = []
+for (const r of received) {
+  const arr = Array.isArray(r.body) ? r.body : [r.body]
+  for (const b of arr) {
+    const key = JSON.stringify(b)
+    if (!seen.has(key)) {
+      seen.add(key)
+      envelopes.push(b)
+    }
+  }
+}
+const kinds = envelopes.map((b) => b.kind)
 const expected = [
   "event:session.created",
   "event:message.part.updated",
@@ -121,7 +135,7 @@ const failures = []
 for (const kind of expected) {
   if (!kinds.includes(kind)) failures.push(`missing kind ${kind}`)
 }
-const sessionIds = Object.fromEntries(received.map((r) => [r.body.kind, r.body.session_id]))
+const sessionIds = Object.fromEntries(envelopes.map((b) => [b.kind, b.session_id]))
 const expectedSessions = {
   "event:session.created": "sess-1",
   "event:message.part.updated": "sess-2",
@@ -140,18 +154,20 @@ for (const [kind, sid] of Object.entries(expectedSessions)) {
   if (sessionIds[kind] !== sid) failures.push(`${kind}: session_id ${sessionIds[kind]} !== ${sid}`)
 }
 for (const r of received) {
-  if (r.authorization !== "Bearer test-token-123") failures.push(`bad auth header on ${r.body.kind}`)
-  if (typeof r.body.timestamp !== "number") failures.push(`missing timestamp on ${r.body.kind}`)
+  if (r.authorization !== "Bearer test-token-123") failures.push(`bad auth header on request`)
 }
-const toolAfter = received.find((r) => r.body.kind === "hook:tool.execute.after")
-if (toolAfter?.body.payload?.callID !== "call-1") failures.push("tool.execute.after lost callID linkage")
+for (const b of envelopes) {
+  if (typeof b.timestamp !== "number") failures.push(`missing timestamp on ${b.kind}`)
+}
+const toolAfter = envelopes.find((b) => b.kind === "hook:tool.execute.after")
+if (toolAfter?.payload?.callID !== "call-1") failures.push("tool.execute.after lost callID linkage")
 
-if (mode === "flaky" && requestCount < expected.length + 2) {
-  failures.push(`retry not exercised: only ${requestCount} requests for ${expected.length} events`)
+if (mode === "flaky" && requestCount < 3) {
+  failures.push(`retry not exercised: only ${requestCount} requests (receiver failed the first 2)`)
 }
 
 if (failures.length) {
   console.error("FAIL:\n" + failures.join("\n"))
   process.exit(1)
 }
-console.log(`PASS: ${received.length}/${expected.length} envelopes captured, auth + session_id + retry verified (${requestCount} requests)`)
+console.log(`PASS: ${envelopes.length}/${expected.length} envelopes captured, auth + session_id + retry verified (${requestCount} requests)`)
