@@ -1,9 +1,37 @@
 # Agent-Casuality
 
-Causal debugging for branching multi-agent systems.
+[![PyPI version](https://img.shields.io/pypi/v/agent-casuality)](https://pypi.org/project/agent-casuality/)
+[![npm version](https://img.shields.io/npm/v/@psionic-labs/opencode-agent-casuality)](https://www.npmjs.com/package/@psionic-labs/opencode-agent-casuality)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-green)](https://github.com/Psionic-labs/Agent-Casuality/blob/main/LICENSE)
+[![OpenCode 1.19+](https://img.shields.io/badge/opencode-1.19%2B-purple)](https://opencode.ai)
+
+*Causal debugging for branching multi-agent systems — plus the OpenCode capture plugin.*
 
 Agent-Casuality records what your agents did as a causal event graph, then
 explains failures with grounded evidence instead of guesses.
+
+> **This README is identical on both registries.** The full system needs
+> **both** packages:
+>
+> - **Python (`agent-casuality` on PyPI)** — SDK, CLI, ingest receiver
+>   (`casuality-opencode-ingest`), and Visual DAG Explorer
+>   (`casuality-explorer`). Installing only this gives you the offline demo
+>   but no live OpenCode capture.
+> - **JavaScript (`@psionic-labs/opencode-agent-casuality` on npm)** —
+>   OpenCode plugin (telemetry capture only). Installing only this gives you
+>   events with nowhere to persist or view them.
+>
+> Source: <https://github.com/Psionic-labs/Agent-Casuality>
+
+[Install](#install--you-need-both-packages) ·
+[30-second demo](#try-it-in-30-seconds-no-server-key-or-network) ·
+[Single-run capture](#single-run-capture-ingest--opencode--explorer) ·
+[Explorer](#see-it-visual-dag-explorer) ·
+[OpenCode](#works-with-opencode) ·
+[Docs](#documentation)
+
+---
 
 ## Why it exists
 
@@ -12,33 +40,60 @@ share state, that isn't enough to tell *what actually caused* a bad outcome.
 
 Agent-Casuality adds three things ordinary observability lacks:
 
-- **Explicit causal parents** for every event
-- **Decision contracts with baselines**, so each decision has a reference point
-- **Counterfactual replay**, which tests which inputs actually flip the outcome
+| Gap in ordinary observability | What Agent-Casuality records |
+| --- | --- |
+| Scattered logs, no links | **Explicit causal parents** for every event |
+| Decisions with no reference point | **Decision contracts with baselines** |
+| Guesses about "what if" | **Counterfactual replay** that tests which inputs flip the outcome |
 
 ```text
 Agent execution → event capture → causal graph → slice / provenance / interaction → grounded diagnosis
 ```
 
-## Install
+---
 
-Published as `agent-casuality==0.1.3` (PyPI) and
-`@psionic-labs/opencode-agent-casuality==0.1.3` (npm).
+## Install — you need BOTH packages
 
-Requires Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).
+Published as `agent-casuality==0.1.4`
+([PyPI](https://pypi.org/project/agent-casuality/)) and
+`@psionic-labs/opencode-agent-casuality==0.1.4`
+([npm](https://www.npmjs.com/package/@psionic-labs/opencode-agent-casuality)).
+Requires Python 3.11+ and [`uv`](https://docs.astral.sh/uv/)
+for source checkouts; PyPI/npm consumers only need `pip`/`opencode`.
 
 ```bash
-uv init
-```
-
-```bash
+# 1. Python side (SDK + receiver + explorer + CLI)
+pip install agent-casuality
+# or, inside a uv project:
 uv add agent-casuality
+
+# 2. JavaScript side (OpenCode capture plugin — telemetry only)
 opencode plugin add @psionic-labs/opencode-agent-casuality
 ```
 
-## Try it in 30 seconds
+> **npm-only installers:** you still need the PyPI package — the Visual DAG
+> Explorer and the `casuality-opencode-ingest` receiver ship **only** in
+> `agent-casuality`, not in this npm package.
+>
+> **PyPI-only installers:** you still need the npm package for live OpenCode
+> capture — `pip install agent-casuality` alone cannot observe an OpenCode
+> session without the plugin.
 
-No server, API key, or network needed:
+*Optional — AI explanation extra.* Only needed for LLM-grounded `explain` /
+*Generate AI analysis* (needs `httpx` + `OPENROUTER_API_KEY`):
+
+```bash
+# pip consumer
+pip install "agent-casuality[explain]"
+# uv project
+uv add "agent-casuality[explain]"
+# source checkout
+uv sync --extra explain
+```
+
+---
+
+## Try it in 30 seconds (no server, key, or network)
 
 ```bash
 uv run python examples/customer_approval.py
@@ -57,38 +112,88 @@ Evidence:
 Limitations: the evidence does not establish why the upstream tools produced these values.
 ```
 
+---
+
+## Single-run capture: ingest → opencode → explorer
+
+The minimal end-to-end loop. One isolated SQLite file per run keeps traces
+separate (`.casuality/single-run.db` below is just an example — any path
+works) and port `8797` avoids clashing with the default `8766` explorer.
+
+**Terminal 1 — start the receiver:**
+
+```bash
+# PyPI install
+casuality-opencode-ingest --db .casuality/single-run.db
+# Source checkout
+uv run casuality-opencode-ingest --db .casuality/single-run.db
+```
+
+**Terminal 2 — run one instrumented agent task** (plugin posts automatically):
+
+```bash
+opencode run "Run the existing tests before editing. Diagnose and fix the bug in discount.py so both tests pass. Do not modify the tests. Rerun the tests and summarize the change."
+```
+
+*Optional — enable AI explanations for this project:*
+
+```bash
+uv add "agent-casuality[explain]"
+# pip equivalent: pip install "agent-casuality[explain]"
+```
+
+**Terminal 3 — inspect the trace in the Visual DAG Explorer:**
+
+```bash
+# PyPI install
+casuality-explorer --db .casuality/single-run.db --port 8797
+# Source checkout
+uv run python -m explorer.server --db .casuality/single-run.db --port 8797
+```
+
+Then open <http://127.0.0.1:8797>. Each `opencode run` appends to the same
+`--db` file; use a fresh `--db` path per task for one-trace-per-file
+(any filename works).
+
+---
+
 ## See it: Visual DAG Explorer
 
-Open the capture as an interactive causal graph — no API key needed.
+Open any capture as an interactive causal graph — no API key needed.
 The Explorer ships inside the `agent-casuality` PyPI wheel (no clone needed):
 
 ```bash
 # PyPI install
 pip install agent-casuality
 casuality-explorer
+casuality-explorer --db .casuality/opencode.db --port 8766
 ```
 
 ```bash
 # Source checkout
 uv run python -m explorer.server
+uv run python -m explorer.server --db .casuality/opencode.db --port 8766
+# Single-run variant from the section above:
+uv run python -m explorer.server --db .casuality/single-run.db --port 8797
 ```
 
-Then open <http://127.0.0.1:8766>. The bundled demo trace loads:
-a failing test, the fix edit, and the passing retry, with the failure
-path highlighted.
+Then open <http://127.0.0.1:8766> (or `:8797` for the single-run variant).
+The bundled demo trace loads: a failing test, the fix edit, and the passing
+retry, with the failure path highlighted.
 
-![Visual DAG Explorer — live OpenCode trace with the failure target selected, causal edges, and inspector](docs/screenshots/explorer-shared-state-fresh.png)
+![Visual DAG Explorer — live OpenCode trace with the failure target selected, causal edges, and inspector](https://github.com/Psionic-labs/Agent-Casuality/raw/main/docs/screenshots/explorer-shared-state-fresh.png)
 
-Screenshot: a freshly captured `shared_state_contamination` run (240
-events, 6 causal edges) — the checker's
-failure node selected, its causal chain in the inspector.
+*Freshly captured `shared_state_contamination` run (240 events, 6 causal
+edges) — the checker's failure node selected, its causal chain in the
+inspector.*
 
-![Visual DAG Explorer Timeline view — per-agent lanes in sequence order, the failure target selected, with minimap and event inspector](docs/screenshots/timeline.png)
+![Visual DAG Explorer Timeline view — per-agent lanes in sequence order, the failure target selected, with minimap and event inspector](https://github.com/Psionic-labs/Agent-Casuality/raw/main/docs/screenshots/timeline.png)
 
-Screenshot: the bundled demo trace in the Timeline view — per-agent
-lanes (run, bash, edit), the retry's `tool_result` ("app tests pass")
-selected as the failure target, with the "Why did it fail?" strip and
-event inspector alongside.
+*Bundled demo trace in the Timeline view — per-agent lanes (run, bash, edit),
+the retry's `tool_result` ("app tests pass") selected as the failure target,
+with the "Why did it fail?" strip and event inspector alongside.*
+
+What you get:
 
 - **Graph + Timeline views** of the declared causal parents — every edge
   was recorded at capture time, none inferred.
@@ -99,13 +204,17 @@ event inspector alongside.
 - **Your own runs**: point it at a live capture —
   `casuality-explorer --db .casuality/opencode.db`
   (source checkout: `uv run python -m explorer.server --db .casuality/opencode.db`).
-- **Optional AI interpretation**: set `OPENROUTER_API_KEY` (and optionally
-  `OPENROUTER_MODEL`, default `nvidia/nemotron-3-ultra-550b-a55b:free`),
-  then click *Generate AI analysis* in the
-  "Why did it fail?" strip. The model text lives in its own labeled
+- **Optional AI interpretation**: install the `explain` extra
+  (`pip install "agent-casuality[explain]"` / `uv add "agent-casuality[explain]"`),
+  set `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`, default
+  `nvidia/nemotron-3-ultra-550b-a55b:free`), then click *Generate AI analysis*
+  in the "Why did it fail?" strip. The model text lives in its own labeled
   block — never mixed with the evidence.
 
-Full acceptance procedure: [TEST.md §29](TEST.md).
+Full acceptance procedure:
+[TEST.md §29](https://github.com/Psionic-labs/Agent-Casuality/blob/main/TEST.md).
+
+---
 
 ## Use it with your agents
 
@@ -121,15 +230,19 @@ def check_risk(customer): ...
 def approve(customer_status, risk_score): ...
 ```
 
-See [`examples/customer_approval.py`](examples/customer_approval.py) for a
-complete runnable example.
+See
+[`examples/customer_approval.py`](https://github.com/Psionic-labs/Agent-Casuality/blob/main/examples/customer_approval.py)
+for a complete runnable example.
+
+---
 
 ## Works with OpenCode
 
 Capture live coding-agent sessions. Telemetry is fail-open: it never
-interrupts your agent.
+interrupts your agent. **Requires both packages** (receiver from PyPI,
+plugin from npm).
 
-```powershell
+```bash
 # Terminal 1: receiver (PyPI install; source checkout: uv run casuality-opencode-ingest ...)
 casuality-opencode-ingest --db .casuality/opencode.db
 # Terminal 2: agent (plugin posts automatically)
@@ -138,25 +251,38 @@ opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, 
 casuality-explorer --db .casuality/opencode.db
 ```
 
-Full consumer flow: install `agent-casuality` → install the OpenCode plugin
-(`opencode plugin add @psionic-labs/opencode-agent-casuality`) → start the
-receiver → run OpenCode → launch `casuality-explorer` → inspect the recorded
-trace. No repository clone is needed.
+Full consumer flow: install `agent-casuality` (PyPI) → install the OpenCode
+plugin (`opencode plugin add @psionic-labs/opencode-agent-casuality`, npm) →
+start the receiver → run OpenCode → launch `casuality-explorer` → inspect the
+recorded trace. No repository clone is needed.
 
-Representative committed result (`stale_research`, OpenCode `1.19.0`):
-`completed (exit 0), 331 events, capture coverage 1.0, diagnosis scored`
-(see `benchmark/results/opencode/opencode.md`). No video artifact ships
-with this release. [Setup guide →](docs/opencode.md)
+> Representative committed result (`stale_research`, OpenCode `1.19.0`):
+> `completed (exit 0), 331 events, capture coverage 1.0, diagnosis scored`
+> (see `benchmark/results/opencode/opencode.md`). No video artifact ships
+> with this release.
+> [Setup guide →](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/opencode.md)
+
+### What the plugin captures
+
+The npm plugin forwards OpenCode's global event stream plus explicit hooks
+(`tool.execute.before/after`, `permission.ask`, `command.execute.before`,
+`chat.message`, `chat.params`). The Python receiver maps these onto canonical
+events, registers file writes with Resource-Version machinery, and redacts
+secrets before SQLite persistence. It is telemetry capture only — the
+Explorer and CLI live in the PyPI distribution.
+
+---
 
 ## Benchmarks
 
 Offline, provider-neutral suite (`uv run casuality-benchmark ...`) plus a
 real OpenCode coding-agent benchmark. Full results in
-[`docs/benchmarks.md`](docs/benchmarks.md) and `benchmark/results/`.
+[`docs/benchmarks.md`](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/benchmarks.md)
+and `benchmark/results/`.
 
-- Five deterministic scenarios: 5/5 pass.
-- Experiment 2 (shared-state recovery): 100/100.
-- Experiment 3 (semantic-port vs raw deletion): 20/20 semantic-port
+- Five deterministic scenarios: **5/5 pass**.
+- Experiment 2 (shared-state recovery): **100/100**.
+- Experiment 3 (semantic-port vs raw deletion): **20/20** semantic-port
   successes; raw-deletion failure rate met target.
 - Experiment 1 (offline): passes; external Fastino run is
   provider-blocked/deferred (no structured-output capability).
@@ -165,19 +291,21 @@ real OpenCode coding-agent benchmark. Full results in
   ancestry under explicit-evidence edges only); joint ancestry `0.0` —
   genuine causal interaction is unsupported from live traces.
 
-Terminology is precise: live-trace branch results are reported as
+*Terminology is precise: live-trace branch results are reported as
 `joint ancestry` (not causal interaction), and minimal slices as a
-`required-cause preservation proxy` (not causal minimality).
+`required-cause preservation proxy` (not causal minimality).*
+
+---
 
 ## Documentation
 
 | Topic | Link |
 | --- | --- |
-| Getting started | [GETTING_STARTED.md](GETTING_STARTED.md) |
-| OpenCode integration | [docs/opencode.md](docs/opencode.md) |
-| CLI and Python reference | [docs/reference.md](docs/reference.md) |
-| Benchmarks and results | [docs/benchmarks.md](docs/benchmarks.md) |
-| Scope and limits | [docs/reference.md#scope-and-limits](docs/reference.md#scope-and-limits) |
-| Research background | [docs/thesis.md](docs/thesis.md), [docs/research-memo.md](docs/research-memo.md) |
-| Contributing and tests | [TEST.md](TEST.md), [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Release notes | [CHANGELOG.md](CHANGELOG.md) |
+| Getting started | [GETTING_STARTED.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/GETTING_STARTED.md) |
+| OpenCode integration | [docs/opencode.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/opencode.md) |
+| CLI and Python reference | [docs/reference.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/reference.md) |
+| Benchmarks and results | [docs/benchmarks.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/benchmarks.md) |
+| Scope and limits | [docs/reference.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/reference.md) |
+| Research background | [docs/thesis.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/thesis.md), [docs/research-memo.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/docs/research-memo.md) |
+| Contributing and tests | [TEST.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/TEST.md), [CONTRIBUTING.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/CONTRIBUTING.md) |
+| Release notes | [CHANGELOG.md](https://github.com/Psionic-labs/Agent-Casuality/blob/main/CHANGELOG.md) |

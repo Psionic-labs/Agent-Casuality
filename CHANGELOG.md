@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2026-10-14
+
+### Unified README for both registries (docs only)
+
+- Root `README.md` (PyPI long description) and
+  `packages/opencode-agent-casuality/README.md` (npm) are now byte-identical:
+  badges, quick-nav, both-packages install callout, single-run
+  ingest → opencode → explorer loop (example `.casuality/single-run.db`
+  placeholder, any path works; `--port 8797`), `explain` extra install for
+  `pip` and `uv`, and absolute GitHub links so both registries render.
+- `GETTING_STARTED.md`, `docs/opencode.md`, and `docs/reference.md` carry
+  the same single-run commands and cross-install notes (npm needs the PyPI
+  receiver/explorer; PyPI needs the npm plugin for live capture).
+- No code changes since 0.1.3.
+
 ## [0.1.3] - 2026-10-13
 
 ### Visual DAG Explorer ships in the PyPI wheel (packaging fix)

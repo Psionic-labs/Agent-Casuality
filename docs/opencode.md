@@ -1,5 +1,10 @@
 # OpenCode integration
 
+> Live capture needs **both** packages: `agent-casuality` (PyPI — receiver,
+> explorer, CLI) **and** `@psionic-labs/opencode-agent-casuality` (npm —
+> plugin, telemetry only). The npm plugin alone has nowhere to persist
+> traces; the PyPI package alone cannot observe an OpenCode session.
+
 Capture a real coding-agent session live:
 
 ```text
@@ -13,11 +18,37 @@ Test: [`tests/test_opencode_adapter.py`](../tests/test_opencode_adapter.py).
 ## Run it
 
 ```powershell
-# Terminal 1: receiver
-uv run casuality-opencode-ingest --db .casuality/opencode.db
+# Terminal 1: receiver (PyPI: casuality-opencode-ingest ...; source: uv run casuality-opencode-ingest ...)
+casuality-opencode-ingest --db .casuality/opencode.db
 # Terminal 2: agent (plugin posts automatically)
 opencode run "Read RESEARCH.md, implement sort_items in task.py as recommended, run the test script."
 ```
+
+## Single-run capture (example db file, port `8797`)
+
+Isolated one-task loop — same commands as the unified README. One SQLite
+file per task (`.casuality/single-run.db` is just an example — any path
+works), alternate explorer port so it never clashes with `:8766`:
+
+```powershell
+# Terminal 1: receiver
+uv run casuality-opencode-ingest --db .casuality/single-run.db
+# (PyPI install: casuality-opencode-ingest --db .casuality/single-run.db)
+
+# Terminal 2: instrumented fix task (plugin posts automatically)
+opencode run "Run the existing tests before editing. Diagnose and fix the bug in discount.py so both tests pass. Do not modify the tests. Rerun the tests and summarize the change."
+
+# Optional: AI explanations for this project
+uv add "agent-casuality[explain]"
+# (pip equivalent: pip install "agent-casuality[explain]")
+
+# Terminal 3: explorer on the same file
+uv run python -m explorer.server --db .casuality/single-run.db --port 8797
+# (PyPI install: casuality-explorer --db .casuality/single-run.db --port 8797)
+```
+
+Then open <http://127.0.0.1:8797>. Use a fresh `--db` path per task for
+one-trace-per-file (any filename works).
 
 Representative committed result (`stale_research`, OpenCode `1.19.0`):
 

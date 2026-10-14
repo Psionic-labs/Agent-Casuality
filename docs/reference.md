@@ -46,9 +46,12 @@ Ships inside the `agent-casuality` wheel as vendored static assets
 # PyPI install
 casuality-explorer
 casuality-explorer --db .casuality/opencode.db --port 8766
+# Isolated single-run file (any path works — name is just an example)
+casuality-explorer --db .casuality/single-run.db --port 8797
 # Source checkout
 uv run python -m explorer.server
 uv run python -m explorer.server --db .casuality/opencode.db --port 8766
+uv run python -m explorer.server --db .casuality/single-run.db --port 8797
 ```
 
 Open <http://127.0.0.1:8766>. Default serves the bundled demo trace; `--db`
@@ -79,6 +82,22 @@ Receiver: `uv run casuality-opencode-ingest --db .casuality/opencode.db`.
 Answers `400` on malformed input, `202` with `received`/`normalized`/
 `persisted` counts otherwise.
 
+```powershell
+# Default shared capture
+casuality-opencode-ingest --db .casuality/opencode.db
+# Isolated single-run capture (pairs with the discount.py opencode task;
+# `.casuality/single-run.db` is just an example — any path works)
+casuality-opencode-ingest --db .casuality/single-run.db
+# Source checkout: prefix either with `uv run `
+```
+
+Single-run agent task (plugin posts automatically once both packages are
+installed):
+
+```powershell
+opencode run "Run the existing tests before editing. Diagnose and fix the bug in discount.py so both tests pass. Do not modify the tests. Rerun the tests and summarize the change."
+```
+
 Plugin environment (see [docs/opencode.md](opencode.md)):
 
 | Variable | Default | Description |
@@ -108,6 +127,9 @@ Full results in [benchmarks.md](benchmarks.md) and `benchmark/results/`.
 
 ```powershell
 uv sync --extra explain
+# PyPI / uv consumers instead:
+# pip install "agent-casuality[explain]"
+# uv add "agent-casuality[explain]"
 $env:OPENROUTER_API_KEY = "your-key"
 uv run casuality --fixture fixture/fixture.json explain A4 --model "your/model"
 ```

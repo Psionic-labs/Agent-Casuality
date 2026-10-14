@@ -11,6 +11,15 @@ providers, and API keys are optional.
 
 ## Install (PyPI consumer, no clone needed)
 
+You need **both** packages for live OpenCode capture — either one alone
+is not enough:
+
+- `agent-casuality` (PyPI): SDK, CLI, `casuality-opencode-ingest` receiver,
+  and `casuality-explorer`. Without it there is nowhere to persist or view
+  traces.
+- `@psionic-labs/opencode-agent-casuality` (npm): OpenCode plugin,
+  telemetry capture only. Without it nothing observes the session.
+
 ```powershell
 pip install agent-casuality
 # or: uv add agent-casuality
@@ -28,6 +37,37 @@ casuality-explorer --db .casuality/opencode.db
 Then open <http://127.0.0.1:8766>. See [docs/opencode.md](docs/opencode.md)
 for the full plugin options and [docs/reference.md](docs/reference.md) for
 the explorer API.
+
+## Single-run capture (isolated db file, port `8797`)
+
+One SQLite file per task keeps traces separate (`.casuality/single-run.db`
+below is just an example — any path works). This is the minimal
+reproducible loop (same commands as the unified README):
+
+```powershell
+# Terminal 1: receiver (PyPI install; source checkout: uv run casuality-opencode-ingest ...)
+casuality-opencode-ingest --db .casuality/single-run.db
+
+# Terminal 2: one instrumented agent task (plugin posts automatically)
+opencode run "Run the existing tests before editing. Diagnose and fix the bug in discount.py so both tests pass. Do not modify the tests. Rerun the tests and summarize the change."
+```
+
+Optional AI explanations for the project (needs `httpx` + `OPENROUTER_API_KEY`):
+
+```powershell
+uv add "agent-casuality[explain]"
+# pip equivalent: pip install "agent-casuality[explain]"
+```
+
+```powershell
+# Terminal 3: explorer on the same file, alternate port to avoid clashing with :8766
+casuality-explorer --db .casuality/single-run.db --port 8797
+# Source checkout equivalent:
+uv run python -m explorer.server --db .casuality/single-run.db --port 8797
+```
+
+Then open <http://127.0.0.1:8797>. Use a fresh `--db` path per task for
+one-trace-per-file (any filename works).
 
 ## Install the source checkout
 
@@ -159,6 +199,9 @@ model-generated explanation (default model
 
 ```powershell
 uv sync --extra explain
+# PyPI / uv consumers instead:
+# pip install "agent-casuality[explain]"
+# uv add "agent-casuality[explain]"
 $env:OPENROUTER_API_KEY = "your-key"
 uv run casuality --fixture fixture/fixture.json explain A4 `
     --model "your/model"
