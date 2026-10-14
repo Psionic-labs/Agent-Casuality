@@ -24,12 +24,23 @@ explains failures with grounded evidence instead of guesses.
 >
 > Source: <https://github.com/Psionic-labs/Agent-Casuality>
 
+[Demo video](#demo-video) ·
 [Install](#install--you-need-both-packages) ·
 [30-second demo](#try-it-in-30-seconds-no-server-key-or-network) ·
 [Single-run capture](#single-run-capture-ingest--opencode--explorer) ·
 [Explorer](#see-it-visual-dag-explorer) ·
 [OpenCode](#works-with-opencode) ·
 [Docs](#documentation)
+
+---
+
+## Demo video
+
+[![Agent-Casuality demo — watch on YouTube](https://img.youtube.com/vi/bogmzYe9Hzs/hqdefault.jpg)](https://www.youtube.com/watch?v=bogmzYe9Hzs)
+
+*Full walkthrough, click the thumbnail to watch on YouTube.*
+
+*The Video follows the Single-run capture given below*
 
 ---
 
